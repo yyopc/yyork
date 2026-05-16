@@ -1,28 +1,21 @@
 {
-  "name": "start-ui-web",
-  "version": "3.0.0",
+  "name": "better-ao",
+  "version": "0.0.1",
   "private": true,
-  "description": "Opinionated UI starter from the 🐻 BearStudio Team",
-  "homepage": "https://github.com/bearstudio/start-ui-web#readme",
+  "description": "Orchestrate parallel AI coding agents across any runtime, any repo, any issue tracker",
+  "homepage": "https://github.com/yyovil/better-ao#readme",
   "bugs": {
-    "url": "https://github.com/bearstudio/start-ui-web/issues"
+    "url": "https://github.com/yyovil/better-ao/issues"
   },
   "license": "MIT",
   "author": {
-    "name": "Ivan Dalmet",
-    "email": "ivan@dalmet.fr",
-    "url": "https://github.com/ivan-dalmet"
+    "name": "yyovil",
+    "email": "itsyyovil@gmail.com",
+    "url": "https://github.com/yyovil"
   },
-  "contributors": [
-    {
-      "name": "Yoann Fleury",
-      "email": "yoannfleurydev@gmail.com",
-      "url": "https://github.com/yoannfleurydev"
-    }
-  ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bearstudio/start-ui-web.git"
+    "url": "git+https://github.com/yyovil/better-ao.git"
   },
   "type": "module",
   "scripts": {
@@ -72,7 +65,7 @@
     "@orpc/react-query": "1.13.4",
     "@orpc/server": "1.13.4",
     "@orpc/zod": "1.13.4",
-    "@prisma/client": "6.19.2",
+    "@prisma/client": "7.8.0",
     "@react-email/components": "0.5.7",
     "@react-email/render": "1.4.0",
     "@t3-oss/env-core": "0.13.10",
@@ -148,7 +141,7 @@
     "oxfmt": "0.36.0",
     "oxlint": "1.54.0",
     "playwright": "1.58.0",
-    "prisma": "6.19.2",
+    "prisma": "7.8.0",
     "resize-observer-polyfill": "1.5.1",
     "storybook": "10.2.14",
     "ts-plugin-sort-import-suggestions": "1.0.4",
@@ -169,6 +162,7 @@
       "@tailwindcss/oxide",
       "esbuild",
       "lefthook",
+      "msw",
       "prisma",
       "sharp"
     ]
