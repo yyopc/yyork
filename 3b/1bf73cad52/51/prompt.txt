@@ -1,0 +1,45 @@
+# Context from my IDE setup:
+
+## Active file: lefthook.yml
+
+## Open tabs:
+- lefthook.yml: lefthook.yml
+- codex.go: internal/plugin/agent/codex/codex.go
+- rollout-2026-05-27T00-05-27-019e6591-fda7-7b90-9414-5a27c55a86cc.jsonl: /Users/tanishqpalandurkar/.codex/sessions/2026/05/27/rollout-2026-05-27T00-05-27-019e6591-fda7-7b90-9414-5a27c55a86cc.jsonl
+- agent.go: internal/plugin/agent/agent.go
+- PRD.md: prds/plugins/agents/PRD.md
+
+## My request for Codex:
+yo who the fuck created this [lefthook.yml](lefthook.yml) file?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: lefthook.yml
+
+## Open tabs:
+- lefthook.yml: lefthook.yml
+- codex.go: internal/plugin/agent/codex/codex.go
+- rollout-2026-05-27T00-05-27-019e6591-fda7-7b90-9414-5a27c55a86cc.jsonl: /Users/tanishqpalandurkar/.codex/sessions/2026/05/27/rollout-2026-05-27T00-05-27-019e6591-fda7-7b90-9414-5a27c55a86cc.jsonl
+- agent.go: internal/plugin/agent/agent.go
+- PRD.md: prds/plugins/agents/PRD.md
+
+## My request for Codex:
+who uses this?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: lefthook.yml
+
+## Open tabs:
+- lefthook.yml: lefthook.yml
+- codex.go: internal/plugin/agent/codex/codex.go
+- rollout-2026-05-27T00-05-27-019e6591-fda7-7b90-9414-5a27c55a86cc.jsonl: /Users/tanishqpalandurkar/.codex/sessions/2026/05/27/rollout-2026-05-27T00-05-27-019e6591-fda7-7b90-9414-5a27c55a86cc.jsonl
+- agent.go: internal/plugin/agent/agent.go
+- PRD.md: prds/plugins/agents/PRD.md
+
+## My request for Codex:
+what is lefthook? Ig this is some project dependency...
