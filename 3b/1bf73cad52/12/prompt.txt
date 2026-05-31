@@ -1,0 +1,15 @@
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## Active selection of the file:
+useRef
+## Open tabs:
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- .zshrc: /Users/tanishqpalandurkar/.zshrc
+- use-value-has-changed.ts: web/src/hooks/use-value-has-changed.ts
+- use-hydrated.ts: web/src/hooks/use-hydrated.ts
+- session-workspace.fixtures.ts: web/src/features/home/demo/session-workspace.fixtures.ts
+
+## My request for Codex:
+Where the fuck add project and settings buttons went?
