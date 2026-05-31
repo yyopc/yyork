@@ -1,0 +1,13 @@
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/agent.go
+
+## Open tabs:
+- agent.go: internal/plugin/agent/agent.go
+- codex.go: internal/plugin/agent/codex/codex.go
+- config.go: internal/plugin/agent/config.go
+- permissions.go: internal/plugin/agent/permissions.go
+- session.go: internal/plugin/agent/session.go
+
+## My request for Codex:
+If I had to see the docs for the agent pkg using go cli, how to do that?
