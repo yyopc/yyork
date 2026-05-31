@@ -1,0 +1,88 @@
+name: Bug report
+description: Something is broken or behaving unexpectedly.
+title: '[bug]: '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. This form is read by both humans and AI agents, so
+        be concrete: exact steps, exact observed result, exact expected result.
+        Drag screenshots or recordings straight into any text box below — GitHub
+        uploads them automatically.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One or two sentences. What is broken?
+      placeholder: The terminal's right border is ragged when the wterm renderer is active.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Numbered, minimal, deterministic. Assume the reader has a fresh checkout.
+      placeholder: |
+        1. Open a worker session terminal
+        2. Switch the renderer to `wterm` (sliders menu → Renderer)
+        3. Attach to a zellij session with bordered panes
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots / recordings
+      description: Drag images or videos here. Before/after is ideal. Optional but strongly encouraged for UI bugs.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of better-ao?
+      options:
+        - Terminal / renderer
+        - Sidebar / session management
+        - Canvas / preview
+        - Auth / connection
+        - Build / tooling / CI
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: Browser + version, OS, and (if relevant) terminal/zellij version.
+      placeholder: Chrome 140 · macOS 15.5 · zellij 0.44.3
+    validations:
+      required: false
+
+  - type: textarea
+    id: root-cause
+    attributes:
+      label: Root cause / notes (optional)
+      description: If you have already traced it, drop file:line references or upstream issue links here.
+    validations:
+      required: false

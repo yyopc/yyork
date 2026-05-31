@@ -19,7 +19,7 @@ jobs:
         uses: ./.github/actions/setup-pnpm
 
       - name: Run oxlint
-        run: pnpm oxlint --deny-warnings .
+        run: pnpm --filter @better-ao/web exec oxlint --deny-warnings --ignore-pattern public/storybook --ignore-pattern dist .
 
   typescriptChecker:
     name: 🟦 TypeScript Checker
