@@ -1,0 +1,13 @@
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/agent.go
+
+## Open tabs:
+- agent.go: internal/plugin/agent/agent.go
+- codex.go: internal/plugin/agent/codex/codex.go
+- hooks.json: .codex/hooks.json
+- .gitignore: .gitignore
+- plugin.go: internal/plugin/plugin.go
+
+## My request for Codex:
+we have put lots of unrelated to agent pkg in this [agent.go](internal/plugin/agent/agent.go) module. modularize the code based on their responsibility
