@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>better-ao — Data Model &amp; Schema</title>
+<style>
+  :root {
+    --bg: #0c0d10;
+    --panel: #14161b;
+    --panel-2: #181b22;
+    --line: #262a33;
+    --line-soft: #1e222a;
+    --ink: #e7e9ee;
+    --ink-dim: #9aa1ad;
+    --ink-faint: #6b727f;
+    --accent: #7c8cff;
+    --accent-2: #5ee0c0;
+    --warn: #ffb454;
+    --pk: #ff7b9c;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: radial-gradient(1200px 600px at 70% -10%, #1a1d27 0%, var(--bg) 55%) fixed;
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 72px 28px 120px; }
+
+  /* Header */
+  header { margin-bottom: 56px; }
+  .kicker {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 14px;
+  }
+  h1 {
+    font-size: clamp(34px, 6vw, 52px);
+    line-height: 1.05;
+    margin: 0 0 18px;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+  }
+  h1 .grad {
+    background: linear-gradient(92deg, var(--accent) 0%, var(--accent-2) 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .lede { font-size: 18px; color: var(--ink-dim); max-width: 64ch; margin: 0; }
+  .meta-row {
+    display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px;
+  }
+  .chip {
+    font-family: var(--mono); font-size: 12px;
+    background: var(--panel); border: 1px solid var(--line);
+    padding: 6px 11px; border-radius: 999px; color: var(--ink-dim);
+  }
+  .chip b { color: var(--ink); font-weight: 600; }
+
+  /* Sections */
+  section { margin-top: 56px; }
+  h2 {
+    font-size: 13px; font-family: var(--mono); letter-spacing: .16em;
+    text-transform: uppercase; color: var(--ink-faint);
+    margin: 0 0 22px; padding-bottom: 12px; border-bottom: 1px solid var(--line-soft);
+  }
+  h2 .n { color: var(--accent); margin-right: 10px; }
+
+  /* Principle cards */
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .card {
+    background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+    border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px;
+  }
+  .card h3 { margin: 0 0 8px; font-size: 16px; font-weight: 650; letter-spacing: -.01em; }
+  .card .dot { color: var(--accent-2); }
+  .card p { margin: 0; font-size: 14.5px; color: var(--ink-dim); }
+  .card code { color: var(--accent-2); }
+
+  /* Invariant banner */
+  .invariant {
+    margin-top: 18px;
+    background: linear-gradient(92deg, rgba(124,140,255,.12), rgba(94,224,192,.08));
+    border: 1px solid #2c3550; border-radius: 14px;
+    padding: 18px 22px; display: flex; gap: 14px; align-items: center;
+  }
+  .invariant .iff { font-family: var(--mono); font-size: 20px; color: var(--accent); }
+  .invariant p { margin: 0; font-size: 14.5px; color: var(--ink); }
+  .invariant b { color: var(--accent-2); }
+
+  /* Table card */
+  .tablecard {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 16px; overflow: hidden;
+  }
+  .tablecard .thead {
+    display: flex; align-items: center; gap: 12px;
+    padding: 18px 22px; border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+  }
+  .tablecard .thead .name { font-family: var(--mono); font-size: 17px; font-weight: 600; }
+  .tablecard .thead .tag {
+    margin-left: auto; font-family: var(--mono); font-size: 11px;
+    color: var(--ink-faint); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  thead th {
+    text-align: left; font-family: var(--mono); font-size: 11px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--ink-faint); font-weight: 600;
+    padding: 12px 22px; border-bottom: 1px solid var(--line-soft);
+  }
+  tbody td { padding: 11px 22px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,.018); }
+  .col { font-family: var(--mono); color: var(--ink); font-weight: 600; }
+  .ty { font-family: var(--mono); color: var(--accent-2); font-size: 13px; }
+  .pk-badge { color: var(--pk); font-family: var(--mono); font-size: 11px; border: 1px solid #4a2733; background: rgba(255,123,156,.08); border-radius: 5px; padding: 1px 6px; margin-left: 6px; }
+  .nn { color: var(--ink-faint); font-family: var(--mono); font-size: 12px; }
+  .yes { color: var(--warn); }
+  td.desc { color: var(--ink-dim); }
+
+  /* mini tables (indexes, pragmas) */
+  .mini { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin-top: 4px; }
+
+  /* access list */
+  ul.access { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 8px; }
+  ul.access li {
+    display: flex; gap: 14px; align-items: baseline;
+    background: var(--panel); border: 1px solid var(--line-soft); border-radius: 10px; padding: 11px 16px;
+  }
+  ul.access .m { font-family: var(--mono); color: var(--accent); font-size: 13px; min-width: 132px; }
+  ul.access .d { color: var(--ink-dim); font-size: 14px; }
+
+  /* numbered conventions */
+  ol.rules { counter-reset: r; list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+  ol.rules li {
+    counter-increment: r; position: relative; padding: 14px 18px 14px 58px;
+    background: var(--panel); border: 1px solid var(--line-soft); border-radius: 12px;
+    color: var(--ink-dim); font-size: 14.5px;
+  }
+  ol.rules li::before {
+    content: counter(r); position: absolute; left: 16px; top: 13px;
+    width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
+    font-family: var(--mono); font-size: 13px; color: var(--accent);
+    background: rgba(124,140,255,.1); border: 1px solid #2c3550;
+  }
+  ol.rules b { color: var(--ink); font-weight: 600; }
+
+  /* diagram */
+  pre.diagram {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.5;
+    background: #0a0b0e; border: 1px solid var(--line); border-radius: 14px;
+    padding: 24px; overflow-x: auto; color: var(--ink-dim); margin: 0;
+  }
+  pre.diagram .hl { color: var(--accent-2); }
+  pre.diagram .pk { color: var(--pk); }
+  pre.diagram .iff { color: var(--accent); }
+
+  code { font-family: var(--mono); font-size: .92em; background: rgba(255,255,255,.05); padding: 1px 5px; border-radius: 4px; color: var(--ink); }
+  a { color: var(--accent); }
+
+  footer { margin-top: 72px; padding-top: 22px; border-top: 1px solid var(--line-soft); color: var(--ink-faint); font-size: 13px; font-family: var(--mono); }
+
+  @media (max-width: 680px) {
+    .cards { grid-template-columns: 1fr; }
+    thead th:nth-child(3), tbody td:nth-child(3) { display: none; }
+    ul.access li { flex-direction: column; gap: 2px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="kicker">better-ao · core · data model</p>
+    <h1>Schema &amp; <span class="grad">Data Model</span></h1>
+    <p class="lede">The persisted shape of better-ao's state — every table, why it looks the way it does, and the rules for evolving it. Source of truth is the goose migrations under <code>internal/store/migrations/</code>; this page explains them.</p>
+    <div class="meta-row">
+      <span class="chip"><b>SQLite</b> · WAL</span>
+      <span class="chip">~/.better-ao/<b>state.db</b></span>
+      <span class="chip"><b>1</b> table</span>
+      <span class="chip">driver: <b>ncruces/go-sqlite3</b> (wasm, no cgo)</span>
+      <span class="chip">migrations: <b>goose/v3</b></span>
+    </div>
+  </header>
+
+  <section>
+    <h2><span class="n">01</span>Design principles</h2>
+    <div class="cards">
+      <div class="card">
+        <h3><span class="dot">▸</span> Mirror, not a log</h3>
+        <p>A row exists <em>only</em> while the session is alive. Stop, dead-zellij reconcile, or spawn rollback <b style="color:var(--ink)">deletes</b> the row. No history, no archive, no soft-delete column.</p>
+      </div>
+      <div class="card">
+        <h3><span class="dot">▸</span> Local-first, zero-ops</h3>
+        <p>One SQLite file. No server, no daemon, no tooling to install — migrations are embedded in the binary and applied on startup.</p>
+      </div>
+      <div class="card">
+        <h3><span class="dot">▸</span> Schema-light</h3>
+        <p>Columns only for what better-ao queries or indexes. Plugin odds and ends live in a single <code>metadata</code> JSON blob.</p>
+      </div>
+      <div class="card">
+        <h3><span class="dot">▸</span> Unix-seconds time</h3>
+        <p>Timestamps are <code>INTEGER</code> seconds, marshalled to <code>time.Time</code> (UTC) in Go. Easy to index, no timezone ambiguity.</p>
+      </div>
+    </div>
+    <div class="invariant">
+      <span class="iff">⟺</span>
+      <p>The core invariant: <b>a row in <code>sessions</code> exists if and only if that session is currently running.</b> &nbsp;“What's alive right now?” is answered by <code>SELECT * FROM sessions</code>.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">02</span>Tables</h2>
+    <div class="tablecard">
+      <div class="thead">
+        <span class="name">sessions</span>
+        <span style="color:var(--ink-dim);font-size:14px">one running agent session — worktree + zellij + agent process</span>
+        <span class="tag">0001_create_sessions.sql</span>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="col">id</span><span class="pk-badge">PK</span></td>
+            <td><span class="ty">TEXT</span></td>
+            <td><span class="nn">no</span></td>
+            <td class="desc">Session id. Also names the branch <code>better-ao/{id}</code> and the zellij session.</td>
+          </tr>
+          <tr>
+            <td><span class="col">project_path</span></td>
+            <td><span class="ty">TEXT</span></td>
+            <td><span class="nn">no</span></td>
+            <td class="desc">Absolute path of the project. <b style="color:var(--accent)">Indexed.</b></td>
+          </tr>
+          <tr>
+            <td><span class="col">project_name</span></td>
+            <td><span class="ty">TEXT</span></td>
+            <td><span class="yes">yes</span></td>
+            <td class="desc">Human-friendly project label. Optional.</td>
+          </tr>
+          <tr>
+            <td><span class="col">agent_plugin</span></td>
+            <td><span class="ty">TEXT</span></td>
+            <td><span class="nn">no</span></td>
+            <td class="desc">Which agent plugin drives the session (e.g. <code>codex</code>).</td>
+          </tr>
+          <tr>
+            <td><span class="col">workspace_path</span></td>
+            <td><span class="ty">TEXT</span></td>
+            <td><span class="nn">no</span></td>
+            <td class="desc">Absolute path to the session's git worktree.</td>
+          </tr>
+          <tr>
+            <td><span class="col">zellij_session</span></td>
+            <td><span class="ty">TEXT</span></td>
+            <td><span class="nn">no</span></td>
+            <td class="desc">Name of the backing zellij session the browser terminal attaches to.</td>
+          </tr>
+          <tr>
+            <td><span class="col">pid</span></td>
+            <td><span class="ty">INTEGER</span></td>
+            <td><span class="yes">yes</span></td>
+            <td class="desc">Agent process id when known; <code>NULL</code> until set.</td>
+          </tr>
+          <tr>
+            <td><span class="col">metadata</span></td>
+            <td><span class="ty">TEXT</span></td>
+            <td><span class="yes">yes</span></td>
+            <td class="desc">Plugin-specific fields as a JSON object. <code>NULL</code>/empty when none.</td>
+          </tr>
+          <tr>
+            <td><span class="col">created_at</span></td>
+            <td><span class="ty">INTEGER</span></td>
+            <td><span class="nn">no</span></td>
+            <td class="desc">Spawn time, unix seconds (UTC).</td>
+          </tr>
+          <tr>
+            <td><span class="col">updated_at</span></td>
+            <td><span class="ty">INTEGER</span></td>
+            <td><span class="nn">no</span></td>
+            <td class="desc">Last mutation, unix seconds (UTC). <b style="color:var(--accent)">Indexed DESC.</b> Bumped on every write.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);margin:28px 0 10px">Indexes</h3>
+    <div class="mini">
+      <table>
+        <thead><tr><th>Name</th><th>Definition</th><th>Serves</th></tr></thead>
+        <tbody>
+          <tr><td><span class="col">idx_sessions_project</span></td><td><span class="ty">(project_path)</span></td><td class="desc">ListByProject — dashboard's per-project grouping.</td></tr>
+          <tr><td><span class="col">idx_sessions_updated</span></td><td><span class="ty">(updated_at DESC)</span></td><td class="desc">Most-recently-active-first ordering.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);margin:28px 0 10px">Access pattern · <code>internal/store/sessions.go</code></h3>
+    <ul class="access">
+      <li><span class="m">Insert</span><span class="d">spawn persists a row; defaults timestamps to now.</span></li>
+      <li><span class="m">Get / List</span><span class="d">reads; lists order by <code>created_at DESC</code>.</span></li>
+      <li><span class="m">ListByProject</span><span class="d">filtered read, served by the project index.</span></li>
+      <li><span class="m">Delete</span><span class="d">termination removes the row. Missing id → <b style="color:var(--ink)">no-op</b> (idempotent-stop contract).</span></li>
+      <li><span class="m">UpdatePID</span><span class="d">write the agent pid once the process exists.</span></li>
+      <li><span class="m">MergeMetadata</span><span class="d">shallow-merge JSON fields, preserving untouched keys, in one transaction.</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="n">03</span>Runtime &amp; pragmas</h2>
+    <p style="color:var(--ink-dim);margin:0 0 16px;max-width:64ch">Real upstream SQLite compiled to WebAssembly and run by wazero — <b style="color:var(--ink)">no cgo</b>, so the binary stays statically linked and cross-compiles cleanly. Migrations embed via <code>//go:embed</code> and run on <code>store.Open</code> (idempotent).</p>
+    <div class="mini">
+      <table>
+        <thead><tr><th>Pragma</th><th>Value</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td><span class="col">journal_mode</span></td><td><span class="ty">WAL</span></td><td class="desc">Concurrent readers don't block the writer.</td></tr>
+          <tr><td><span class="col">synchronous</span></td><td><span class="ty">NORMAL</span></td><td class="desc">WAL durability without an fsync per write.</td></tr>
+          <tr><td><span class="col">foreign_keys</span></td><td><span class="ty">ON</span></td><td class="desc">Enforce integrity once a second table arrives.</td></tr>
+          <tr><td><span class="col">busy_timeout</span></td><td><span class="ty">5000 ms</span></td><td class="desc">Absorb brief writer contention instead of erroring.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">04</span>Conventions for new tables</h2>
+    <ol class="rules">
+      <li><b>One migration per change</b>, named <code>NNNN_verb_noun.sql</code>, with both <code>+goose Up</code> and <code>+goose Down</code>. Never edit a shipped migration — add a new one.</li>
+      <li><b>Add columns only for what you query or index.</b> Everything else belongs in a JSON blob.</li>
+      <li><b>Timestamps are <code>INTEGER</code> unix seconds</b>, named <code>created_at</code> / <code>updated_at</code>.</li>
+      <li><b>Decide the liveness contract explicitly.</b> A table meant to outlive what it describes (history, audit, results) is the first to break principle #1 — that's a deliberate decision, not a default.</li>
+      <li><b>Update this page and the diagram</b> in the same PR as the migration.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2><span class="n">05</span>Diagram</h2>
+<pre class="diagram">                  ~/.better-ao/state.db  <span class="hl">(SQLite, WAL)</span>
+┌──────────────────────────────────────────────────────────┐
+│  <span class="hl">sessions</span>                                                  │
+│  ─────────────────────────────────────────────────────    │
+│  <span class="pk">id</span>              TEXT  <span class="pk">PK</span>                                  │
+│  project_path    TEXT  NOT NULL   ─┐ idx_sessions_project  │
+│  project_name    TEXT                                      │
+│  agent_plugin    TEXT  NOT NULL                            │
+│  workspace_path  TEXT  NOT NULL                            │
+│  zellij_session  TEXT  NOT NULL                            │
+│  pid             INTEGER                                   │
+│  metadata        TEXT            (JSON blob)               │
+│  created_at      INTEGER NOT NULL                          │
+│  updated_at      INTEGER NOT NULL ─┐ idx_sessions_updated  │
+│                                    DESC                    │
+│  <span class="iff">row exists  ⟺  session is alive</span>                          │
+└──────────────────────────────────────────────────────────┘</pre>
+  </section>
+
+  <footer>
+    better-ao · prds/core/schema.html · generated from internal/store/migrations/
+  </footer>
+
+</div>
+</body>
+</html>

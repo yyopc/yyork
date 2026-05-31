@@ -1,165 +1,211 @@
-<h1 align="center"><img src=".github/assets/thumbnail.png" alt="Start UI Web" /></h1>
+# better-ao
 
-🚀 Start UI <small>[web]</small> is an opinionated frontend starter repository created & maintained by the [BearStudio Team](https://www.bearstudio.fr/team) and other contributors.
-It represents our team's up-to-date stack that we use when creating web apps for our clients.
+Local-first agent orchestration for parallel AI coding work.
 
-
-## Technologies
-
-<div align="center" style="margin: 0 0 16px 0"><img src=".github/assets/tech-logos.png" alt="Technologies logos of the starter" /></div>
-
-[⚙️ Node.js](https://nodejs.org), [🟦 TypeScript](https://www.typescriptlang.org/), [⚛️ React](https://react.dev/), [📦 TanStack Start](https://tanstack.com/start), [💨 Tailwind CSS](https://tailwindcss.com/), [🧩 shadcn/ui](https://ui.shadcn.com/), [📋 React Hook Form](https://react-hook-form.com/), [🔌 oRPC](https://orpc.unnoq.com/), [🛠 Prisma](https://www.prisma.io/), [🔐 Better Auth](https://www.better-auth.com/), [📚 Storybook](https://storybook.js.org/), [🧪 Vitest](https://vitest.dev/), [🎭 Playwright](https://playwright.dev/)
-
-## Documentation
-
-For detailed information on how to use this project, please refer to the [documentation](https://docs.web.start-ui.com). The documentation contains all the necessary information on installation, usage, and some guides.
+better-ao spawns AI coding agents into isolated, durable workspaces and lets
+you supervise them from one dashboard. Each session runs in its own git
+worktree inside a [Zellij](https://zellij.dev) session, so agents work in
+parallel without stepping on each other, survive your browser closing or the
+server restarting, and stay attachable from any terminal.
 
 ## Requirements
 
-* [Node.js](https://nodejs.org) >= 22
-* [pnpm](https://pnpm.io/)
-* [Docker](https://www.docker.com/) (or a [PostgreSQL](https://www.postgresql.org/) database)
+- **Go 1.25+** — the server and CLI
+- **Node.js 22+** and **pnpm** — the dashboard build
+- **[Zellij](https://zellij.dev)** — the durability layer that hosts agent sessions
+- **An agent CLI** — [Codex](https://github.com/openai/codex) is the only one wired in v1, and must be on your `PATH`
+- **git** — sessions run in per-session worktrees
+- Nix with flakes enabled — optional, but the dev tooling assumes it
 
-## Getting Started
+## Install
 
-```bash
-pnpm create start-ui -t web myApp
-```
-
-That will scaffold a new folder with the latest version of 🚀 Start UI <small>[web]</small> 🎉
-
-## Setup your IDE
-
-- VS Code
-```bash
-cp .vscode/settings.example.json .vscode/settings.json
-```
-
-- Zed
-```bash
-cp .zed/settings.example.json .zed/settings.json
-```
-
-## Installation
-
-```bash
-cp .env.example .env  # Setup your env variables
-pnpm install          # Install dependencies
-pnpm dk:init          # Start Docker containers (PostgreSQL, MinIO, Maildev)
-pnpm db:init          # Push the Prisma schema and seed the database
-```
-
-> [!NOTE]
-> **Don't want to use docker?**
->
-> Setup a PostgreSQL database (locally or online) and replace the **DATABASE_URL** environment variable. Then you can run `pnpm db:push` to update your database schema and then run `pnpm db:seed` to seed your database.
-
-## Run
-
-```bash
-pnpm dk:start # Only if your Docker containers are not running
-pnpm dev
-```
-
-
-
-
-### Emails in development
-
-#### Maildev to catch emails
-
-In development, the emails will not be sent and will be caught by [maildev](https://github.com/maildev/maildev) which runs as a Docker container.
-
-The maildev UI is available at [localhost:1080](http://localhost:1080) (port configurable via `DOCKER_MAILDEV_UI_PORT` in `.env`).
-
-#### Preview emails
-
-Emails templates are built with `react-email` components in the `src/emails` folder.
-
-You can preview an email template at `http://localhost:3000/api/dev/email/{template}` where `{template}` is the name of the template file in the `src/emails/templates` folder.
-
-Example: [Login Code](http://localhost:3000/api/dev/email/login-code)
-
-##### Email translation preview
-
-Add the language in the preview url like `http://localhost:3000/api/dev/email/{template}?language={language}` where `{language}` is the language key (`en`, `fr`, ...)
-
-#### Email props preview
-
-You can add search params to the preview url to pass as props to the template.
-`http://localhost:3000/api/dev/email/{template}/?{propsName}={propsValue}`
-
-### OpenAPI Documentation for the API
-
-You can access the API documentation via the OpenAPI interface at:
-
-`http://localhost:3000/api/openapi/app`
-
-This interface allows you to:
-
-* View complete and up-to-date documentation of all backend endpoints exposed by the API.
-
-* Understand request and response formats for each route.
-
-* Facilitate development and debugging by testing endpoints directly from the interface, without needing the frontend.
-
-### Generate custom icons components from svg files
-
-Put the custom svg files into the `src/components/icons/svg-sources` folder and then run the following command:
-
-```bash
-pnpm gen:icons
-```
-
-If you want to use the same set of custom duotone icons that Start UI is already using, checkout
-[Phosphor](https://phosphoricons.com/)
-
-> [!WARNING]
-> All svg icons should be svg files prefixed by `icon-` (example: `icon-external-link`) with **square size** and **filled with `#000` color** (will be replaced by `currentColor`).
-
-### E2E Tests
-
-E2E tests are setup with Playwright.
-
-```sh
-pnpm e2e:setup  # Setup context to be used across test for more efficient execution 
-pnpm e2e        # Run tests in headless mode, this is the command executed in CI
-pnpm e2e:ui     # Open a UI which allows you to run specific tests and see test execution
-```
-
-> [!WARNING]
-> The generated e2e context files contain authentication logic. If you make changes to your local database instance, you should re-run `pnpm e2e:setup`. It will be run automatically in a CI context.
-## Production
+Build the single binary (it embeds the dashboard, so this is the only artifact you need):
 
 ```bash
 pnpm install
-pnpm storybook:build # Optional: Will expose the Storybook at `/storybook`
-pnpm build
-pnpm start
+pnpm backend:build      # builds the dashboard, embeds it, compiles ./better-ao
 ```
 
-## Show hint on development environments
+`pnpm backend:build` chains three steps: `pnpm web:build` → copy `web/dist`
+into the embed dir → `go build`. The resulting `./better-ao` serves the
+dashboard from inside the binary — no separate web server needed at runtime.
 
-Setup the `VITE_ENV_NAME` env variable with the name of the environment.
+## Using better-ao
 
+State lives in `~/.better-ao/`:
+
+- `state.db` — a SQLite database of currently-running sessions
+- `worktrees/<sessionId>/` — one git worktree per session
+
+### 1. Start the server
+
+```bash
+./better-ao              # starts the dashboard + API on 127.0.0.1:7331 and opens your browser
 ```
-VITE_ENV_NAME="staging"
-VITE_ENV_EMOJI="🔬"
-VITE_ENV_COLOR="teal"
+
+Run it with no arguments — there is no `start` subcommand. Use `-addr` to
+change the bind address and `-open=false` to skip opening the browser.
+
+### 2. Spawn an agent
+
+From inside the project you want the agent to work on (it must be a git repo):
+
+```bash
+cd ~/Projects/my-app
+better-ao spawn --prompt "add a health-check endpoint"
 ```
 
-## FAQ
+This prints a session id (a ULID), creates a `better-ao/<sessionId>` git
+worktree branched from your repo's default branch, launches the agent inside a
+fresh Zellij session, and the dashboard shows the new session within
+milliseconds (live, over server-sent events — no polling).
 
-<details><summary><strong>git detect a lot of changes inside my <code>.husky</code> folder</strong></summary>
-<p>
-You probably have updated your branch with lefthook installed instead of husky. Follow these steps to fix
-your hooks issue:
-<ul>
-  <li><code>git config --unset core.hooksPath</code></li>
-  <li><code>rm -rf ./.husky</code></li>
-  <li><code>pnpm install</code></li>
-</ul>
+Flags:
 
-From now husky should have been removed; and lefthook should run your hooks correctly.
-</p>
-</details>
+- `--prompt <text>` — the prompt the orchestrator passes to the worker agent (required)
+- `--system-prompt-file <path>` — a file containing the agent's system prompt
+- `--permissions <mode>` — `default` | `auto-review` | `full-access`
+
+### 3. Watch it work
+
+Click the session in the dashboard for a live browser terminal, or attach from
+any shell:
+
+```bash
+zellij attach <sessionId>
+```
+
+The session survives your browser closing, the better-ao server restarting, and
+the agent process exiting (a keep-alive shell holds the pane open so you can
+read post-mortem output).
+
+### 4. List and stop
+
+```bash
+better-ao session list                 # show running sessions
+better-ao session list --project <abs-path>   # filter to one project
+better-ao stop <sessionId>             # kill the Zellij session, remove the worktree + branch, drop the row
+```
+
+### Capturing an agent's work
+
+In v1 there is no in-app review or merge yet — you capture work the normal git
+way. **Get the work onto your remote before you `stop` a session or reboot**,
+because both teardown paths delete the `better-ao/<sessionId>` branch:
+
+- have the agent run `gh pr create` / `git push -u origin better-ao/<sessionId>`, or
+- merge the branch into your main line yourself.
+
+A deleted branch is recoverable via `git reflog` for a while, but treat
+"pushed or merged before stop" as the rule.
+
+## Development
+
+For iterating on the dashboard itself, run the dev stack instead of the binary —
+Vite serves the dashboard with hot reload and proxies `/api` to the Go server:
+
+```bash
+nix develop
+pnpm install
+better-ao        # the Nix-shell wrapper: Vite dashboard on :3000 + Go API
+```
+
+Without the Nix shell, use the package script:
+
+```bash
+pnpm dev
+```
+
+The dashboard runs on `http://localhost:3000`. Set `VITE_PORT` in `web/.env` to
+use another port. If the default backend port is in use, the launcher picks the
+next available one and points Vite at it. In dev mode the dashboard is served by
+Vite, not the embedded copy in the binary.
+
+## Architecture notes
+
+A session is one running agent. A row exists in `state.db` exactly while the
+session is alive — `stop` (or a reconcile that finds the Zellij session gone)
+deletes it. There is no separate "running" index file: liveness is derived by
+asking Zellij, lazily, when something reads state (plus a one-time sweep on
+server boot). No polling, no background ticker.
+
+The terminal attaches to a session's Zellij runtime with `zellij attach
+<sessionId>`; the websocket URL is session-scoped so reconnecting never kills
+the underlying agent. Zellij is the only durability provider in v1.
+
+## Verification
+
+Useful checks while iterating on the terminal path:
+
+```bash
+pnpm lint:ts
+pnpm cli:test
+pnpm e2e
+nix develop --command go test ./internal/session ./internal/server ./internal/ao ./internal/terminal
+pnpm e2e:live-terminal
+pnpm e2e:live-terminal:reuse
+pnpm e2e:live-terminal:reuse:reconnect
+node web/e2e/live-terminal-smoke.mjs --reconnect --reconnects=2
+node web/e2e/live-terminal-smoke.mjs --soak --soak-ms=300000
+node web/e2e/live-terminal-smoke.mjs --switch --switch-target=ao-83
+pnpm e2e:live-terminal:watch
+pnpm e2e:live-terminal:switch:watch
+pnpm e2e:live-terminal:soak:watch
+pnpm e2e:live-terminal:reuse:watch
+pnpm e2e:live-terminal:reuse:reconnect:watch
+pnpm e2e:live-terminal:reuse:switch:watch
+pnpm e2e:live-terminal:reuse:soak:watch
+pnpm e2e:live-terminal:manual
+pnpm e2e:live-terminal:manual-soak
+```
+
+`pnpm e2e:live-terminal` is the real-runtime smoke. It starts the local stack on OS-assigned temporary ports, reads active AO worker metadata, opens the Terminal tab with Playwright, confirms the terminal websocket is project-scoped, waits for real terminal frames, verifies browser resize sends a valid terminal resize control frame, then verifies the Zellij worker session survived the browser attachment. It requires at least one active AO worker with terminal support and does not send keyboard input to the worker. Pass `--backend-port=<port>` and `--web-port=<port>` to the underlying script only when you need fixed ports.
+
+`pnpm e2e:live-terminal:reuse` runs the same real-runtime smoke against an already-running manual dev stack. By default it checks `http://127.0.0.1:7331` and `http://localhost:3000`; pass `--backend-origin=<origin>` and `--web-origin=<origin>` to the underlying script for a different stack. Use the `reuse:*:watch` variants when you want to watch the already-running manual stack instead of a throwaway stack.
+
+`pnpm e2e:live-terminal:reconnect` repeats that attachment through browser page reopens and fails if any reattached terminal websocket loses project scoping, stops receiving frames, stops sending resize control frames, or kills the Zellij worker session. Use `--reconnects=<count>` when running the underlying script directly.
+
+`pnpm e2e:live-terminal:soak` keeps that real terminal attachment open and fails if the terminal websocket closes, the terminal UI disappears, browser page errors occur, or a Zellij worker session stops existing. It is still non-mutating: it observes terminal frames but does not type into the worker. Use `--soak-ms=<milliseconds>` when running the underlying script directly.
+
+`pnpm e2e:live-terminal:switch` opens the selected worker terminal, switches the UI to another terminal-supported AO worker, confirms the new websocket is project-scoped, receiving real frames, and sending resize control frames, then verifies both Zellij worker sessions are still alive. Pass `--switch-target=<worker>` to force the target worker when running the underlying script directly; otherwise the script picks the next available terminal-supported worker.
+
+Use the `:watch` variants when you want to see the same real-runtime smoke in a headed browser. They slow Playwright down and keep the terminal visible briefly after assertions pass. Use `pnpm e2e:live-terminal:soak:watch` for manual observation. Change the soak, reconnect, target, or hold values with `--soak-ms=<milliseconds>`, `--reconnects=<count>`, `--switch-target=<worker>`, and `--hold-ms=<milliseconds>` when running the underlying `web/e2e/live-terminal-smoke.mjs` script directly.
+
+Use `pnpm e2e:live-terminal:manual` to open the current running stack in a headed browser and hold it for four hours after the initial real-runtime attach assertion. Use `pnpm e2e:live-terminal:manual-soak` when you want the same four-hour hold after a five-minute real-runtime soak. Script-level options are read from the last matching CLI value, so you can shorten a manual pass with `pnpm --dir web e2e:live-terminal:manual -- --hold-ms=60000`.
+
+Manual terminal acceptance is:
+
+1. Start or reuse a real AO worker so at least one terminal-supported session appears.
+2. Start the local stack with `better-ao` or `pnpm dev`.
+3. Run `pnpm e2e:live-terminal:manual-soak` from the repository root.
+4. Watch the headed browser: terminal output should remain visible, reconnect/switch controls should not show failure toasts, and the selected worker should stay attached across workspace refreshes.
+5. Let the terminal sit open or use the normal app for the intended manual window.
+6. Treat the pass as failed if the final JSON reports a nonzero `terminalSocketCountDelta`, missing terminal frames, missing `resize.resizeFrame`, a missing `zellijSession` for current AO metadata, or if the underlying Zellij session disappears.
+
+## Layout
+
+- `cmd/better-ao`: CLI entrypoint (`spawn`, `session list`, `stop`, and the no-verb server) plus the embedded dashboard
+- `internal/app`: wires the store, engine, event bus, and HTTP server together
+- `internal/server`: HTTP API, `/api/sessions`, the `/api/events` SSE stream, and dashboard serving
+- `internal/session`: the spawn engine — `Spawn` / `Stop` / `Reconcile` — and the session model
+- `internal/store`: SQLite store (`~/.better-ao/state.db`) with goose migrations
+- `internal/worktree`: per-session `git worktree` create/remove wrapper
+- `internal/events`: in-process pub/sub bus that feeds the SSE stream
+- `internal/durabilityprovider`: Zellij session create/kill/attach
+- `internal/plugin` + `internal/plugin/agent`: plugin registry and the agent interface
+- `internal/plugin/agent/codex`: the built-in Codex agent plugin
+- `web`: React + Vite (client-only SPA) dashboard package
+- `api`: future generated API and event contracts
+
+## Scripts
+
+- `better-ao` (Nix shell) / `pnpm dev`: start the dev stack — Vite dashboard + Go API with hot reload
+- `pnpm web:dev`: start only the Vite dev server
+- `pnpm backend:dev`: start only the Go server
+- `pnpm web:build`: build the dashboard SPA into `web/dist`
+- `pnpm backend:build`: build the dashboard, embed it, and compile `./better-ao`
+- `pnpm build`: build the web package and Go binary
+- `pnpm lint`: run backend tests and frontend lint checks
+- `pnpm cli:test`: run launcher command and env parsing tests
+- `pnpm test`: run backend, launcher CLI, and frontend tests
+- `pnpm e2e`: run Playwright e2e checks against the web app

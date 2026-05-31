@@ -19,6 +19,7 @@ coverage/
 dist/
 build/
 /better-ao
+experiments/fang-cli/better-ao-fang
 **/public/storybook/
 storybook-static
 
