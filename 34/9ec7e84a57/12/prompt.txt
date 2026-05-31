@@ -1,0 +1,28 @@
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-connection.ts
+
+## Open tabs:
+- terminal-connection.ts: web/src/features/home/components/organisms/terminal-connection.ts
+- hooks.json: .codex/hooks.json
+- generate-workspace-contract.go: api/generate-workspace-contract.go
+- pnpm-workspace.yaml: pnpm-workspace.yaml
+- index.tsx: web/src/routes/index.tsx
+
+## My request for Codex:
+get me my add projects plus settings buttons in the sidebar as they are in the [shadcn ui components with variables Tailwind classes Updated January 2026 Community](https://www.figma.com/design/vQW0457wZ1XXKrVBNvuOl1/shadcn-ui-components-with-variables---Tailwind-classes---Updated-January-2026--Community-?node-id=3201-349&t=L9dSOeXpGDWv13St-11)
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-connection.ts
+
+## Open tabs:
+- terminal-connection.ts: web/src/features/home/components/organisms/terminal-connection.ts
+- hooks.json: .codex/hooks.json
+- generate-workspace-contract.go: api/generate-workspace-contract.go
+- pnpm-workspace.yaml: pnpm-workspace.yaml
+- index.tsx: web/src/routes/index.tsx
+## My request for Codex:
+get me my add projects plus settings buttons in the sidebar as they are in the [shadcn ui components with variables Tailwind classes Updated January 2026 Community](https://www.figma.com/design/vQW0457wZ1XXKrVBNvuOl1/shadcn-ui-components-with-variables---Tailwind-classes---Updated-January-2026--Community-?node-id=3201-349&t=L9dSOeXpGDWv13St-11).
