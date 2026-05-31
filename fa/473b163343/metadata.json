@@ -3,7 +3,7 @@
   "checkpoint_id": "fa473b163343",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 3,
+  "checkpoints_count": 4,
   "files_touched": [
     "api/README.md",
     "api/generate-workspace-contract.go",
@@ -15,7 +15,9 @@
     "internal/ao/workspace_test.go",
     "internal/server/server.go",
     "internal/server/server_test.go",
-    "internal/session/session.go"
+    "internal/session/session.go",
+    "internal/terminal/manager.go",
+    "internal/terminal/runner.go"
   ],
   "sessions": [
     {
@@ -41,13 +43,19 @@
       "transcript": "/fa/473b163343/3/full.jsonl",
       "content_hash": "/fa/473b163343/3/content_hash.txt",
       "prompt": "/fa/473b163343/3/prompt.txt"
+    },
+    {
+      "metadata": "/fa/473b163343/4/metadata.json",
+      "transcript": "/fa/473b163343/4/full.jsonl",
+      "content_hash": "/fa/473b163343/4/content_hash.txt",
+      "prompt": "/fa/473b163343/4/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 2879246,
+    "input_tokens": 3031769,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 116594432,
-    "output_tokens": 271900,
-    "api_call_count": 795
+    "cache_read_tokens": 121515136,
+    "output_tokens": 291723,
+    "api_call_count": 844
   }
 }
