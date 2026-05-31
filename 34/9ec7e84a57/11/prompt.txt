@@ -1,0 +1,125 @@
+# Context from my IDE setup:
+
+## Active file: api/generate-workspace-contract.go
+
+## Open tabs:
+- generate-workspace-contract.go: api/generate-workspace-contract.go
+- pnpm-workspace.yaml: pnpm-workspace.yaml
+- index.tsx: web/src/routes/index.tsx
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- better-ao.mjs: scripts/better-ao.mjs
+
+## My request for Codex:
+what does this file do?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: api/generate-workspace-contract.go
+
+## Open tabs:
+- generate-workspace-contract.go: api/generate-workspace-contract.go
+- pnpm-workspace.yaml: pnpm-workspace.yaml
+- index.tsx: web/src/routes/index.tsx
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- better-ao.mjs: scripts/better-ao.mjs
+
+## My request for Codex:
+I didn't understand the response
+
+---
+
+# Context from my IDE setup:
+
+## Active file: api/generate-workspace-contract.go
+
+## Open tabs:
+- generate-workspace-contract.go: api/generate-workspace-contract.go
+- pnpm-workspace.yaml: pnpm-workspace.yaml
+- index.tsx: web/src/routes/index.tsx
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- better-ao.mjs: scripts/better-ao.mjs
+
+## My request for Codex:
+so what pkg could help in this?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: api/generate-workspace-contract.go
+
+## Open tabs:
+- generate-workspace-contract.go: api/generate-workspace-contract.go
+- pnpm-workspace.yaml: pnpm-workspace.yaml
+- index.tsx: web/src/routes/index.tsx
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- better-ao.mjs: scripts/better-ao.mjs
+
+## My request for Codex:
+Any other way of doing the same
+
+---
+
+# Context from my IDE setup:
+
+## Active file: api/generate-workspace-contract.go
+
+## Open tabs:
+- generate-workspace-contract.go: api/generate-workspace-contract.go
+- pnpm-workspace.yaml: pnpm-workspace.yaml
+- index.tsx: web/src/routes/index.tsx
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- better-ao.mjs: scripts/better-ao.mjs
+
+## My request for Codex:
+what do you refer to when you say contract?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: api/generate-workspace-contract.go
+
+## Open tabs:
+- generate-workspace-contract.go: api/generate-workspace-contract.go
+- pnpm-workspace.yaml: pnpm-workspace.yaml
+- index.tsx: web/src/routes/index.tsx
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- better-ao.mjs: scripts/better-ao.mjs
+
+## My request for Codex:
+alright. so this file is solely responsible for letting the frontend side code know what is the type of response to expect from an endpoint.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-connection.ts
+
+## Open tabs:
+- terminal-connection.ts: web/src/features/home/components/organisms/terminal-connection.ts
+- generate-workspace-contract.go: api/generate-workspace-contract.go
+- pnpm-workspace.yaml: pnpm-workspace.yaml
+- index.tsx: web/src/routes/index.tsx
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## My request for Codex:
+so Ig OpenAPI could defintely help here. right? or what about RPC?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-connection.ts
+
+## Open tabs:
+- terminal-connection.ts: web/src/features/home/components/organisms/terminal-connection.ts
+- generate-workspace-contract.go: api/generate-workspace-contract.go
+- pnpm-workspace.yaml: pnpm-workspace.yaml
+- index.tsx: web/src/routes/index.tsx
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## My request for Codex:
+yo why the fuck do we have the `POST /api/sessions/{sessionID}/ide` endpoint
