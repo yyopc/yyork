@@ -1,0 +1,43 @@
+{
+  "cli_version": "0.6.2",
+  "checkpoint_id": "f5da299d9ee9",
+  "session_id": "019e61c8-6eca-7963-ba15-5fe75f530b1b",
+  "strategy": "manual-commit",
+  "created_at": "2026-05-31T04:07:17.48271Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "web/src/components/ui/dropdown-menu.tsx",
+    "web/src/components/ui/sidebar.tsx",
+    "web/src/components/ui/sonner.tsx",
+    "web/src/components/ui/tooltip.tsx",
+    "web/src/features/home/components/organisms/kanban-column.tsx",
+    "web/src/features/home/components/organisms/main-topbar.tsx",
+    "web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "a291a44b31fb",
+  "token_usage": {
+    "input_tokens": 929730,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 19053184,
+    "output_tokens": 76574,
+    "api_call_count": 158
+  },
+  "session_metrics": {
+    "turn_count": 12
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-05-31T04:07:17.415715Z",
+    "agent_lines": 2759,
+    "agent_removed": 0,
+    "human_added": 20792,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 23551,
+    "total_lines_changed": 53762,
+    "agent_percentage": 5.13187753431792,
+    "metric_version": 2
+  }
+}
