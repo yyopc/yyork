@@ -1,0 +1,15 @@
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/main-topbar.tsx
+
+## Active selection of the file:
+border-
+## Open tabs:
+- main-topbar.tsx: web/src/features/home/components/organisms/main-topbar.tsx
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- AGENTS.md: web/AGENTS.md
+- AGENTS.md: AGENTS.md
+- .oxfmtrc.json: web/.oxfmtrc.json
+
+## My request for Codex:
+how to set border radius to be 0 using tailwindcss
