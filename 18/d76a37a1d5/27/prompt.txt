@@ -1,0 +1,131 @@
+# Context from my IDE setup:
+
+## Active file: prds/plugins/agents/PRD.md
+
+## Open tabs:
+- PRD.md: prds/plugins/agents/PRD.md
+- PRD.md: prds/plugins/PRD.md
+- better-ao-agent-plugin-interface.md: docs/design/better-ao-agent-plugin-interface.md
+- app.css: web/src/styles/app.css
+- __root.tsx: web/src/routes/__root.tsx
+
+## My request for Codex:
+move this interface definition to a suitable file inside of internal/plugin/agent
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/plugin.go
+
+## Open tabs:
+- plugin.go: internal/plugin/plugin.go
+- PRD.md: prds/plugins/agents/PRD.md
+- PRD.md: prds/plugins/PRD.md
+- better-ao-agent-plugin-interface.md: docs/design/better-ao-agent-plugin-interface.md
+- app.css: web/src/styles/app.css
+
+## My request for Codex:
+put claude and codex under that agent namespace.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/agent.go
+
+## Open tabs:
+- agent.go: internal/plugin/agent/agent.go
+- workspace.go: internal/ao/workspace.go
+- plugin.go: internal/plugin/plugin.go
+- PRD.md: prds/plugins/agents/PRD.md
+- PRD.md: prds/plugins/PRD.md
+
+## My request for Codex:
+after start implementing the codex plugin. mk the plugin implementation cross platform compatible. whenever you have any doubts related to requirements and end 2 end feature description for parity you can refer to ~/Projects/agent-orchestrator repo which was PoC of this project.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- github.go: internal/plugins/github/github.go
+- agent.go: internal/plugin/agent/agent.go
+- workspace.go: internal/ao/workspace.go
+- plugin.go: internal/plugin/plugin.go
+
+## My request for Codex:
+we don't have to focus on claude code right now. delete it. we are just going to make codex agent plugin super super great.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- plugin.go: internal/plugin/plugin.go
+- agent.go: internal/plugin/agent/agent.go
+- README.md: api/README.md
+- generate-workspace-contract.go: api/generate-workspace-contract.go
+
+## My request for Codex:
+why didn't you implemented the GetAgentHooks method?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- hooks.json: .codex/hooks.json
+- .gitignore: .gitignore
+- plugin.go: internal/plugin/plugin.go
+- agent.go: internal/plugin/agent/agent.go
+
+## My request for Codex:
+you should tk a look at [hooks.json](.codex/hooks.json) for codex agent. given the agent activity we have to detect in the web pkg's kanban board, you have to implement CLI cmds as well to report the activity. 
+tell me how would you do it. also plz don't write inline strings for installing hooks into user's workspace. Also remember that the pre-existing hooks must be retained as it is. There shouldn't be regression in hooks behaviour after better-ao's hook installation.
+Remember that GetAgentHooks only returns the hooks to detect codex agent activity. Installation part is done by some other component.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- hooks.json: .codex/hooks.json
+- .gitignore: .gitignore
+- plugin.go: internal/plugin/plugin.go
+- agent.go: internal/plugin/agent/agent.go
+
+## My request for Codex:
+we need to update this plan. Instead of having something like this `better-ao hooks codex session-start|user-prompt-submit|stop`, we are going to have `better-ao agent working|prompt|triage|done` and this is essentially to mutate the in-memory registered activity for an agent session.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- hooks.json: .codex/hooks.json
+- .gitignore: .gitignore
+- plugin.go: internal/plugin/plugin.go
+- agent.go: internal/plugin/agent/agent.go
+
+## My request for Codex:
+now tell me exactly what part of this plan is codex agent's responsibility?
+
+---
+
+So I was thinking, how does the activity detection is going to work end-to-end? We know that Codex agent CLI is going to emit events. We have registered some hooks to react to those events. These hooks are essentially publishers and they are going to publish the event representing your agent's current activity state, which is either one of the four already mentioned, that is working, prompt, triage, and done. So these publishers are going to publish these events and then there will be a broker in the backend side of this workflow. Not essentially a workflow, but like data flow. And that broker is going to route these events to a channel which is being subscribed by a context provider. This context provider is consumed by React children like sidebar component and the Kanban agent. I think this is the most optimal way of providing real-time updates of your currently running agent sessions. What do you think?
