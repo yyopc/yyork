@@ -1,0 +1,57 @@
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- agent.go: internal/plugin/agent/agent.go
+- better-ao.mjs: scripts/better-ao.mjs
+- hooks.json: .codex/hooks.json
+- .gitignore: .gitignore
+
+## My request for Codex:
+explain the GetLaunchCommand impl real quick
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- agent.go: internal/plugin/agent/agent.go
+- better-ao.mjs: scripts/better-ao.mjs
+- hooks.json: .codex/hooks.json
+- .gitignore: .gitignore
+
+## My request for Codex:
+Wtf `codexBinary` method is doing?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- plugin.go: internal/plugin/plugin.go
+- agent.go: internal/plugin/agent/agent.go
+- better-ao.mjs: scripts/better-ao.mjs
+- hooks.json: .codex/hooks.json
+
+## My request for Codex:
+Why do we need it? why can't we just do a PATH lookup? I know that the cmd name on linux/macos is `codex`. So why do this pretzel ass impl of getting to know just the binary name for codex cli
+
+---
+
+this is in-memory caching btw.
+
+---
+
+also irrespective of how user installs the CLI, as long as it is in the $PATH var its a known cmd in any shell and that should be it. right?
+
+---
+
+give me one such example where this would fail
