@@ -1,0 +1,45 @@
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/agent.go
+
+## Open tabs:
+- agent.go: internal/plugin/agent/agent.go
+- codex.go: internal/plugin/agent/codex/codex.go
+- permissions.go: internal/plugin/agent/permissions.go
+- prompt.go: internal/plugin/agent/prompt.go
+- restore.go: internal/plugin/agent/restore.go
+
+## My request for Codex:
+I want to write an interface for agent specific config that we are going to expose to the users via `~/.better-ao/config.yaml` file.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/config.go
+
+## Open tabs:
+- config.go: internal/plugin/agent/config.go
+- agent.go: internal/plugin/agent/agent.go
+- codex.go: internal/plugin/agent/codex/codex.go
+- permissions.go: internal/plugin/agent/permissions.go
+- prompt.go: internal/plugin/agent/prompt.go
+
+## My request for Codex:
+Why not put it in the [agent.go](internal/plugin/agent/agent.go)  itself
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/session.go
+
+## Open tabs:
+- session.go: internal/plugin/agent/session.go
+- restore.go: internal/plugin/agent/restore.go
+- prompt.go: internal/plugin/agent/prompt.go
+- permissions.go: internal/plugin/agent/permissions.go
+- launch.go: internal/plugin/agent/launch.go
+
+## My request for Codex:
+yeah there's no need to put the structs and interfaces in separate files
