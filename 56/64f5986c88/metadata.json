@@ -3,7 +3,7 @@
   "checkpoint_id": "5664f5986c88",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 2,
+  "checkpoints_count": 3,
   "files_touched": [
     ".vscode/settings.example.json",
     "AGENTS.md",
@@ -159,13 +159,19 @@
       "transcript": "/56/64f5986c88/24/full.jsonl",
       "content_hash": "/56/64f5986c88/24/content_hash.txt",
       "prompt": "/56/64f5986c88/24/prompt.txt"
+    },
+    {
+      "metadata": "/56/64f5986c88/25/metadata.json",
+      "transcript": "/56/64f5986c88/25/full.jsonl",
+      "content_hash": "/56/64f5986c88/25/content_hash.txt",
+      "prompt": "/56/64f5986c88/25/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 2709307,
+    "input_tokens": 3486103,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 113100672,
-    "output_tokens": 246507,
-    "api_call_count": 758
+    "cache_read_tokens": 121040384,
+    "output_tokens": 296265,
+    "api_call_count": 838
   }
 }
