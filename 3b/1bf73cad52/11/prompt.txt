@@ -1,0 +1,47 @@
+# Context from my IDE setup:
+
+## Active file: /Users/tanishqpalandurkar/.zshrc
+
+## Open tabs:
+- .zshrc: /Users/tanishqpalandurkar/.zshrc
+- use-value-has-changed.ts: web/src/hooks/use-value-has-changed.ts
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- use-hydrated.ts: web/src/hooks/use-hydrated.ts
+- session-workspace.fixtures.ts: web/src/features/home/demo/session-workspace.fixtures.ts
+
+## My request for Codex:
+How close we are in terms of feature parity wrt to agent-orchestrator project?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## Active selection of the file:
+useRef
+## Open tabs:
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- .zshrc: /Users/tanishqpalandurkar/.zshrc
+- use-value-has-changed.ts: web/src/hooks/use-value-has-changed.ts
+- use-hydrated.ts: web/src/hooks/use-hydrated.ts
+- session-workspace.fixtures.ts: web/src/features/home/demo/session-workspace.fixtures.ts
+
+## My request for Codex:
+lets just work on the Terminal viewer parity first of all.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## Open tabs:
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- better-ao.mjs: scripts/better-ao.mjs
+- .zshrc: /Users/tanishqpalandurkar/.zshrc
+- use-value-has-changed.ts: web/src/hooks/use-value-has-changed.ts
+- use-hydrated.ts: web/src/hooks/use-hydrated.ts
+
+## My request for Codex:
+revert the changes in previous assistant response
