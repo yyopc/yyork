@@ -1,0 +1,35 @@
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Active selection of the file:
+var _ plugin.Plugin = (*Plugin)(nil)
+var _ agent.Agent = (*Plugin)(nil)
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- hooks.json: .codex/hooks.json
+- .gitignore: .gitignore
+- plugin.go: internal/plugin/plugin.go
+- agent.go: internal/plugin/agent/agent.go
+
+## My request for Codex:
+what the fuck is this?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Active selection of the file:
+var _ plugin.Plugin = (*Plugin)(nil)
+var _ agent.Agent = (*Plugin)(nil)
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- hooks.json: .codex/hooks.json
+- .gitignore: .gitignore
+- plugin.go: internal/plugin/plugin.go
+- agent.go: internal/plugin/agent/agent.go
+
+## My request for Codex:
+What would be consequences if I didn't do it?
