@@ -1,0 +1,101 @@
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/data/workspace.ts
+
+## Open tabs:
+- workspace.ts: web/src/features/home/data/workspace.ts
+- .gitignore: .gitignore
+- settings.example.json: .vscode/settings.example.json
+- 1e7210a4-e29c-4986-9093-a5dea88bf8f6.json: .antigravitycli/1e7210a4-e29c-4986-9093-a5dea88bf8f6.json
+- exclude: .git/info/exclude
+
+## My request for Codex:
+[$find-skills](/Users/tanishqpalandurkar/.agents/skills/find-skills/SKILL.md) to scan the current codebase and find out the instances where the Agent went out of the decided tech stack and implemented things in a out of convention way just to complete the task.
+
+here's one such instance: [workspace.ts](web/src/features/home/data/workspace.ts) here the agent is using the fetch when it was supposed to use the tanstack/query to do so.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## Active selection of the file:
+useRef
+## Open tabs:
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- use-hydrated.ts: web/src/hooks/use-hydrated.ts
+- session-workspace.fixtures.ts: web/src/features/home/demo/session-workspace.fixtures.ts
+- workspace.ts: web/src/features/home/data/workspace.ts
+- .gitignore: .gitignore
+
+## My request for Codex:
+Agreed. just brief me about what you did, what's expected now and how should I confirm
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## Active selection of the file:
+useRef
+## Open tabs:
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- use-hydrated.ts: web/src/hooks/use-hydrated.ts
+- session-workspace.fixtures.ts: web/src/features/home/demo/session-workspace.fixtures.ts
+- workspace.ts: web/src/features/home/data/workspace.ts
+- .gitignore: .gitignore
+
+## My request for Codex:
+yes I do want to fix them one by one. Lets get started right away.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## Active selection of the file:
+useRef
+## Open tabs:
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- .zshrc: /Users/tanishqpalandurkar/.zshrc
+- use-value-has-changed.ts: web/src/hooks/use-value-has-changed.ts
+- use-hydrated.ts: web/src/hooks/use-hydrated.ts
+- session-workspace.fixtures.ts: web/src/features/home/demo/session-workspace.fixtures.ts
+
+## My request for Codex:
+how close we are now?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-connection.ts
+
+## Open tabs:
+- terminal-connection.ts: web/src/features/home/components/organisms/terminal-connection.ts
+- generate-workspace-contract.go: api/generate-workspace-contract.go
+- pnpm-workspace.yaml: pnpm-workspace.yaml
+- index.tsx: web/src/routes/index.tsx
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## My request for Codex:
+what the fuck is SVGR?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-connection.ts
+
+## Open tabs:
+- terminal-connection.ts: web/src/features/home/components/organisms/terminal-connection.ts
+- generate-workspace-contract.go: api/generate-workspace-contract.go
+- pnpm-workspace.yaml: pnpm-workspace.yaml
+- index.tsx: web/src/routes/index.tsx
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## My request for Codex:
+hold on! why do need that when we are using lucid-react

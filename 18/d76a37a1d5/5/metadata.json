@@ -1,0 +1,44 @@
+{
+  "cli_version": "0.6.2",
+  "checkpoint_id": "18d76a37a1d5",
+  "session_id": "019e5a35-c162-7023-9676-9b2f58525465",
+  "strategy": "manual-commit",
+  "created_at": "2026-05-31T04:10:41.404805Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".envrc",
+    "flake.lock",
+    "flake.nix",
+    "justfile",
+    "lefthook.yml",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "4d0458b9c006",
+  "token_usage": {
+    "input_tokens": 1716426,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 71073536,
+    "output_tokens": 150603,
+    "api_call_count": 469
+  },
+  "session_metrics": {
+    "turn_count": 13
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-05-31T04:10:41.224964Z",
+    "agent_lines": 1535,
+    "agent_removed": 8728,
+    "human_added": 633,
+    "human_modified": 5,
+    "human_removed": 0,
+    "total_committed": 2173,
+    "total_lines_changed": 10901,
+    "agent_percentage": 94.14732593340061,
+    "metric_version": 2
+  }
+}
