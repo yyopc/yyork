@@ -1,0 +1,31 @@
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## Active selection of the file:
+useRef
+## Open tabs:
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- .zshrc: /Users/tanishqpalandurkar/.zshrc
+- use-value-has-changed.ts: web/src/hooks/use-value-has-changed.ts
+- use-hydrated.ts: web/src/hooks/use-hydrated.ts
+- session-workspace.fixtures.ts: web/src/features/home/demo/session-workspace.fixtures.ts
+
+## My request for Codex:
+I want to work on the settings dialog as well. lets get that up as well. I'd like to iterate on the UI first of all so I'll need a storybook component for that and stories for its multiple states.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-connection.ts
+
+## Open tabs:
+- terminal-connection.ts: web/src/features/home/components/organisms/terminal-connection.ts
+- generate-workspace-contract.go: api/generate-workspace-contract.go
+- pnpm-workspace.yaml: pnpm-workspace.yaml
+- index.tsx: web/src/routes/index.tsx
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## My request for Codex:
+revert all the changes you have made here. The design is all shit. I don't want to let you work on this without any kind of hand holding.
