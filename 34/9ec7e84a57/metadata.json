@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.6.2",
+  "checkpoint_id": "349ec7e84a57",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".github/actions/setup-playwright/action.yml",
+    ".github/workflows/code-quality.yml",
+    ".github/workflows/e2e-tests.yml"
+  ],
+  "sessions": [
+    {
+      "metadata": "/34/9ec7e84a57/0/metadata.json",
+      "transcript": "/34/9ec7e84a57/0/full.jsonl",
+      "content_hash": "/34/9ec7e84a57/0/content_hash.txt",
+      "prompt": "/34/9ec7e84a57/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 992881,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 42027136,
+    "output_tokens": 95904,
+    "api_call_count": 289
+  }
+}
