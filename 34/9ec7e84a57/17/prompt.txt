@@ -1,0 +1,185 @@
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+
+## Open tabs:
+- project-orchestrator-sidebar.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+- server.go: internal/server/server.go
+- server.go: /nix/store/hcvpfc0gm2aamgrn44x64yh66nakmmy3-go-1.25.10/share/go/src/net/http/server.go
+- project-orchestrator-sidebar.stories.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.stories.tsx
+- AGENTS.md: AGENTS.md
+
+## My request for Codex:
+we need to introduce the tooltip for all the button components describing the action it takes. use the shadcn tooltip component for this and follow the app's design ideology.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+
+## Open tabs:
+- project-orchestrator-sidebar.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+- server.go: internal/server/server.go
+- server.go: /nix/store/hcvpfc0gm2aamgrn44x64yh66nakmmy3-go-1.25.10/share/go/src/net/http/server.go
+- project-orchestrator-sidebar.stories.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.stories.tsx
+- AGENTS.md: AGENTS.md
+
+## My request for Codex:
+provide me a floating devtool that allows me to see the tooltips for all the UI elements that we have put in place  so that I could examine all of them in single go
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+
+## Open tabs:
+- project-orchestrator-sidebar.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+- server.go: internal/server/server.go
+- server.go: /nix/store/hcvpfc0gm2aamgrn44x64yh66nakmmy3-go-1.25.10/share/go/src/net/http/server.go
+- project-orchestrator-sidebar.stories.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.stories.tsx
+- AGENTS.md: AGENTS.md
+
+## My request for Codex:
+This has to be a temp devtool btw. I might get rid of it after using it once.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+
+## Open tabs:
+- project-orchestrator-sidebar.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+- server.go: internal/server/server.go
+- server.go: /nix/store/hcvpfc0gm2aamgrn44x64yh66nakmmy3-go-1.25.10/share/go/src/net/http/server.go
+- project-orchestrator-sidebar.stories.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.stories.tsx
+- AGENTS.md: AGENTS.md
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://localhost:6006/iframe.html?id=home-project-orchestrator-sidebar--temporary-tooltip-devtool&viewMode=story
+
+## My request for Codex:
+there are some overlapping tooltips. Provide a better view.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+
+## Open tabs:
+- project-orchestrator-sidebar.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+- server.go: internal/server/server.go
+- server.go: /nix/store/hcvpfc0gm2aamgrn44x64yh66nakmmy3-go-1.25.10/share/go/src/net/http/server.go
+- project-orchestrator-sidebar.stories.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.stories.tsx
+- AGENTS.md: AGENTS.md
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://localhost:6006/iframe.html?id=home-project-orchestrator-sidebar--temporary-tooltip-devtool&viewMode=story
+
+## My request for Codex:
+tabs don't have any tooltips yet
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## Active selection of the file:
+Terminal
+## Open tabs:
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- Terminal.d.ts: node_modules/.pnpm/@wterm+react@0.3.0_@wterm+dom@0.3.0_react-dom@19.3.0-canary-d5736f09-20260507_react@19._6f5f2bc032d83e90dc34ac5cc2512320/node_modules/@wterm/react/dist/Terminal.d.ts
+- project-orchestrator-sidebar.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+- server.go: internal/server/server.go
+- server.go: /nix/store/hcvpfc0gm2aamgrn44x64yh66nakmmy3-go-1.25.10/share/go/src/net/http/server.go
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://localhost:6006/?path=/story/home-project-orchestrator-sidebar--temporary-tooltip-devtool
+
+## My request for Codex:
+tooltips don't follow app design btw
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## Active selection of the file:
+Terminal
+## Open tabs:
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- Terminal.d.ts: node_modules/.pnpm/@wterm+react@0.3.0_@wterm+dom@0.3.0_react-dom@19.3.0-canary-d5736f09-20260507_react@19._6f5f2bc032d83e90dc34ac5cc2512320/node_modules/@wterm/react/dist/Terminal.d.ts
+- project-orchestrator-sidebar.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+- server.go: internal/server/server.go
+- server.go: /nix/store/hcvpfc0gm2aamgrn44x64yh66nakmmy3-go-1.25.10/share/go/src/net/http/server.go
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://localhost:6006/?path=/story/home-project-orchestrator-sidebar--temporary-tooltip-devtool
+
+## My request for Codex:
+do you see an anomaly here?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/components/ui/date-picker.tsx
+
+## Open tabs:
+- date-picker.tsx: web/src/components/ui/date-picker.tsx
+- flake.lock: flake.lock
+- AGENTS.md: web/AGENTS.md
+- sonner.tsx: web/src/components/ui/sonner.tsx
+- project-orchestrator-sidebar.stories.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.stories.tsx
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://localhost:6006/?path=/story/home-project-orchestrator-sidebar--temporary-tooltip-devtool
+
+## My request for Codex:
+yo you were supposed to change its z index and that would have looked like a anchore triangle. get it back. don't just remove it
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/AGENTS.md
+
+## Open tabs:
+- AGENTS.md: web/AGENTS.md
+- date-picker.tsx: web/src/components/ui/date-picker.tsx
+- flake.lock: flake.lock
+- sonner.tsx: web/src/components/ui/sonner.tsx
+- project-orchestrator-sidebar.stories.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.stories.tsx
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://localhost:3000/
+
+## My request for Codex:
+send the diamond to the back bro
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/AGENTS.md
+
+## Open tabs:
+- AGENTS.md: web/AGENTS.md
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://localhost:3000/
+
+## My request for Codex:
+Open IDE don't have got a shadcn/ui tooltip ig.
