@@ -1,0 +1,228 @@
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/pages/orchestrator-home-page.tsx
+
+## Open tabs:
+- orchestrator-home-page.tsx: web/src/features/home/pages/orchestrator-home-page.tsx
+- flake.nix: flake.nix
+- error-context.md: web/test-results/root-selecting-a-worker-card-retargets-the-terminal-view-chromium/error-context.md
+- provider.tsx: web/src/lib/tanstack-query/provider.tsx
+- query-client.tsx: web/src/lib/tanstack-query/query-client.tsx
+
+# Applications mentioned by the user:
+
+<appshot app="Comet" bundle-identifier="ai.perplexity.comet" window-title="Agent Orchestrator" image="Comet Appshot 2026-05-24T12-56-58.655Z.png">
+Window: "Agent Orchestrator", App: Comet.
+standard window Agent Orchestrator - Comet, URL: localhost:3000/
+	container (settable, string) Agent Orchestrator - Comet, URL: localhost:3000/
+		container (settable, string)
+			toolbar (settable, string)
+				button (settable, string)
+				button (settable, string)
+				button (settable, string)
+				button (settable, string)
+				container (settable, string)
+					pop up button (settable, string)
+					text field (settable, string) Description: Address and search bar, Value: localhost:3000, Placeholder: Ask anything or navigate…
+					text (settable, string) localhost:3000
+					button (settable, string)
+					button (settable, string)
+				container (settable, string)
+					pop up button (settable, string) ElevenReader — Text Reader
+Has access to this site
+					pop up button (settable, string) Obsidian Web Clipper
+Has access to this site
+					pop up button (settable, string) Extensions
+				button (settable, string)
+				button (settable, string)
+				button (settable, string)
+			container (settable, string)
+				HTML content Agent Orchestrator, URL: localhost:3000/
+					container
+						heading Agent Orchestrator, Value: 1
+							text Agent Orchestrator
+						container Projects
+							text Project Orchestrators
+							content list
+								container
+									button
+									content list
+										button
+										container
+											button
+											content list
+												button
+										container
+											button
+											content list
+												button
+												button
+												button
+						pop up button Add project
+						pop up button Settings
+						button
+					container
+						button
+						tab group Session view
+							tab (settable, integer) Kanban, Value: 0
+							tab (selected) Terminal, Value: 1
+						pop up button Toggle theme
+						container Orchestrator terminal panel
+							terminal Orchestrator terminal
+							container
+								button
+								button
+					pop up button Review 0/6
+						text Review
+						text 0
+						text /
+						text 6
+					container Notifications alt+T
+					container Notifications alt+T
+			tab group (settable, string)
+				container (settable, string)
+					tab (settable, boolean) Description: (2) Discord | @harshitsingh - Pinned - Memory usage - 371 MB, Value: off
+					tab (settable, boolean) Description: gp (Channel) - yyovil's workspace - Slack - Pinned - Memory usage - 312 MB, Value: off
+					tab (settable, boolean) Description: (35) Gunna - south to west [Official Audio] - YouTube - Pinned - Memory usage - 598 MB, Value: off
+					tab (selected, settable, boolean) Description: Agent Orchestrator, Value: on
+					tab (settable, boolean) Description: Popover - shadcn/ui - Memory usage - 192 MB, Value: off
+					tab (settable, boolean) Description: suggest PTY go pkgs real quick. - Memory usage - 109 MB, Value: off
+					tab (settable, boolean) Description: Home / Session View Tabs - Terminal Selected ⋅ Storybook - Memory usage - 263 MB, Value: off
+				button (settable, string)
+				container (settable, string)
+					pop up button (settable, string) Comet
+					pop up button (settable, string) Tanishq Palandurkar
+			HTML content Perplexity, URL: perplexity.ai/sidecar/search/916362ad-f14e-4306-a280-9b181f10b309
+				container
+					container
+						container
+							button
+							button
+							pop up button Menu
+						container
+							container
+								container
+									button
+									button
+								heading I want a web component is kind of path picker, not a file picker. I, Value: 1
+									text I want a web component is kind of path picker, not a file picker. I
+							button
+								text Clarifying the need for a web component path picker
+								image
+							container
+								text Yes — what you want is usually called a 
+								text path picker
+								text  or path selector, not a file picker. In UI terms, it’s most often built as a breadcrumb + tree/dropdown hybrid, while browser-native directory selection is a separate API like 
+								text showDirectoryPicker()
+								text  or 
+								text webkitdirectory
+								text .
+								container
+									text developer.mozilla +2
+								heading Naming, Value: 2
+									text Naming
+								text Use one of these names in code/design docs:
+								content list
+									container
+										AXListMarker • 
+										text PathPicker
+									container
+										AXListMarker • 
+										text DirectoryPathPicker
+									container
+										AXListMarker • 
+										text PathSelector
+									container
+										AXListMarker • 
+										text BreadcrumbPathInput
+										container
+											text wikipedia +1
+								text “Path breadcrumb” usually implies display/navigation only, while “picker” implies the user can change the path.
+								container
+									text w3schools +1
+								heading Good patterns, Value: 2
+									text Good patterns
+								text The most common pattern is: clickable breadcrumbs for the current path, plus a popover/tree to jump to another segment or child folder. Breadcrumbs are a standard navigation control, and “path breadcrumbs” specifically describe the trail a user took or their current hierarchy.
+								container
+									text wikipedia +1
+								text A strong component API would look like:
+								content list
+									container
+										AXListMarker • 
+										text value="/projects/acme/designs"
+									container
+										AXListMarker • 
+										text segments=[...]
+									container
+										AXListMarker • 
+										text onChange(path)
+									container
+										AXListMarker • 
+										text optional 
+										text suggestions
+										text , 
+										text tree
+										text , or 
+										text resolver
+										text  for autocomplete/lookup.
+										container Web Components - Web APIs - MDN Web Docs - Mozilla
+											link Description: developer.mozilla, Value: developer.mozilla.org/en-US/docs/Web/API/Web_components
+								heading Browser APIs, Value: 2
+									text Browser APIs
+								text If you mean “let the user choose a real local folder,” use 
+								text window.showDirectoryPicker()
+								text  where supported. Another older option is 
+								text &lt;input type="file" webkitdirectory&gt;
+								text , which allows directory selection instead of file selection.
+								container
+									text developer.mozilla +1
+								heading Recommendation, Value: 2
+									text Recommendation
+								text For your component library, name it 
+								text PathPicker
+								text . If it is specifically for folder hierarchy selection, 
+								text DirectoryPathPicker
+								text  is even clearer.
+								container
+									text developer.mozilla +1
+								text Would you like a React/Web Component API + example markup for it?
+							button
+							button
+							button
+								image
+								image
+								text 16
+							button
+							button
+							pop up button More actions
+						container
+							container
+								text Home / Session View Tabs - Terminal Selected ⋅ Storybook
+							container
+								text entry area (settable, string) Placeholder: Ask anything…, Value: 
+
+								pop up button Add files or tools
+								pop up button GPT-5.4
+								button
+								button
+
+</appshot>
+
+## My request for Codex:
+How come 2 sidebar items could be active at the same time?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/pages/orchestrator-home-page.tsx
+
+## Open tabs:
+- orchestrator-home-page.tsx: web/src/features/home/pages/orchestrator-home-page.tsx
+- flake.nix: flake.nix
+- error-context.md: web/test-results/root-selecting-a-worker-card-retargets-the-terminal-view-chromium/error-context.md
+- provider.tsx: web/src/lib/tanstack-query/provider.tsx
+- query-client.tsx: web/src/lib/tanstack-query/query-client.tsx
+
+## My request for Codex:
+nope that's bad UX
