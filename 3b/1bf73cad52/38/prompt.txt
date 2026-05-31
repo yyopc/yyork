@@ -1,0 +1,5 @@
+do a FULL read only analysis on my Macbook to help me optimize storage
+
+---
+
+lets get rid of `~/.pnpm-global`, `~/.bun` and `~/.worktrees/agent-orchestrator` and Micromamba
