@@ -200,6 +200,12 @@
       "transcript": "/4b/72461425fd/31/full.jsonl",
       "content_hash": "/4b/72461425fd/31/content_hash.txt",
       "prompt": "/4b/72461425fd/31/prompt.txt"
+    },
+    {
+      "metadata": "/4b/72461425fd/32/metadata.json",
+      "transcript": "/4b/72461425fd/32/full.jsonl",
+      "content_hash": "/4b/72461425fd/32/content_hash.txt",
+      "prompt": "/4b/72461425fd/32/prompt.txt"
     }
   ],
   "token_usage": {
