@@ -1,0 +1,5 @@
+why I can't use /goal cmd from codex cli?
+
+---
+
+tell me how to add a dir without exiting the codex TUI rn
