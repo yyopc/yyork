@@ -1,0 +1,34 @@
+# Context from my IDE setup:
+
+## Active file: web/.oxfmtrc.json
+
+## Open tabs:
+- .oxfmtrc.json: web/.oxfmtrc.json
+- router.tsx: web/src/router.tsx
+- query-client.tsx: web/src/lib/tanstack-query/query-client.tsx
+- index.tsx: web/src/routes/index.tsx
+- terminal-connection.unit.spec.ts: web/src/features/home/components/organisms/terminal-connection.unit.spec.ts
+
+## My request for Codex:
+I see there's `.oxlintrc.json` and `.oxfmtrc.json`. tell me about their roles in this project
+
+---
+
+# Context from my IDE setup:
+
+## Active file: api/generate-workspace-contract.go
+
+## Open tabs:
+- generate-workspace-contract.go: api/generate-workspace-contract.go
+- .oxlintrc.json: web/.oxlintrc.json
+- .oxfmtrc.json: web/.oxfmtrc.json
+- router.tsx: web/src/router.tsx
+- query-client.tsx: web/src/lib/tanstack-query/query-client.tsx
+
+# Selected text:
+
+## Selection 1
+always parenthesized arrow args
+
+## My request for Codex:
+what does this means?
