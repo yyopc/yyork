@@ -1,0 +1,4 @@
+So I've made couple of changes as per rendering the kanban and terminal view. I'm getting rid of tabs completely. 
+so if I click on any of the worker agent(worker/orchestrator) session in the sidebar, it renders the terminal. agent session specific PTY renders at /terminal/[sessionId] route.
+
+I'm still not sure what to do with the kanban view though
