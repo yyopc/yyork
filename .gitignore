@@ -1,21 +1,32 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+node_modules/
 /.pnp
 .pnp.js
+.pnpm/
+.npm/
+.go/
+.direnv/
 
 # testing
-/coverage
+coverage/
 **/__screenshots__/**
 
 # production
 .output
 .vinxi
-/dist
-/build
-/public/storybook
-/storybook-static
+dist/
+build/
+/better-ao
+**/public/storybook/
+storybook-static
+
+# Embedded dashboard mirror (copied from web/dist/client/ by
+# scripts/copy-dashboard.mjs before `go build`). Only the .gitkeep is
+# committed; everything else is build output.
+cmd/better-ao/dashboard/*
+!cmd/better-ao/dashboard/.gitkeep
 
 # misc
 .DS_Store
@@ -52,16 +63,17 @@ src/server/db/generated
 .react-email
 
 # playwright
-/test-results/
-/playwright-report/
-/playwright/.cache/
-e2e/.auth
+test-results/
+playwright-report/
+playwright/.cache/
+**/e2e/.auth
 
 certificates
 
 *storybook.log
 app.config.timestamp_*.js
 .tanstack
+.vite/
 .nitro
 
 # vscode
@@ -73,7 +85,7 @@ app.config.timestamp_*.js
 /.zed/*
 !/.zed/settings.example.json
 
-
-.mcp.json
-.entire
-.codex
+# local agent / CLI session artifacts (not project config)
+.entire/
+.antigravitycli/
+.playwright-cli/
