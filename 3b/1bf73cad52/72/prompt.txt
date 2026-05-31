@@ -1,0 +1,17 @@
+Tell me what to do next in the internal/plugin/agent/codex/codex.go plugin
+
+---
+
+yeah so hook installation essentially means editing the per workspace ./.codex/hooks.json file right
+
+---
+
+tell me current state of internal/plugin/agent/codex implementation
+
+---
+
+btw since we are the ones who are going to create the worktree, we can simply cp the embedded .codex/hooks.json into the newly created workspace. Right?
+
+---
+
+It would never happen because the concept is that the orchestrator agent is going to spawn agents when triggered by the user via prompt like "spawn a worker agent to <task>"
