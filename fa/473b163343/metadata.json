@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.6.2",
+  "checkpoint_id": "fa473b163343",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "internal/ao/workspace.go",
+    "internal/ao/workspace_test.go",
+    "internal/server/server.go",
+    "internal/server/server_test.go",
+    "internal/session/session.go"
+  ],
+  "sessions": [
+    {
+      "metadata": "/fa/473b163343/0/metadata.json",
+      "transcript": "/fa/473b163343/0/full.jsonl",
+      "content_hash": "/fa/473b163343/0/content_hash.txt",
+      "prompt": "/fa/473b163343/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 992881,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 42027136,
+    "output_tokens": 95904,
+    "api_call_count": 289
+  }
+}
