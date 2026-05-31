@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.6.2",
+  "checkpoint_id": "18d76a37a1d5",
+  "session_id": "019e642b-1cd5-7ab0-ad3e-470bd7613153",
+  "strategy": "manual-commit",
+  "created_at": "2026-05-31T04:13:32.74525Z",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "flake.lock",
+    "flake.nix",
+    "lefthook.yml",
+    "package.json",
+    "pnpm-lock.yaml"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "812865d6d9b3",
+  "checkpoint_transcript_start": 108,
+  "transcript_lines_at_start": 108,
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-05-31T04:13:32.726073Z",
+    "agent_lines": 1507,
+    "agent_removed": 8728,
+    "human_added": 660,
+    "human_modified": 5,
+    "human_removed": 0,
+    "total_committed": 2172,
+    "total_lines_changed": 10900,
+    "agent_percentage": 93.89908256880733,
+    "metric_version": 2
+  }
+}
