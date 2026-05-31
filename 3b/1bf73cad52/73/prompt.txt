@@ -1,0 +1,13 @@
+# Context from my IDE setup:
+
+## Active file: internal/plugin/plugin.go
+
+## Open tabs:
+- plugin.go: internal/plugin/plugin.go
+- claudecode.go: internal/plugin/agent/claudecode/claudecode.go
+- open-ide-button.tsx: web/src/features/home/components/molecules/open-ide-button.tsx
+- AGENTS.md: AGENTS.md
+- agent.go: internal/plugin/agent/agent.go
+
+## My request for Codex:
+Explain all this code to me real quick. I've a daily standup to share my updates and I should be able to answer any question regarding the code changes I've approved.
