@@ -3,7 +3,7 @@
   "checkpoint_id": "f5da299d9ee9",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 6,
+  "checkpoints_count": 7,
   "files_touched": [
     "web/e2e/root.spec.ts",
     "web/package.json",
@@ -25,6 +25,7 @@
     "web/src/components/ui/sidebar.tsx",
     "web/src/components/ui/sonner.tsx",
     "web/src/components/ui/tabs.tsx",
+    "web/src/features/home/components/molecules/kanban-card.tsx",
     "web/src/features/home/components/molecules/open-ide-button.stories.tsx",
     "web/src/features/home/components/molecules/open-ide-button.tsx",
     "web/src/features/home/components/organisms/main-topbar.tsx",
@@ -111,13 +112,19 @@
       "transcript": "/f5/da299d9ee9/10/full.jsonl",
       "content_hash": "/f5/da299d9ee9/10/content_hash.txt",
       "prompt": "/f5/da299d9ee9/10/prompt.txt"
+    },
+    {
+      "metadata": "/f5/da299d9ee9/11/metadata.json",
+      "transcript": "/f5/da299d9ee9/11/full.jsonl",
+      "content_hash": "/f5/da299d9ee9/11/content_hash.txt",
+      "prompt": "/f5/da299d9ee9/11/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 4058222,
+    "input_tokens": 5119957,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 142626048,
-    "output_tokens": 352909,
-    "api_call_count": 981
+    "cache_read_tokens": 175020288,
+    "output_tokens": 457799,
+    "api_call_count": 1267
   }
 }
