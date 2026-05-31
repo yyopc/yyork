@@ -1,0 +1,31 @@
+# Context from my IDE setup:
+
+## Active file: web/src/hooks/use-hydrated.ts
+
+## Open tabs:
+- use-hydrated.ts: web/src/hooks/use-hydrated.ts
+- session-workspace.fixtures.ts: web/src/features/home/demo/session-workspace.fixtures.ts
+- workspace.ts: web/src/features/home/data/workspace.ts
+- .gitignore: .gitignore
+- settings.example.json: .vscode/settings.example.json
+
+## My request for Codex:
+better-ao doesn't persist/remember the last active session so that the same state is rendered even after a manual refresh or tab reopen.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## Active selection of the file:
+useRef
+## Open tabs:
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- use-hydrated.ts: web/src/hooks/use-hydrated.ts
+- session-workspace.fixtures.ts: web/src/features/home/demo/session-workspace.fixtures.ts
+- workspace.ts: web/src/features/home/data/workspace.ts
+- .gitignore: .gitignore
+
+## My request for Codex:
+also it doesn't remember the sidebar open state across page reloads and tab open/close.
