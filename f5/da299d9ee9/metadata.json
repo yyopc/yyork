@@ -3,7 +3,7 @@
   "checkpoint_id": "f5da299d9ee9",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 1,
+  "checkpoints_count": 2,
   "files_touched": [
     "web/e2e/root.spec.ts",
     "web/src/features/home/components/organisms/project-orchestrator-sidebar.stories.tsx",
@@ -13,6 +13,7 @@
     "web/src/features/home/demo/session-workspace.fixtures.ts",
     "web/src/features/home/domain/session-workspace.ts",
     "web/src/features/home/domain/session-workspace.unit.spec.ts",
+    "web/src/features/home/templates/orchestrator-workspace-template.tsx",
     "web/src/styles/app.css"
   ],
   "sessions": [
@@ -21,13 +22,19 @@
       "transcript": "/f5/da299d9ee9/0/full.jsonl",
       "content_hash": "/f5/da299d9ee9/0/content_hash.txt",
       "prompt": "/f5/da299d9ee9/0/prompt.txt"
+    },
+    {
+      "metadata": "/f5/da299d9ee9/1/metadata.json",
+      "transcript": "/f5/da299d9ee9/1/full.jsonl",
+      "content_hash": "/f5/da299d9ee9/1/content_hash.txt",
+      "prompt": "/f5/da299d9ee9/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 992881,
+    "input_tokens": 1137049,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 42027136,
-    "output_tokens": 95904,
-    "api_call_count": 289
+    "cache_read_tokens": 43309184,
+    "output_tokens": 104949,
+    "api_call_count": 305
   }
 }
