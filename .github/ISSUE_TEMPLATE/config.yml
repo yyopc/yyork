@@ -1,0 +1,7 @@
+# Keep the "blank issue" escape hatch — agents and maintainers sometimes need to
+# file something that doesn't fit a form.
+blank_issues_enabled: true
+contact_links:
+  - name: Question / discussion
+    url: https://github.com/yyovil/better-ao/discussions
+    about: Ask a question or discuss an idea before filing a bug or feature request.

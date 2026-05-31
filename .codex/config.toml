@@ -1,0 +1,8 @@
+[features]
+hooks = true
+
+[mcp_servers.forge_extension]
+url = "http://localhost:40134/mcp"
+
+[mcp_servers.storybook-mcp-server]
+url = "http://localhost:6006/mcp"

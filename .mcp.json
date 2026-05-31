@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "forge_extension": {
+      "url": "http://localhost:40134/mcp"
+    },
+    "storybook-mcp-server": {
+      "url": "http://localhost:6006/mcp",
+      "type": "http"
+    }
+  }
+}
