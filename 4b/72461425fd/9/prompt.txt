@@ -1,0 +1,31 @@
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## Active selection of the file:
+useRef
+## Open tabs:
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- .zshrc: /Users/tanishqpalandurkar/.zshrc
+- use-value-has-changed.ts: web/src/hooks/use-value-has-changed.ts
+- use-hydrated.ts: web/src/hooks/use-hydrated.ts
+- session-workspace.fixtures.ts: web/src/features/home/demo/session-workspace.fixtures.ts
+
+## My request for Codex:
+/goal I want to acheive full CLI parity wrt agent-orchestrator. lets work progressively towards that goal.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: scripts/better-ao.mjs
+
+## Open tabs:
+- better-ao.mjs: scripts/better-ao.mjs
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- .zshrc: /Users/tanishqpalandurkar/.zshrc
+- use-value-has-changed.ts: web/src/hooks/use-value-has-changed.ts
+- use-hydrated.ts: web/src/hooks/use-hydrated.ts
+
+## My request for Codex:
+yo dumbass. Why the fuck are you writing the CLI in js? wtf do you think we have go based backend then?
