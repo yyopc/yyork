@@ -1,0 +1,125 @@
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- config.kdl: /Users/tanishqpalandurkar/.config/zellij/config.kdl
+- flake.nix: flake.nix
+- launch.go: internal/plugin/agent/launch.go
+- hooks.go: internal/plugin/agent/hooks.go
+
+## My request for Codex:
+I don't want to be responsible for resolving the binary name cross platform. lets dump this responsibility over some go pkg. tell me what options do we have got?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- config.kdl: /Users/tanishqpalandurkar/.config/zellij/config.kdl
+- flake.nix: flake.nix
+- launch.go: internal/plugin/agent/launch.go
+- hooks.go: internal/plugin/agent/hooks.go
+
+## My request for Codex:
+how can I view the docs for it using the go cli
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- config.kdl: /Users/tanishqpalandurkar/.config/zellij/config.kdl
+- flake.nix: flake.nix
+- launch.go: internal/plugin/agent/launch.go
+- hooks.go: internal/plugin/agent/hooks.go
+
+## My request for Codex:
+so I mean this looks straightforward then. what could possibly go wrong?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- config.kdl: /Users/tanishqpalandurkar/.config/zellij/config.kdl
+- flake.nix: flake.nix
+- launch.go: internal/plugin/agent/launch.go
+- hooks.go: internal/plugin/agent/hooks.go
+
+## My request for Codex:
+alright. if I want to do system $PATH lookup instead of current process's $PATH lookup, then what?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- config.kdl: /Users/tanishqpalandurkar/.config/zellij/config.kdl
+- flake.nix: flake.nix
+- launch.go: internal/plugin/agent/launch.go
+- hooks.go: internal/plugin/agent/hooks.go
+
+## My request for Codex:
+what's the industry standard btw?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- config.kdl: /Users/tanishqpalandurkar/.config/zellij/config.kdl
+- flake.nix: flake.nix
+- launch.go: internal/plugin/agent/launch.go
+- hooks.go: internal/plugin/agent/hooks.go
+
+## My request for Codex:
+How server process's $PATH is going to differ from system $PATH?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- config.kdl: /Users/tanishqpalandurkar/.config/zellij/config.kdl
+- flake.nix: flake.nix
+- launch.go: internal/plugin/agent/launch.go
+- hooks.go: internal/plugin/agent/hooks.go
+
+## My request for Codex:
+bro just tell me the way to inherit the same $PATH var in the server process as of system
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- config.kdl: /Users/tanishqpalandurkar/.config/zellij/config.kdl
+- flake.nix: flake.nix
+- launch.go: internal/plugin/agent/launch.go
+- hooks.go: internal/plugin/agent/hooks.go
+
+## My request for Codex:
+and what is our current approach for resolving codex binary is?
