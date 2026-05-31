@@ -1,0 +1,29 @@
+# Context from my IDE setup:
+
+## Active file: web/src/components/ui/sonner.tsx
+
+## Open tabs:
+- sonner.tsx: web/src/components/ui/sonner.tsx
+- project-orchestrator-sidebar.stories.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.stories.tsx
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- Terminal.d.ts: node_modules/.pnpm/@wterm+react@0.3.0_@wterm+dom@0.3.0_react-dom@19.3.0-canary-d5736f09-20260507_react@19._6f5f2bc032d83e90dc34ac5cc2512320/node_modules/@wterm/react/dist/Terminal.d.ts
+- project-orchestrator-sidebar.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+
+## My request for Codex:
+why the fuck we are writing CSS in 2 diff ways: tailwindcss and CSS in JS.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: flake.lock
+
+## Open tabs:
+- flake.lock: flake.lock
+- AGENTS.md: web/AGENTS.md
+- sonner.tsx: web/src/components/ui/sonner.tsx
+- project-orchestrator-sidebar.stories.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.stories.tsx
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## My request for Codex:
+yeah even when we are overriding we should use the component and override styles by adding more tailwindcss and not edit the /Users/tanishqpalandurkar/Projects/better-ao/web/src/components directly.
