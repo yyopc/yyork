@@ -1,0 +1,45 @@
+how should I start my dev server? If I simply run `pnpm dev` it only gets the vite web server which is for frontend only. So the server is left out.
+
+---
+
+What is `better-ao` if I'm inside of the default devShell?
+
+---
+
+alright so assuming that I also use .envrc so I should be already inside of the devShell right?
+
+---
+
+[Image #1] what's up?
+
+---
+
+[Image #1] this is the result
+
+---
+
+[Image #1] oh yeah
+
+---
+
+[Image #1] what's up then?
+
+---
+
+I think you can control a zellij tab programmatically. so why don't you do it for me?
+
+---
+
+alright also spawn an agent in the worker's tab.
+
+---
+
+spawn a claude worker agent for me
+
+---
+
+spawn a claude worker agent for me again with a diff prompt than before
+
+---
+
+what's the settings file name here?
