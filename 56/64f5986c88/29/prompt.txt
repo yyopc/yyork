@@ -1,0 +1,61 @@
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- permissions.go: internal/plugin/agent/permissions.go
+- prompt.go: internal/plugin/agent/prompt.go
+- restore.go: internal/plugin/agent/restore.go
+- session.go: internal/plugin/agent/session.go
+
+## My request for Codex:
+how is approval policy is any different than permissions in codex cli?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- permissions.go: internal/plugin/agent/permissions.go
+- prompt.go: internal/plugin/agent/prompt.go
+- restore.go: internal/plugin/agent/restore.go
+- session.go: internal/plugin/agent/session.go
+
+## My request for Codex:
+I want to do as much as need and as less as possible
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- permissions.go: internal/plugin/agent/permissions.go
+- prompt.go: internal/plugin/agent/prompt.go
+- restore.go: internal/plugin/agent/restore.go
+- session.go: internal/plugin/agent/session.go
+
+## My request for Codex:
+Hold I don't want to use sandboxing becasue these codex agents are going to work in a isolated worktree. so couldn't give a fuck about it any more
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- permissions.go: internal/plugin/agent/permissions.go
+- prompt.go: internal/plugin/agent/prompt.go
+- restore.go: internal/plugin/agent/restore.go
+- session.go: internal/plugin/agent/session.go
+
+## My request for Codex:
+yo I don't want to do sandboxing as I said so get rid of them
