@@ -1,0 +1,707 @@
+# Context from my IDE setup:
+
+## Active file: web/AGENTS.md
+
+## Open tabs:
+- AGENTS.md: web/AGENTS.md
+- main-topbar.tsx: web/src/features/home/components/organisms/main-topbar.tsx
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- AGENTS.md: AGENTS.md
+- .oxfmtrc.json: web/.oxfmtrc.json
+
+# Applications mentioned by the user:
+
+<appshot app="Comet" bundle-identifier="ai.perplexity.comet" window-title="Agent Orchestrator" image="Comet Appshot 2026-05-25T08-42-51.725Z.png">
+Window: "Agent Orchestrator", App: Comet.
+standard window Agent Orchestrator - Comet, URL: localhost:3000/
+	container (settable, string) Agent Orchestrator - Comet, URL: localhost:3000/
+		container (settable, string)
+			toolbar (settable, string)
+				button (settable, string)
+				button (settable, string)
+				button (settable, string)
+				button (settable, string)
+				container (settable, string)
+					pop up button (settable, string)
+					text field (settable, string) Description: Address and search bar, Value: localhost:3000, Placeholder: Ask anything or navigate…
+					text (settable, string) localhost:3000
+					button (settable, string)
+					button (settable, string)
+				container (settable, string)
+					pop up button (settable, string) ElevenReader — Text Reader
+Has access to this site
+					pop up button (settable, string) Obsidian Web Clipper
+Has access to this site
+					pop up button (settable, string) Extensions
+				button (settable, string)
+				button (settable, string)
+				button (settable, string)
+				button (settable, string)
+			container (settable, string)
+				HTML content Agent Orchestrator, URL: localhost:3000/
+					container
+						heading Agent Orchestrator
+							text Agent Orchestrator
+						container Projects
+							text Project Orchestrators
+							button
+							content list
+								container
+									button
+									content list
+										button
+										container
+											button
+											content list
+												button
+										container
+											button
+											content list
+												button
+												button
+												button
+												button
+						content list
+							button
+						button
+					container
+						button
+						container Session view
+							tab group
+								tab (settable, integer) Kanban, Value: 0
+								tab (selected) Terminal, Value: 1
+						pop up button Toggle theme
+						container [AO-78] terminal panel
+							terminal (settable, string) Description: [AO-78] terminal, Value:                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+
+								text entry area (settable, string)
+							container
+								button
+								button
+					container Notifications alt+T
+						content list
+							container
+								image
+								text Terminal unavailable
+								text [AO-78] does not expose an attachable runtime.
+							container
+								image
+								text Terminal unavailable
+								text [AO-80] does not expose an attachable runtime.
+							container
+								image
+								text Terminal unavailable
+								text [AO-83] does not expose an attachable runtime.
+							container
+								image
+								text Terminal unavailable
+								text [AO-85] does not expose an attachable runtime.
+							container
+								image
+								text Terminal unavailable
+								text [AO-8] does not expose an attachable runtime.
+					container Notifications alt+T
+			tab group (settable, string)
+				container (settable, string)
+					tab (selected, settable, boolean) Description: Agent Orchestrator, Value: on
+				button (settable, string)
+				container (settable, string)
+					pop up button (settable, string) Comet
+					pop up button (settable, string) Tanishq Palandurkar
+
+The focused UI element is text entry area (settable, string)
+</appshot>
+
+## My request for Codex:
+There are 2 problems here:
+1. the toast component design doesn't match with the overall app design. I've updated the [AGENTS.md](web/AGENTS.md) for the web pkg so perform a scan and mk the component design consistent with the app design.
+2. What's the reason for the "Terminal unavailable"? use [$investigate](/Users/tanishqpalandurkar/GStack/.agents/skills/gstack-investigate/SKILL.md) skill to find out.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: AGENTS.md
+
+## Open tabs:
+- AGENTS.md: AGENTS.md
+- project-orchestrator-sidebar.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+- AGENTS.md: web/AGENTS.md
+- main-topbar.tsx: web/src/features/home/components/organisms/main-topbar.tsx
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+
+# Applications mentioned by the user:
+
+<appshot app="Comet" bundle-identifier="ai.perplexity.comet" window-title="Agent Orchestrator" image="Comet Appshot 2026-05-25T09-00-03.845Z.png">
+Window: "Agent Orchestrator", App: Comet.
+standard window Agent Orchestrator - Pinned - Comet, URL: localhost:3000/
+	container (settable, string) Agent Orchestrator - Pinned - Comet, URL: localhost:3000/
+		container (settable, string)
+			toolbar (settable, string)
+				button (settable, string)
+				button (settable, string)
+				button (settable, string)
+				button (settable, string)
+				container (settable, string)
+					pop up button (settable, string)
+					text field (settable, string) Description: Address and search bar, Value: localhost:3000, Placeholder: Ask anything or navigate…
+					text (settable, string) localhost:3000
+					button (settable, string)
+					button (settable, string)
+				container (settable, string)
+					pop up button (settable, string) ElevenReader — Text Reader
+Has access to this site
+					pop up button (settable, string) Obsidian Web Clipper
+Has access to this site
+					pop up button (settable, string) Extensions
+				button (settable, string)
+				button (settable, string)
+				button (settable, string)
+				button (settable, string)
+			container (settable, string)
+				HTML content Agent Orchestrator, URL: localhost:3000/
+					container
+						heading Agent Orchestrator
+							text Agent Orchestrator
+						container Projects
+							text Project Orchestrators
+							button
+							content list
+								container
+									button
+									content list
+										button
+										container
+											button
+											content list
+												button
+										container
+											button
+											content list
+												button
+												button
+												button
+												button
+						content list
+							button
+						button
+					container
+						button
+						container Session view
+							tab group
+								tab (settable, integer) Kanban, Value: 0
+								tab (selected) Terminal, Value: 1
+						pop up button Toggle theme
+						container Orchestrator terminal panel
+							terminal (settable, string) Description: Orchestrator terminal, Value:                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+
+								text entry area (settable, string)
+							container
+								button
+								button
+					container Notifications alt+T
+					container Notifications alt+T
+			tab group (settable, string)
+				container (settable, string)
+					tab (settable, boolean) Description: (5) Discord | @prateek - Pinned - Memory usage - 268 MB, Value: off
+					tab (settable, boolean) Description: gp (Channel) - yyovil's workspace - Slack - Pinned, Value: off
+					tab (settable, boolean) Value: off, Description: (36) PELICANS at LAKERS | FULL GAME HIGHLIGHTS | February 27, 2022 (edited) - YouTube - Pinned - Memory usage - 537 MB
+					tab (selected, settable, boolean) Description: Agent Orchestrator - Pinned, Value: on
+					tab (settable, boolean) Description: localhost - Pinned - Network error, Value: off
+					tab (settable, boolean) Description: Toast - shadcn/ui - Memory usage - 158 MB, Value: off
+				button (settable, string)
+				container (settable, string)
+					pop up button (settable, string) Comet
+					pop up button (settable, string) Tanishq Palandurkar
+
+The focused UI element is text entry area (settable, string)
+</appshot>
+
+<appshot app="Code" bundle-identifier="com.microsoft.VSCode" window-title="AGENTS.md — better-ao" image="Code Appshot 2026-05-25T08-59-41.749Z.png">
+Window: "AGENTS.md — better-ao", App: Code.
+standard window AGENTS.md — better-ao, URL: file:///Users/tanishqpalandurkar/Projects/better-ao/AGENTS.md
+	container (settable, string) AGENTS.md — better-ao
+		container (settable, string)
+			HTML content AGENTS.md — better-ao, URL: vscode-file://vscode-app/nix/store/REDACTED.117.0/Applications/Visual%20Studio%20Code.app/Contents/Resources/app/out/vs/code/electron-browser/workbench/workbench.html
+				container
+					container
+						container
+							toolbar
+								button
+									text 
+								button
+									text 
+								toolbar Agent Status
+									button
+									button
+										text 
+										text 52
+									container
+										button
+											button
+												text 
+										pop up button More Actions
+							toolbar Title actions
+								button
+									text 
+								button
+								button
+									text 
+								button
+									text 
+								button
+								pop up button Accounts
+									container Accounts
+										text 
+								pop up button Manage
+									container Manage
+										text 
+								pop up button More Actions...
+									text 
+						container
+							container
+								tab group Active View Switcher
+									tab (selected) Explorer (⇧⌘E), Value: 1
+										container Explorer (⇧⌘E)
+											text 
+									tab (settable, integer) Search (⇧⌘F), Value: 0
+										container Search (⇧⌘F)
+											text 
+									tab (settable, integer) Description: Source Control (⇧⌘G G) - 730 pending changes, Value: 0
+										container Source Control (⇧⌘G G) - 730 pending changes
+											text 
+										container Source Control (⇧⌘G G) - 730 pending changes
+											text 730
+									tab (settable, integer) Description: Extensions (⇧⌘X), Value: 0
+										container Extensions (⇧⌘X)
+											text 
+									tab (settable, integer) Remote Explorer, Value: 0
+										container Remote Explorer
+											text 
+									tab (settable, integer) GitHub Actions (⇧⌘G A), Value: 0
+										container GitHub Actions (⇧⌘G A)
+									tab (settable, integer) GitLens, Value: 0
+										container GitLens
+											text 
+									tab (settable, integer) GitLens Inspect, Value: 0
+										container GitLens Inspect
+											text 
+									tab (settable, integer) Mermaid Chart, Value: 0
+										container Mermaid Chart
+									tab (settable, integer) Description: Explorer, Value: 0
+										container Explorer
+									tab (settable, integer) Description: Additional Views, Value: 0
+										container Additional Views
+											text 
+								heading EXPLORER
+									text EXPLORER
+								toolbar Search actions
+									pop up button Views and More Actions...
+								container
+									container
+										button
+											text 
+											heading Explorer Section: better-ao
+												text BETTER-AO
+										outline Files Explorer
+											container
+												row .github
+													container
+														text 
+														container ~/Projects/better-ao/.github • Contains emphasized items
+															text .github
+															text 
+												row .go
+													container
+														text 
+														container ~/Projects/better-ao/.go
+															text .go
+												row .output
+													container
+														text 
+														container ~/Projects/better-ao/.output
+															text .output
+												row .playwright-cli
+													container
+														text 
+														container ~/Projects/better-ao/.playwright-cli
+															text .playwright-cli
+												row .pnpm
+													container
+														text 
+														container ~/Projects/better-ao/.pnpm
+															text .pnpm
+												row .tanstack
+													container
+														text 
+														container ~/Projects/better-ao/.tanstack
+															text .tanstack
+												row .vite
+													container
+														text 
+														container ~/Projects/better-ao/.vite
+															text .vite
+												row .vscode
+													container
+														text 
+														container ~/Projects/better-ao/.vscode • Contains emphasized items
+															text .vscode
+															text 
+												row extensions.json
+													container
+														container ~/Projects/better-ao/.vscode/extensions.json
+															text 
+															text extensions.json
+												row settings.example.json
+													container
+														container ~/Projects/better-ao/.vscode/settings.example.json • Modified
+															text 
+															text settings.example.json
+															text M
+												row settings.json
+													container
+														container ~/Projects/better-ao/.vscode/settings.json
+															text 
+															text settings.json
+												row api
+													container
+														text 
+														container ~/Projects/better-ao/api • Contains emphasized items
+															text api
+															text 
+												row generate-workspace-contract.go
+													container
+														container ~/Projects/better-ao/api/generate-workspace-contract.go • Untracked
+															text 
+															text generate-workspace-contract.go
+															text U
+												row README.md
+													container
+														container ~/Projects/better-ao/api/README.md • Untracked
+															text 
+															text README.md
+															text U
+												row bin
+													container
+														text 
+														container ~/Projects/better-ao/bin
+															text bin
+												row cmd
+													container
+														text 
+														container ~/Projects/better-ao/cmd • Contains emphasized items
+															text cmd
+															text 
+												row internal
+													container
+														text 
+														container ~/Projects/better-ao/internal • Contains emphasized items
+															text internal
+															text 
+												row node_modules
+													container
+														text 
+														container ~/Projects/better-ao/node_modules
+															text node_modules
+												row prds
+													container
+														text 
+														container ~/Projects/better-ao/prds • Contains emphasized items
+															text prds
+															text 
+												row (selected) core
+													container
+														text 
+														container ~/Projects/better-ao/prds/core
+															text core
+												row plugins
+													container
+														text 
+														container ~/Projects/better-ao/prds/plugins • Contains emphasized items
+															text plugins
+															text 
+												row scripts
+													container
+														text 
+														container ~/Projects/better-ao/scripts • Contains emphasized items
+															text scripts
+															text 
+												row test-results
+													container
+														text 
+														container ~/Projects/better-ao/test-results
+															text test-results
+												row web
+													container
+														text 
+														container ~/Projects/better-ao/web • Contains emphasized items
+															text web
+															text 
+												row .storybook
+													container
+														text 
+														container ~/Projects/better-ao/web/.storybook • Contains emphasized items
+															text .storybook
+															text 
+												row dist
+													container
+														text 
+														container ~/Projects/better-ao/web/dist
+															text dist
+												row e2e
+													container
+														text 
+														container ~/Projects/better-ao/web/e2e • Contains emphasized items
+															text e2e
+															text 
+												row node_modules
+													container
+														text 
+														container ~/Projects/better-ao/web/node_modules
+															text node_modules
+												row public
+													container
+														text 
+														container ~/Projects/better-ao/web/public • Contains emphasized items
+															text public
+															text 
+												row src
+													container
+														text 
+														container ~/Projects/better-ao/web/src • Contains emphasized items
+															text src
+															text 
+												row test-results
+													container
+														text 
+														container ~/Projects/better-ao/web/test-results
+															text test-results
+												row .env
+													container
+														container ~/Projects/better-ao/web/.env
+															text 
+															text .env
+												row .env.example
+													container
+														container ~/Projects/better-ao/web/.env.example • Untracked
+															text 
+															text .env.example
+															text U
+												row .oxfmtrc.json
+													container
+														container ~/Projects/better-ao/web/.oxfmtrc.json • Untracked
+															text 
+															text .oxfmtrc.json
+															text U
+												row .oxlintrc.json
+													container
+														container ~/Projects/better-ao/web/.oxlintrc.json • Untracked
+															text 
+															text .oxlintrc.json
+															text U
+												row AGENTS.md
+													container
+														container ~/Projects/better-ao/web/AGENTS.md • Untracked
+															text 
+															text AGENTS.md
+															text U
+												row components.json
+													container
+														container ~/Projects/better-ao/web/components.json • Untracked
+															text 
+															text components.json
+															text U
+												row package.json
+													container
+														container ~/Projects/better-ao/web/package.json • Untracked
+															text 
+															text package.json
+															text U
+												row playwright.config.ts
+													container
+														container ~/Projects/better-ao/web/playwright.config.ts • Untracked
+															text 
+															text playwright.config.ts
+															text U
+												row postcss.config.mjs
+													container
+														container ~/Projects/better-ao/web/postcss.config.mjs • Untracked
+															text 
+															text postcss.config.mjs
+															text U
+												row tsconfig.json
+													container
+														container ~/Projects/better-ao/web/tsconfig.json • Untracked
+															text 
+															text tsconfig.json
+															text U
+									button
+										text 
+										heading TIMELINE
+											text TIMELINE
+							container
+								container
+									container
+										content list
+											container
+												container ~/Projects/better-ao/AGENTS.md • Untracked
+													text 
+													text AGENTS.md
+												text 
+											container
+												text 
+												container # Agent workflow (string)
+													text # Agent workflow
+										container AGENTS.md
+											container
+												editor (settable, string) The editor is not accessible at this time. To enable screen reader optimized mode, use Shift+Option+F1
+								container
+									tab group Active View Switcher
+										tab (settable, integer) Output (⇧⌘U), Value: 0
+											container Output (⇧⌘U)
+												text OUTPUT
+										tab (settable, integer) Problems (⇧⌘M), Value: 0
+											container Problems (⇧⌘M)
+												text PROBLEMS
+										tab (settable, integer) GitLens, Value: 0
+											container GitLens
+												text GITLENS
+										tab (settable, integer) Playwright, Value: 0
+											container Playwright
+												text PLAYWRIGHT
+										tab (selected) Terminal (⌃`), Value: 1
+											container Terminal (⌃`)
+												text TERMINAL
+									toolbar Terminal actions
+										button
+											button
+										pop up button Launch Profile...
+										pop up button (settable, string) Description: Open Terminals., Help: 1: zellij
+											(selected) 1: zellij
+										text 
+										button
+										button
+										pop up button Views and More Actions...
+									toolbar
+										toggle button
+											text 
+										button
+											text 
+									container
+										container
+											container
+												container
+													container
+														text field (settable, string) Terminal 1, zellij Run the command: Toggle Screen Reader Accessibility Mode for an optimized screen reader experience Use ⌥F1 for terminal accessibility help
+														image
+														image
+													text 135 x 26
+							container
+								tab group Active View Switcher
+									tab (selected) Description: Codex, Value: 1
+										container Codex
+									tab (settable, integer) Chat (⌃⌘I), Value: 0
+										container Chat (⌃⌘I)
+											text 
+								heading CODEX
+									text CODEX
+								toolbar Codex actions
+								toolbar
+									toggle button
+										text 
+						container
+							container better-ao (Git) - main*+, Checkout Branch/Tag...
+								button
+									text 
+									text  main*+
+							container No Problems
+								button
+									text 
+									text  0 
+									text 
+									text  0
+							container Do Not Disturb
+								button
+							container Markdown
+								button
+							container Editor Language Status: Inline Suggestions, next: Markdown link validation disabled, next: Prettier, next: $(copilot) No inline suggestion available, Inline suggestions
+								button
+							container Ln 4, Col 1
+								button
+					text expanded
+					text Search returned 12 results in 5 files
+					HTML content vscode-webview://REDACTED/index.html?id=c6f89e2a-148f-4eea-b47d-1b1bcfdf6da8&amp;parentId=1&amp;origin=19c760a3-e6d4-4865-9b9f-335bfe3eeb2a&amp;swVersion=5&amp;extensionId=openai.chatgpt&amp;platform=electron&amp;vscode-resource-base-authority=vscode-resource.vscode-cdn.net&amp;parentOrigin=vscode-file%3A%2F%2Fvscode-app&amp;purpose=webviewView
+						container Codex
+
+The focused UI element is HTML content AGENTS.md — better-ao, URL: vscode-file://vscode-app/nix/store/REDACTED.117.0/Applications/Visual%20Studio%20Code.app/Contents/Resources/app/out/vs/code/electron-browser/workbench/workbench.html
+</appshot>
+
+## My request for Codex:
+yeah so if tmux ls returns nothing then why the fuck do I've these many sessions displayed in the sidebar? That's the question to answer first of all. I don't want to be seeing the stale data. 
+
+Answer me where does this stale data is coming from?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: AGENTS.md
+
+## Open tabs:
+- AGENTS.md: AGENTS.md
+- project-orchestrator-sidebar.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+- AGENTS.md: web/AGENTS.md
+- main-topbar.tsx: web/src/features/home/components/organisms/main-topbar.tsx
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## My request for Codex:
+yeah so that is the problem we are going to solve in better-ao from scratch. Do you know what the fuck running.json is supposed to be used for in agent-orchestrator project?
+You can find the project at `~/Projects/agent-orchestrator` repo.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: AGENTS.md
+
+## Open tabs:
+- AGENTS.md: AGENTS.md
+- project-orchestrator-sidebar.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+- AGENTS.md: web/AGENTS.md
+- main-topbar.tsx: web/src/features/home/components/organisms/main-topbar.tsx
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## My request for Codex:
+so this is somthing that our go backend should be doing. I want to know what's the possible solution do you know based on your knowledge related to the problem in hand. Also mention what go pkgs would you use for this.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/server/server.go
+
+## Open tabs:
+- server.go: internal/server/server.go
+- server.go: /nix/store/hcvpfc0gm2aamgrn44x64yh66nakmmy3-go-1.25.10/share/go/src/net/http/server.go
+- project-orchestrator-sidebar.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+- project-orchestrator-sidebar.stories.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.stories.tsx
+- AGENTS.md: AGENTS.md
+
+## My request for Codex:
+hold on. I think you are treating better-ao as just some another client for agent-orchestrator because of its current shape but better-ao is a separate different webapp that's built as 2nd iteration over the current agent-orchestrator project. Better-ao has better tech stack, better dev workflows, better architecture. Everything better.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/server/server.go
+
+## Open tabs:
+- server.go: internal/server/server.go
+- server.go: /nix/store/hcvpfc0gm2aamgrn44x64yh66nakmmy3-go-1.25.10/share/go/src/net/http/server.go
+- project-orchestrator-sidebar.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+- project-orchestrator-sidebar.stories.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.stories.tsx
+- AGENTS.md: AGENTS.md
+
+## My request for Codex:
+from here on you would get some more info about what to do next.
