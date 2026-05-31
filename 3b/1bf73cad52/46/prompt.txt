@@ -1,0 +1,28 @@
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- launch.go: internal/plugin/agent/launch.go
+- hooks.go: internal/plugin/agent/hooks.go
+- workspace_test.go: internal/ao/workspace_test.go
+- README.md: README.md
+
+## My request for Codex:
+Explain the constants assumed here
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- launch.go: internal/plugin/agent/launch.go
+- hooks.go: internal/plugin/agent/hooks.go
+- workspace_test.go: internal/ao/workspace_test.go
+- README.md: README.md
+## My request for Codex:
+Explain the constants assumed here and why do we need this in this agent plugin.
