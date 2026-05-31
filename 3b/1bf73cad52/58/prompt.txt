@@ -1,0 +1,5 @@
+Now we need to think about how we are going to allow user to navigate to the project specific kanban route which is rendered at rout e "/".
+
+---
+
+Why the fuck do we have "_app" in the filename for for route: "/"?
