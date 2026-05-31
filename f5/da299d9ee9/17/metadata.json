@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.6.2",
+  "checkpoint_id": "f5da299d9ee9",
+  "session_id": "019e5f13-5d27-7a40-8191-6a94aed53699",
+  "strategy": "manual-commit",
+  "created_at": "2026-05-31T04:07:08.410801Z",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "web/src/components/ui/sonner.tsx"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "ffbff6782350",
+  "checkpoint_transcript_start": 112,
+  "transcript_lines_at_start": 112,
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-05-31T04:07:08.396122Z",
+    "agent_lines": 82,
+    "agent_removed": 0,
+    "human_added": 20899,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 20981,
+    "total_lines_changed": 51192,
+    "agent_percentage": 0.16018127832473822,
+    "metric_version": 2
+  }
+}
