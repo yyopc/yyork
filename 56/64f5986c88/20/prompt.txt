@@ -1,0 +1,28 @@
+# Context from my IDE setup:
+
+## Active file: web/AGENTS.md
+
+## Open tabs:
+- AGENTS.md: web/AGENTS.md
+- date-picker.tsx: web/src/components/ui/date-picker.tsx
+- flake.lock: flake.lock
+- sonner.tsx: web/src/components/ui/sonner.tsx
+- project-orchestrator-sidebar.stories.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.stories.tsx
+
+## My request for Codex:
+/goal I've recently updated the [AGENTS.md](web/AGENTS.md) for the web pkg. perform a scan and adhere to these new rules.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/AGENTS.md
+
+## Open tabs:
+- AGENTS.md: web/AGENTS.md
+- date-picker.tsx: web/src/components/ui/date-picker.tsx
+- flake.lock: flake.lock
+- sonner.tsx: web/src/components/ui/sonner.tsx
+- project-orchestrator-sidebar.stories.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.stories.tsx
+## My request for Codex:
+Yeah, so I want you to scan the whole code base and adhere to my new updated agents.md file.
