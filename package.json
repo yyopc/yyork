@@ -1,0 +1,76 @@
+{
+  "name": "better-ao",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Orchestrate parallel AI coding agents across Zellij-backed workspaces, repos, and issue trackers",
+  "homepage": "https://github.com/yyovil/better-ao#readme",
+  "bugs": {
+    "url": "https://github.com/yyovil/better-ao/issues"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "yyovil",
+    "email": "itsyyovil@gmail.com",
+    "url": "https://github.com/yyovil"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yyovil/better-ao.git"
+  },
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "bin": {
+    "better-ao": "./scripts/better-ao.mjs"
+  },
+  "scripts": {
+    "prepare": "pnpm --filter @better-ao/web exec lefthook install --force",
+    "api:generate": "node ./scripts/run-go.mjs run ./api/generate-workspace-contract.go",
+    "better-ao": "node ./scripts/better-ao.mjs",
+    "dev": "node ./scripts/better-ao.mjs",
+    "cli:test": "node --test scripts/*.test.mjs",
+    "web:dev": "pnpm --filter @better-ao/web dev",
+    "web:build": "pnpm --filter @better-ao/web build",
+    "web:lint": "pnpm --filter @better-ao/web lint",
+    "web:test": "pnpm --filter @better-ao/web test:ci",
+    "backend:dev": "node ./scripts/dev-backend.mjs",
+    "backend:build": "pnpm web:build && node ./scripts/copy-dashboard.mjs && node ./scripts/run-go.mjs build -o ./better-ao ./cmd/better-ao",
+    "backend:test": "node ./scripts/run-go.mjs test ./...",
+    "build": "pnpm web:build && pnpm backend:build",
+    "lint": "pnpm backend:test && pnpm web:lint",
+    "lint:ts": "pnpm --filter @better-ao/web lint:ts",
+    "test": "pnpm backend:test && pnpm cli:test && pnpm web:test",
+    "test:ci": "pnpm --filter @better-ao/web test:ci",
+    "e2e": "pnpm --filter @better-ao/web e2e",
+    "e2e:live-terminal": "pnpm --dir web e2e:live-terminal",
+    "e2e:live-terminal:reconnect": "pnpm --dir web e2e:live-terminal:reconnect",
+    "e2e:live-terminal:soak": "pnpm --dir web e2e:live-terminal:soak",
+    "e2e:live-terminal:switch": "pnpm --dir web e2e:live-terminal:switch",
+    "e2e:live-terminal:watch": "pnpm --dir web e2e:live-terminal:watch",
+    "e2e:live-terminal:switch:watch": "pnpm --dir web e2e:live-terminal:switch:watch",
+    "e2e:live-terminal:soak:watch": "pnpm --dir web e2e:live-terminal:soak:watch",
+    "e2e:live-terminal:reuse": "pnpm --dir web e2e:live-terminal:reuse",
+    "e2e:live-terminal:reuse:reconnect": "pnpm --dir web e2e:live-terminal:reuse:reconnect",
+    "e2e:live-terminal:reuse:watch": "pnpm --dir web e2e:live-terminal:reuse:watch",
+    "e2e:live-terminal:reuse:reconnect:watch": "pnpm --dir web e2e:live-terminal:reuse:reconnect:watch",
+    "e2e:live-terminal:reuse:switch:watch": "pnpm --dir web e2e:live-terminal:reuse:switch:watch",
+    "e2e:live-terminal:reuse:soak:watch": "pnpm --dir web e2e:live-terminal:reuse:soak:watch",
+    "e2e:live-terminal:manual": "pnpm --dir web e2e:live-terminal:manual",
+    "e2e:live-terminal:manual-soak": "pnpm --dir web e2e:live-terminal:manual-soak"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "@tailwindcss/oxide",
+      "esbuild",
+      "lefthook",
+      "msw",
+      "sharp"
+    ]
+  },
+  "devDependencies": {
+    "npm-run-all": "4.1.5"
+  }
+}
