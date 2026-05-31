@@ -1,0 +1,33 @@
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## Active selection of the file:
+useRef
+## Open tabs:
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- use-hydrated.ts: web/src/hooks/use-hydrated.ts
+- session-workspace.fixtures.ts: web/src/features/home/demo/session-workspace.fixtures.ts
+- workspace.ts: web/src/features/home/data/workspace.ts
+- .gitignore: .gitignore
+
+## My request for Codex:
+I see there're whole lot of useRef hooks used in the [terminal-panel.tsx](web/src/features/home/components/organisms/terminal-panel.tsx). use the [$vercel-react-best-practices](/Users/tanishqpalandurkar/.agents/skills/vercel-react-best-practices/SKILL.md) to get rid of them if possible.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## Active selection of the file:
+useRef
+## Open tabs:
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- use-hydrated.ts: web/src/hooks/use-hydrated.ts
+- session-workspace.fixtures.ts: web/src/features/home/demo/session-workspace.fixtures.ts
+- workspace.ts: web/src/features/home/data/workspace.ts
+- .gitignore: .gitignore
+
+## My request for Codex:
+what's the diff between terminalPanelRef and terminalViewportRef?
