@@ -1,0 +1,43 @@
+{
+  "cli_version": "0.6.2",
+  "checkpoint_id": "18d76a37a1d5",
+  "session_id": "019e5a6f-56ce-7011-991f-631b9b7204d9",
+  "strategy": "manual-commit",
+  "created_at": "2026-05-31T04:10:48.583241Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "flake.lock",
+    "flake.nix",
+    "lefthook.yml",
+    "package.json",
+    "pnpm-lock.yaml",
+    "scripts/better-ao-cli.test.mjs",
+    "scripts/better-ao.mjs"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "57cd12bf3793",
+  "token_usage": {
+    "input_tokens": 169939,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 3493760,
+    "output_tokens": 25393,
+    "api_call_count": 37
+  },
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-05-31T04:10:48.558871Z",
+    "agent_lines": 1851,
+    "agent_removed": 8728,
+    "human_added": 309,
+    "human_modified": 12,
+    "human_removed": 0,
+    "total_committed": 2172,
+    "total_lines_changed": 10900,
+    "agent_percentage": 97.05504587155963,
+    "metric_version": 2
+  }
+}

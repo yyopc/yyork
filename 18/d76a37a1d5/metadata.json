@@ -3,7 +3,7 @@
   "checkpoint_id": "18d76a37a1d5",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 2,
+  "checkpoints_count": 3,
   "files_touched": [
     ".envrc",
     "flake.lock",
@@ -12,7 +12,9 @@
     "lefthook.yml",
     "package.json",
     "pnpm-lock.yaml",
-    "pnpm-workspace.yaml"
+    "pnpm-workspace.yaml",
+    "scripts/better-ao-cli.test.mjs",
+    "scripts/better-ao.mjs"
   ],
   "sessions": [
     {
@@ -68,13 +70,19 @@
       "transcript": "/18/d76a37a1d5/8/full.jsonl",
       "content_hash": "/18/d76a37a1d5/8/content_hash.txt",
       "prompt": "/18/d76a37a1d5/8/prompt.txt"
+    },
+    {
+      "metadata": "/18/d76a37a1d5/9/metadata.json",
+      "transcript": "/18/d76a37a1d5/9/full.jsonl",
+      "content_hash": "/18/d76a37a1d5/9/content_hash.txt",
+      "prompt": "/18/d76a37a1d5/9/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 2709307,
+    "input_tokens": 2879246,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 113100672,
-    "output_tokens": 246507,
-    "api_call_count": 758
+    "cache_read_tokens": 116594432,
+    "output_tokens": 271900,
+    "api_call_count": 795
   }
 }
