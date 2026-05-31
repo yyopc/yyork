@@ -1,0 +1,16 @@
+how many shortcuts do we have rn in better-ao?
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://localhost:3000/
+
+## My request for Codex:
+I need you to add another shortcut "Toggle Canvas Ctrl + Shift + B".
+
+use the same components as you used for the previous shortcuts in the sidebar.
+
+---
+
+what library are we using for shortcuts in better-ao?
