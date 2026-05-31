@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.6.2",
+  "checkpoint_id": "fa473b163343",
+  "session_id": "019e5a6f-56ce-7011-991f-631b9b7204d9",
+  "strategy": "manual-commit",
+  "created_at": "2026-05-31T04:08:25.074481Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "cmd/better-ao/main.go",
+    "cmd/better-ao/main_test.go"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "57cd12bf3793",
+  "token_usage": {
+    "input_tokens": 169939,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 3493760,
+    "output_tokens": 25393,
+    "api_call_count": 37
+  },
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-05-31T04:08:25.058419Z",
+    "agent_lines": 498,
+    "agent_removed": 0,
+    "human_added": 10328,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 10826,
+    "total_lines_changed": 10826,
+    "agent_percentage": 4.600036948087936,
+    "metric_version": 2
+  }
+}
