@@ -1,0 +1,11 @@
+# Context from my IDE setup:
+
+## Active file: internal/terminal/manager.go
+
+## Open tabs:
+- manager.go: internal/terminal/manager.go
+- pipe_windows.go: internal/terminal/pipe_windows.go
+- open-ide-button.tsx: web/src/features/home/components/molecules/open-ide-button.tsx
+
+## My request for Codex:
+I now want to work on how does my add project dialog is designed. This is going to be an iterative cycle. So first of call create a story for that in the storybook so that I could only concentrate on it.
