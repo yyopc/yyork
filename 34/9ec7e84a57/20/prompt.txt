@@ -1,0 +1,15 @@
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## Active selection of the file:
+Terminal
+## Open tabs:
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- Terminal.d.ts: node_modules/.pnpm/@wterm+react@0.3.0_@wterm+dom@0.3.0_react-dom@19.3.0-canary-d5736f09-20260507_react@19._6f5f2bc032d83e90dc34ac5cc2512320/node_modules/@wterm/react/dist/Terminal.d.ts
+- project-orchestrator-sidebar.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+- server.go: internal/server/server.go
+- server.go: /nix/store/hcvpfc0gm2aamgrn44x64yh66nakmmy3-go-1.25.10/share/go/src/net/http/server.go
+
+## My request for Codex:
+I want to move the button to cancel the toast from top left to top right and stuck to the top right instead of having any offset.
