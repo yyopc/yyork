@@ -861,6 +861,12 @@
       "transcript": "/f5/da299d9ee9/25/full.jsonl",
       "content_hash": "/f5/da299d9ee9/25/content_hash.txt",
       "prompt": "/f5/da299d9ee9/25/prompt.txt"
+    },
+    {
+      "metadata": "/f5/da299d9ee9/26/metadata.json",
+      "transcript": "/f5/da299d9ee9/26/full.jsonl",
+      "content_hash": "/f5/da299d9ee9/26/content_hash.txt",
+      "prompt": "/f5/da299d9ee9/26/prompt.txt"
     }
   ],
   "token_usage": {
