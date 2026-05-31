@@ -1,0 +1,29 @@
+# Context from my IDE setup:
+
+## Active file: /Users/tanishqpalandurkar/.superset/hooks/notify.sh
+
+## Open tabs:
+- notify.sh: /Users/tanishqpalandurkar/.superset/hooks/notify.sh
+- codex.go: internal/plugin/agent/codex/codex.go
+- plugin.go: internal/plugin/plugin.go
+- agent.go: internal/plugin/agent/agent.go
+- better-ao.mjs: scripts/better-ao.mjs
+
+## My request for Codex:
+So this is a bash file that contains functions Ig that are invoked when a particular hook event is fired by a cli agent. Give me a TLDR of this file.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: /Users/tanishqpalandurkar/.superset/hooks/notify.sh
+
+## Open tabs:
+- notify.sh: /Users/tanishqpalandurkar/.superset/hooks/notify.sh
+- codex.go: internal/plugin/agent/codex/codex.go
+- plugin.go: internal/plugin/plugin.go
+- agent.go: internal/plugin/agent/agent.go
+- better-ao.mjs: scripts/better-ao.mjs
+
+## My request for Codex:
+alright lets talk about if from codex hooks perspective
