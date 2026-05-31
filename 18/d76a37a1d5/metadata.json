@@ -190,6 +190,12 @@
       "transcript": "/18/d76a37a1d5/28/full.jsonl",
       "content_hash": "/18/d76a37a1d5/28/content_hash.txt",
       "prompt": "/18/d76a37a1d5/28/prompt.txt"
+    },
+    {
+      "metadata": "/18/d76a37a1d5/29/metadata.json",
+      "transcript": "/18/d76a37a1d5/29/full.jsonl",
+      "content_hash": "/18/d76a37a1d5/29/content_hash.txt",
+      "prompt": "/18/d76a37a1d5/29/prompt.txt"
     }
   ],
   "token_usage": {
