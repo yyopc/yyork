@@ -1,0 +1,110 @@
+# Context from my IDE setup:
+
+## Active file: /Users/tanishqpalandurkar/.zshrc
+
+## Open tabs:
+- .zshrc: /Users/tanishqpalandurkar/.zshrc
+- use-value-has-changed.ts: web/src/hooks/use-value-has-changed.ts
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- use-hydrated.ts: web/src/hooks/use-hydrated.ts
+- session-workspace.fixtures.ts: web/src/features/home/demo/session-workspace.fixtures.ts
+
+# Applications mentioned by the user:
+
+<appshot app="Comet" bundle-identifier="ai.perplexity.comet" window-title="Agent Orchestrator" image="Comet Appshot 2026-05-24T14-06-04.429Z.png">
+Window: "Agent Orchestrator", App: Comet.
+standard window Agent Orchestrator - Pinned - Comet, URL: localhost:3000/
+	container (settable, string) Agent Orchestrator - Pinned - Comet, URL: localhost:3000/
+		container (settable, string)
+			toolbar (settable, string)
+				button (settable, string)
+				button (settable, string)
+				button (settable, string)
+				button (settable, string)
+				container (settable, string)
+					pop up button (settable, string)
+					text field (settable, string) Description: Address and search bar, Value: localhost:3000, Placeholder: Ask anything or navigate…
+					text (settable, string) localhost:3000
+					button (settable, string)
+					button (settable, string)
+				container (settable, string)
+					pop up button (settable, string) ElevenReader — Text Reader
+Has access to this site
+					pop up button (settable, string) Obsidian Web Clipper
+Has access to this site
+					pop up button (settable, string) Extensions
+				button (settable, string)
+				button (settable, string)
+				button (settable, string)
+				button (settable, string)
+			container (settable, string)
+				HTML content Agent Orchestrator, URL: localhost:3000/
+					container
+						heading Agent Orchestrator
+							text Agent Orchestrator
+						container Projects
+							text Project Orchestrators
+							content list
+								container
+									button
+									content list
+										button
+										container
+											button
+											content list
+												button
+										container
+											button
+											content list
+												button
+												button
+												button
+						button
+					container
+						button
+						tab group Session view
+							tab (settable, integer) Kanban, Value: 0
+							tab (selected) Terminal, Value: 1
+						pop up button Toggle theme
+						container [AO-78] terminal panel
+							terminal (settable, string) Description: [AO-78] terminal, Value:                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+
+								text entry area (settable, string)
+							container
+								button
+								button
+					container Notifications alt+T
+						content list
+							container
+								image
+								text Terminal connection failed
+								text [AO-78] could not attach to the worker runtime.
+								button
+							container
+								image
+								text Terminal connection failed
+								text [AO-78] could not attach to the worker runtime.
+								button
+					container Notifications alt+T
+			tab group (settable, string)
+				container (settable, string)
+					tab (settable, boolean) Description: (2) Discord | @harshitsingh - Pinned, Value: off
+					tab (settable, boolean) Description: gp (Channel) - yyovil's workspace - Slack - Pinned, Value: off
+					tab (settable, boolean) Value: off, Description: (36) Gunna - Prada Dem (feat. Offset) [Official Video] - YouTube - Pinned - Video playing in picture-in-picture mode - Memory usage - 780 MB
+						button (settable, string)
+					tab (selected, settable, boolean) Description: Agent Orchestrator - Pinned - Memory usage - 149 MB, Value: on
+					tab (settable, boolean) Value: off, Description: Home / Project Orchestrator Sidebar - Worker Sessions Nested ⋅ Storybook - Pinned - Memory usage - 181 MB
+					tab (settable, boolean) Description: Popover - shadcn/ui, Value: off
+					tab (settable, boolean) Description: suggest PTY go pkgs real quick., Value: off
+					tab (settable, boolean) Description: Gouri Biswas | SDE Portfolio, Value: off
+					tab (settable, boolean) Value: off, Description: I've this api key that starts with the prefix "sk-ant-" for claude code CLI.... - Memory usage - 142 MB
+				button (settable, string)
+				container (settable, string)
+					pop up button (settable, string) Comet
+					pop up button (settable, string) Tanishq Palandurkar
+
+The focused UI element is text entry area (settable, string)
+</appshot>
+
+## My request for Codex:
+use the [$investigate](/Users/tanishqpalandurkar/GStack/.agents/skills/gstack-investigate/SKILL.md) skill to find out about this abnormal behaviour.
