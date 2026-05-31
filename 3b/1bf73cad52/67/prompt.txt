@@ -1,0 +1,9 @@
+I'm thinking about where the fuck do I move the kanban button? any idea?
+
+---
+
+before suggesting think what the user interaction flow would be like in case of 4 projects are opened. Filter based on the number of clicks they have to mk for going from one project's kanban view to anothers and mention the flow when it passes your internal filter.
+
+---
+
+What are my other options? I want to be, like, search exhaustively first of all, and then I'll make my mind up about what direction I should go in.
