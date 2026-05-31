@@ -1,0 +1,23 @@
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-connection.unit.spec.ts
+
+## Open tabs:
+- terminal-connection.unit.spec.ts: web/src/features/home/components/organisms/terminal-connection.unit.spec.ts
+- terminal-connection.ts: web/src/features/home/components/organisms/terminal-connection.ts
+
+## My request for Codex:
+what are these `.unit.spec.ts` files are used for?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-connection.unit.spec.ts
+
+## Open tabs:
+- terminal-connection.unit.spec.ts: web/src/features/home/components/organisms/terminal-connection.unit.spec.ts
+- terminal-connection.ts: web/src/features/home/components/organisms/terminal-connection.ts
+
+## My request for Codex:
+I mean .test.ts filename makes more sense semantically but .unit.spec.ts is something I'm unawared of. please teach me.
