@@ -3,8 +3,9 @@
   "checkpoint_id": "f5da299d9ee9",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 7,
+  "checkpoints_count": 8,
   "files_touched": [
+    "web/e2e/live-terminal-smoke.mjs",
     "web/e2e/root.spec.ts",
     "web/package.json",
     "web/src/components/form/docs.utils.tsx",
@@ -118,13 +119,19 @@
       "transcript": "/f5/da299d9ee9/11/full.jsonl",
       "content_hash": "/f5/da299d9ee9/11/content_hash.txt",
       "prompt": "/f5/da299d9ee9/11/prompt.txt"
+    },
+    {
+      "metadata": "/f5/da299d9ee9/12/metadata.json",
+      "transcript": "/f5/da299d9ee9/12/full.jsonl",
+      "content_hash": "/f5/da299d9ee9/12/content_hash.txt",
+      "prompt": "/f5/da299d9ee9/12/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 5119957,
+    "input_tokens": 5272480,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 175020288,
-    "output_tokens": 457799,
-    "api_call_count": 1267
+    "cache_read_tokens": 179940992,
+    "output_tokens": 477622,
+    "api_call_count": 1316
   }
 }
