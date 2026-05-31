@@ -1,0 +1,91 @@
+now I wonder where I'm put this canvas button? The reason I'm saying this is that I don't want to continue using the tabs. Tabs looks ugly. also they don't mk sense now. because If by simply clicking on worker/orchestrator sessions, if I could simply render the terminal then there's no fucking need of tabs. Is there?
+
+---
+
+lets work towards removing the tabs. storybook is our playground. Is there a story for this already in our storybook?
+
+---
+
+yup do that
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://localhost:6006/?path=/story/home-project-orchestrator-sidebar--selected-session-context-actions
+
+## My request for Codex:
+ok hold on. #1 thing to do right now is to put kanban board as a sidebar item. do this first before we go any further.
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://localhost:6006/?path=/story/home-project-orchestrator-sidebar--selected-session-context-actions
+
+## My request for Codex:
+i don't want to render the per project kanban sidebar item.
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://localhost:6006/?path=/story/home-project-orchestrator-sidebar--selected-session-context-actions
+
+## My request for Codex:
+I wonder how would we render project specific kanban agent though
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://localhost:6006/?path=/story/home-project-orchestrator-sidebar--selected-session-context-actions
+
+## My request for Codex:
+how do we setup the current acitve project though? At a time, there could only be one sidebar item active.
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://localhost:6006/?path=/story/home-project-orchestrator-sidebar--selected-session-context-actions
+## My request for Codex:
+how do we setup the current acitve project though? At a time, there could only be one sidebar item active.
+
+and this is semantically not technically.
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://localhost:6006/?path=/story/home-project-orchestrator-sidebar--selected-session-context-actions
+
+## My request for Codex:
+I'd rather provide a kanban icon button beside the project name itself.
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://localhost:6006/?path=/story/home-project-orchestrator-sidebar--selected-session-context-actions
+
+## My request for Codex:
+yeah they aren't veritcally aligned
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://localhost:6006/?path=/story/home-project-orchestrator-sidebar--selected-session-context-actions
+
+## My request for Codex:
+also it has a fill color set that I don't want that
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://localhost:6006/?path=/story/home-project-orchestrator-sidebar--selected-session-context-actions
+
+## My request for Codex:
+nah I don't like this. what are the other options?
