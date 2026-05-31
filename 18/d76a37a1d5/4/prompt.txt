@@ -1,0 +1,46 @@
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/pages/orchestrator-home-page.tsx
+
+## Open tabs:
+- orchestrator-home-page.tsx: web/src/features/home/pages/orchestrator-home-page.tsx
+- flake.nix: flake.nix
+- error-context.md: web/test-results/root-selecting-a-worker-card-retargets-the-terminal-view-chromium/error-context.md
+- provider.tsx: web/src/lib/tanstack-query/provider.tsx
+- query-client.tsx: web/src/lib/tanstack-query/query-client.tsx
+
+## My request for Codex:
+/goal I see there's this Open IDE button. what was it supposed to do?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/pages/orchestrator-home-page.tsx
+
+## Open tabs:
+- orchestrator-home-page.tsx: web/src/features/home/pages/orchestrator-home-page.tsx
+- flake.nix: flake.nix
+- error-context.md: web/test-results/root-selecting-a-worker-card-retargets-the-terminal-view-chromium/error-context.md
+- provider.tsx: web/src/lib/tanstack-query/provider.tsx
+- query-client.tsx: web/src/lib/tanstack-query/query-client.tsx
+## My request for Codex:
+I see there's this Open IDE button. what was it supposed to do?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## Active selection of the file:
+useRef
+## Open tabs:
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+- use-hydrated.ts: web/src/hooks/use-hydrated.ts
+- session-workspace.fixtures.ts: web/src/features/home/demo/session-workspace.fixtures.ts
+- workspace.ts: web/src/features/home/data/workspace.ts
+- .gitignore: .gitignore
+
+## My request for Codex:
+Yeah now is the best time to work upon that.
