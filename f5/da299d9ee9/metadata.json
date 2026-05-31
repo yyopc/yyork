@@ -3,7 +3,7 @@
   "checkpoint_id": "f5da299d9ee9",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 8,
+  "checkpoints_count": 9,
   "files_touched": [
     "web/e2e/live-terminal-smoke.mjs",
     "web/e2e/root.spec.ts",
@@ -21,11 +21,13 @@
     "web/src/components/form/form-test-utils.tsx",
     "web/src/components/form/form.tsx",
     "web/src/components/icons/svgr.config.mjs",
+    "web/src/components/ui/kbd.tsx",
     "web/src/components/ui/number-input.tsx",
     "web/src/components/ui/search-input.tsx",
     "web/src/components/ui/sidebar.tsx",
     "web/src/components/ui/sonner.tsx",
     "web/src/components/ui/tabs.tsx",
+    "web/src/components/ui/tooltip.tsx",
     "web/src/features/home/components/molecules/kanban-card.tsx",
     "web/src/features/home/components/molecules/open-ide-button.stories.tsx",
     "web/src/features/home/components/molecules/open-ide-button.tsx",
@@ -131,13 +133,19 @@
       "transcript": "/f5/da299d9ee9/13/full.jsonl",
       "content_hash": "/f5/da299d9ee9/13/content_hash.txt",
       "prompt": "/f5/da299d9ee9/13/prompt.txt"
+    },
+    {
+      "metadata": "/f5/da299d9ee9/14/metadata.json",
+      "transcript": "/f5/da299d9ee9/14/full.jsonl",
+      "content_hash": "/f5/da299d9ee9/14/content_hash.txt",
+      "prompt": "/f5/da299d9ee9/14/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 5272480,
+    "input_tokens": 6710974,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 179940992,
-    "output_tokens": 477622,
-    "api_call_count": 1316
+    "cache_read_tokens": 216850176,
+    "output_tokens": 554409,
+    "api_call_count": 1600
   }
 }
