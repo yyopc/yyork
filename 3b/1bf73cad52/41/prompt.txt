@@ -1,0 +1,44 @@
+# Context from my IDE setup:
+
+## Active file: prds/plugins/agents/PRD.md
+
+## Open tabs:
+- PRD.md: prds/plugins/agents/PRD.md
+- codex.go: internal/plugin/agent/codex/codex.go
+- github.go: internal/plugins/github/github.go
+- agent.go: internal/plugin/agent/agent.go
+- workspace.go: internal/ao/workspace.go
+
+## My request for Codex:
+do I need the [scripts](scripts/) >?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/codex/codex.go
+
+## Active selection of the file:
+var _ plugin.Plugin = (*Plugin)(nil)
+var _ agent.Agent = (*Plugin)(nil)
+## Open tabs:
+- codex.go: internal/plugin/agent/codex/codex.go
+- hooks.json: .codex/hooks.json
+- .gitignore: .gitignore
+- plugin.go: internal/plugin/plugin.go
+- agent.go: internal/plugin/agent/agent.go
+
+## My request for Codex:
+I meant do we need [scripts](scripts/) code at all? If not, delete it rfn.
+
+---
+
+why the fuck do I've written backend in go then if I had to write the CLI in ts?
+
+---
+
+Why the fuck do we need that? Why cant go do this? You need to understand that better-ao is go first. javascript is only used for building the frontend app which is built and embeded inside of the go binary which is packaged and distributed to the end users.
+
+---
+
+yeah so first of all its a clean up time and then its build up time. what we are going to clean up and the build back in go?
