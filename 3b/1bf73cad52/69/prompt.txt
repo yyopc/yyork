@@ -1,0 +1,5 @@
+can I use 2 ChatGPT Pro subs at a time>
+
+---
+
+Yeah, so I want to log in into my ChatGPT Pro subscription in such a way that I could just simply multiplex in between two Pro accounts. So my use case is that if one of the acc account is exhausted in terms of weekly quota, I can just simply switch to another account and continue my usage
