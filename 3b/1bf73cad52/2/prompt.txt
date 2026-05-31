@@ -1,0 +1,44 @@
+# Context from my IDE setup:
+
+## Active file: web/src/lib/tanstack-query/provider.tsx
+
+## Open tabs:
+- provider.tsx: web/src/lib/tanstack-query/provider.tsx
+- query-client.tsx: web/src/lib/tanstack-query/query-client.tsx
+- manager.go: internal/terminal/manager.go
+- pipe_windows.go: internal/terminal/pipe_windows.go
+- open-ide-button.tsx: web/src/features/home/components/molecules/open-ide-button.tsx
+
+## My request for Codex:
+tell me about layout techniques and implementations in better-ao project
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/lib/tanstack-query/provider.tsx
+
+## Open tabs:
+- provider.tsx: web/src/lib/tanstack-query/provider.tsx
+- query-client.tsx: web/src/lib/tanstack-query/query-client.tsx
+- manager.go: internal/terminal/manager.go
+- pipe_windows.go: internal/terminal/pipe_windows.go
+- open-ide-button.tsx: web/src/features/home/components/molecules/open-ide-button.tsx
+## My request for Codex:
+tell me about layout techniques and implementations in better-ao project.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: web/src/features/home/pages/orchestrator-home-page.tsx
+
+## Open tabs:
+- orchestrator-home-page.tsx: web/src/features/home/pages/orchestrator-home-page.tsx
+- flake.nix: flake.nix
+- error-context.md: web/test-results/root-selecting-a-worker-card-retargets-the-terminal-view-chromium/error-context.md
+- provider.tsx: web/src/lib/tanstack-query/provider.tsx
+- query-client.tsx: web/src/lib/tanstack-query/query-client.tsx
+
+## My request for Codex:
+wft is you thinking about?
