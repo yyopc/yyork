@@ -1,0 +1,29 @@
+# Context from my IDE setup:
+
+## Active file: AGENTS.md
+
+## Open tabs:
+- AGENTS.md: AGENTS.md
+- project-orchestrator-sidebar.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+- AGENTS.md: web/AGENTS.md
+- main-topbar.tsx: web/src/features/home/components/organisms/main-topbar.tsx
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## My request for Codex:
+Why the fuck do we need [scripts](scripts/) in better-ao?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: AGENTS.md
+
+## Open tabs:
+- AGENTS.md: AGENTS.md
+- project-orchestrator-sidebar.tsx: web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx
+- AGENTS.md: web/AGENTS.md
+- main-topbar.tsx: web/src/features/home/components/organisms/main-topbar.tsx
+- terminal-panel.tsx: web/src/features/home/components/organisms/terminal-panel.tsx
+
+## My request for Codex:
+why the repo root is a npm pkg?
