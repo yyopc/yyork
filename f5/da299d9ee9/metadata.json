@@ -3,11 +3,30 @@
   "checkpoint_id": "f5da299d9ee9",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 3,
+  "checkpoints_count": 4,
   "files_touched": [
     "web/e2e/root.spec.ts",
+    "web/package.json",
+    "web/src/components/form/docs.utils.tsx",
+    "web/src/components/form/field-combobox-multiple/index.tsx",
+    "web/src/components/form/field-combobox/field-combobox.browser.spec.tsx",
+    "web/src/components/form/field-combobox/index.tsx",
+    "web/src/components/form/field-date/docs.stories.tsx",
+    "web/src/components/form/field-otp/index.tsx",
+    "web/src/components/form/field-select/index.tsx",
+    "web/src/components/form/form-field-controller/context.tsx",
+    "web/src/components/form/form-field-controller/index.tsx",
+    "web/src/components/form/form-field-error.tsx",
+    "web/src/components/form/form-test-utils.tsx",
+    "web/src/components/form/form.tsx",
+    "web/src/components/icons/svgr.config.mjs",
+    "web/src/components/ui/number-input.tsx",
+    "web/src/components/ui/search-input.tsx",
+    "web/src/components/ui/sidebar.tsx",
+    "web/src/components/ui/tabs.tsx",
     "web/src/features/home/components/molecules/open-ide-button.stories.tsx",
     "web/src/features/home/components/molecules/open-ide-button.tsx",
+    "web/src/features/home/components/organisms/main-topbar.tsx",
     "web/src/features/home/components/organisms/project-orchestrator-sidebar.stories.tsx",
     "web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx",
     "web/src/features/home/components/organisms/terminal-panel.tsx",
@@ -18,7 +37,11 @@
     "web/src/features/home/domain/session-workspace.ts",
     "web/src/features/home/domain/session-workspace.unit.spec.ts",
     "web/src/features/home/templates/orchestrator-workspace-template.tsx",
-    "web/src/styles/app.css"
+    "web/src/lib/zod/zod-utils.ts",
+    "web/src/locales/en/components.json",
+    "web/src/styles/app.css",
+    "web/src/types/utilities.d.ts",
+    "web/vite.config.ts"
   ],
   "sessions": [
     {
@@ -44,13 +67,19 @@
       "transcript": "/f5/da299d9ee9/3/full.jsonl",
       "content_hash": "/f5/da299d9ee9/3/content_hash.txt",
       "prompt": "/f5/da299d9ee9/3/prompt.txt"
+    },
+    {
+      "metadata": "/f5/da299d9ee9/4/metadata.json",
+      "transcript": "/f5/da299d9ee9/4/full.jsonl",
+      "content_hash": "/f5/da299d9ee9/4/content_hash.txt",
+      "prompt": "/f5/da299d9ee9/4/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 1353991,
+    "input_tokens": 3070417,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 54459648,
-    "output_tokens": 131776,
-    "api_call_count": 373
+    "cache_read_tokens": 125533184,
+    "output_tokens": 282379,
+    "api_call_count": 842
   }
 }
