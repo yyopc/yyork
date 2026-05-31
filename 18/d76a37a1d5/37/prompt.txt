@@ -1,0 +1,50 @@
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/agent.go
+
+## Open tabs:
+- agent.go: internal/plugin/agent/agent.go
+- open_url.go: internal/app/open_url.go
+- plugin.go: internal/plugin/plugin.go
+- codex.go: internal/plugin/agent/codex/codex.go
+- config.go: internal/plugin/agent/config.go
+
+## My request for Codex:
+Who's going to use the Config?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/agent.go
+
+## Open tabs:
+- agent.go: internal/plugin/agent/agent.go
+- open_url.go: internal/app/open_url.go
+- plugin.go: internal/plugin/plugin.go
+- codex.go: internal/plugin/agent/codex/codex.go
+- config.go: internal/plugin/agent/config.go
+
+## My request for Codex:
+so there's should be a pkg named config that's going to collect the agentconfig type. 
+
+I'm going to expose this config to the users via `~/.better-ao/config.yaml` file.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/agent.go
+
+## Open tabs:
+- agent.go: internal/plugin/agent/agent.go
+- open_url.go: internal/app/open_url.go
+- plugin.go: internal/plugin/plugin.go
+- codex.go: internal/plugin/agent/codex/codex.go
+- config.go: internal/plugin/agent/config.go
+## My request for Codex:
+so there's should be a pkg named config that's going to collect the agentconfig type. 
+
+I'm going to expose this config to the users via `~/.better-ao/config.yaml` file.
+
+I'm going to use the viper pkg
