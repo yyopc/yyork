@@ -1,0 +1,31 @@
+# Context from my IDE setup:
+
+## Active file: web/AGENTS.md
+
+## Open tabs:
+- AGENTS.md: web/AGENTS.md
+- config.go: internal/plugin/agent/config.go
+- agent.go: internal/plugin/agent/agent.go
+- codex.go: internal/plugin/agent/codex/codex.go
+- permissions.go: internal/plugin/agent/permissions.go
+
+## My request for Codex:
+Add an agent rule that whenever agent want to suggest some UI changes or user want to experiment with the UI layouting, design iteration etc, use storybook for doing so instead of making changes directly in the pages/components etc. 
+
+once the iteration is approved by the user, incorporate them in the app. storybook is the iteration playground as it allows to soley focus on the UI design and iterate in isolation.
+
+---
+
+# Context from my IDE setup:
+
+## Active file: internal/plugin/agent/session.go
+
+## Open tabs:
+- session.go: internal/plugin/agent/session.go
+- restore.go: internal/plugin/agent/restore.go
+- prompt.go: internal/plugin/agent/prompt.go
+- permissions.go: internal/plugin/agent/permissions.go
+- launch.go: internal/plugin/agent/launch.go
+
+## My request for Codex:
+also add a rule to use the codex in-app browser before claiming the work is being done.
