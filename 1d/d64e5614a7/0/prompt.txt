@@ -1,0 +1,21 @@
+[Image #1] tells us that codex hasn't registered to a hook event equivalent to Stop in claude code. What's the issue? yyork uses it to get the last_assistant_message and uses that as the metadata.recap.
+
+---
+
+alright so If I want the recap there, what it would tk? or I would have to spawn a new codex agent using yyork?
+
+---
+
+If I leave that requirement behind, the new codex agents spawned using yyork would hv the recap though right?
+
+---
+
+alright lets replace the bad cmd with the right one for yyork
+
+---
+
+but this wont run in other people's computer though. would it?
+
+---
+
+alright tell me what's the expected behaviour of the newly spawned codex agent through yyork now?
