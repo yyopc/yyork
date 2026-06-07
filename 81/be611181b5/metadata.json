@@ -1,0 +1,39 @@
+{
+  "cli_version": "0.7.5",
+  "checkpoint_id": "81be611181b5",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "cmd/yyork/hooks.go",
+    "cmd/yyork/hooks_test.go",
+    "cmd/yyork/main.go",
+    "docs/yyork-hooks.html",
+    "go.mod",
+    "internal/plugin/agent/agent.go",
+    "internal/plugin/agent/claudecode/claudecode.go",
+    "internal/plugin/agent/claudecode/claudecode_test.go",
+    "internal/plugin/agent/claudecode/hooks.go",
+    "internal/plugin/agent/codex/codex.go",
+    "internal/plugin/agent/codex/codex_test.go",
+    "internal/plugin/agent/codex/hooks.go",
+    "prds/plugins/agents/PRD.md",
+    "scripts/yyork-cli.test.mjs",
+    "scripts/yyork.mjs"
+  ],
+  "sessions": [
+    {
+      "metadata": "/81/be611181b5/0/metadata.json",
+      "transcript": "/81/be611181b5/0/full.jsonl",
+      "content_hash": "/81/be611181b5/0/content_hash.txt",
+      "prompt": "/81/be611181b5/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 172676,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 2645760,
+    "output_tokens": 20690,
+    "api_call_count": 22
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "cli_version": "0.7.5",
+  "checkpoint_id": "81be611181b5",
+  "session_id": "019e9b41-76cf-76f0-9db6-8bc9b5cfa794",
+  "strategy": "manual-commit",
+  "created_at": "2026-06-07T02:12:05.141152Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "cmd/yyork/hooks.go",
+    "cmd/yyork/hooks_test.go",
+    "cmd/yyork/main.go",
+    "docs/yyork-hooks.html",
+    "go.mod",
+    "internal/plugin/agent/agent.go",
+    "internal/plugin/agent/claudecode/claudecode.go",
+    "internal/plugin/agent/claudecode/claudecode_test.go",
+    "internal/plugin/agent/claudecode/hooks.go",
+    "internal/plugin/agent/codex/codex.go",
+    "internal/plugin/agent/codex/codex_test.go",
+    "internal/plugin/agent/codex/hooks.go",
+    "prds/plugins/agents/PRD.md",
+    "scripts/yyork-cli.test.mjs",
+    "scripts/yyork.mjs"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "a72c22f61d97",
+  "token_usage": {
+    "input_tokens": 172676,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 2645760,
+    "output_tokens": 20690,
+    "api_call_count": 22
+  },
+  "session_metrics": {
+    "turn_count": 2
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-06-07T02:12:05.125063Z",
+    "agent_lines": 2629,
+    "agent_removed": 135,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 2629,
+    "total_lines_changed": 2764,
+    "agent_percentage": 100,
+    "metric_version": 2
+  }
+}
