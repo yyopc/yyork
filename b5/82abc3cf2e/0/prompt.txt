@@ -1,0 +1,1 @@
+There's a security complication in front of us rn. crush.json has litellm key that got committed to the upstream repo. We got to mitigate the risk real quick.
