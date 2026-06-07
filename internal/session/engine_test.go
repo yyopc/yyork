@@ -18,13 +18,13 @@ import (
 // -- Fakes ---------------------------------------------------------------
 
 type fakeWorktree struct {
-	mu             sync.Mutex
-	isGitRepo      func(string) bool
-	baseRef        func(string) (string, error)
-	createErr      error
-	removeErr      error
-	createCalls    []fakeWorktreeCreateCall
-	removeCalls    []fakeWorktreeRemoveCall
+	mu          sync.Mutex
+	isGitRepo   func(string) bool
+	baseRef     func(string) (string, error)
+	createErr   error
+	removeErr   error
+	createCalls []fakeWorktreeCreateCall
+	removeCalls []fakeWorktreeRemoveCall
 }
 
 type fakeWorktreeCreateCall struct {
@@ -64,16 +64,16 @@ func (f *fakeWorktree) Remove(_ context.Context, projectPath, worktreePath, bran
 }
 
 type fakeProvider struct {
-	mu              sync.Mutex
-	createErr       error
-	killErr         error
-	existsErr       error
-	listErr         error
-	liveSessions    map[string]bool // name -> exists
-	createCalls     []session.CreateOpts
-	killCalls       []string
-	existsCalls     []string
-	listCalls       int
+	mu           sync.Mutex
+	createErr    error
+	killErr      error
+	existsErr    error
+	listErr      error
+	liveSessions map[string]bool // name -> exists
+	createCalls  []session.CreateOpts
+	killCalls    []string
+	existsCalls  []string
+	listCalls    int
 }
 
 func (f *fakeProvider) CreateSession(_ context.Context, opts session.CreateOpts) error {
@@ -129,6 +129,8 @@ func (f *fakeProvider) ListSessionNames(_ context.Context) ([]string, error) {
 type fakeAgent struct {
 	launchCmd []string
 	launchErr error
+	hooksErr  error
+	hookCalls []pluginagent.WorkspaceHookConfig
 }
 
 func (f *fakeAgent) Manifest() plugin.Manifest {
@@ -146,7 +148,10 @@ func (f *fakeAgent) GetLaunchCommand(_ context.Context, _ pluginagent.LaunchConf
 func (f *fakeAgent) GetPromptDeliveryStrategy(context.Context, pluginagent.LaunchConfig) (pluginagent.PromptDeliveryStrategy, error) {
 	return pluginagent.PromptDeliveryInCommand, nil
 }
-func (f *fakeAgent) GetAgentHooks(context.Context, pluginagent.WorkspaceHookConfig) error { return nil }
+func (f *fakeAgent) GetAgentHooks(_ context.Context, cfg pluginagent.WorkspaceHookConfig) error {
+	f.hookCalls = append(f.hookCalls, cfg)
+	return f.hooksErr
+}
 func (f *fakeAgent) GetRestoreCommand(context.Context, pluginagent.RestoreConfig) ([]string, bool, error) {
 	return nil, false, nil
 }
@@ -161,6 +166,7 @@ type harness struct {
 	repo     store.SessionRepo
 	worktree *fakeWorktree
 	provider *fakeProvider
+	agent    *fakeAgent
 	bus      *events.Bus
 	subCh    <-chan events.Event
 	unsub    func()
@@ -179,7 +185,8 @@ func newHarness(t *testing.T) *harness {
 	t.Cleanup(func() { _ = s.Close() })
 
 	registry := plugin.NewRegistry()
-	if err := registry.Register(&fakeAgent{launchCmd: []string{"echo", "hello"}}); err != nil {
+	agentPlugin := &fakeAgent{launchCmd: []string{"echo", "hello"}}
+	if err := registry.Register(agentPlugin); err != nil {
 		t.Fatalf("register fake plugin: %v", err)
 	}
 
@@ -209,6 +216,7 @@ func newHarness(t *testing.T) *harness {
 		repo:     s.Sessions(),
 		worktree: wt,
 		provider: prov,
+		agent:    agentPlugin,
 		bus:      bus,
 		subCh:    ch,
 		unsub:    unsub,
@@ -302,6 +310,15 @@ func TestSpawnHappyPath(t *testing.T) {
 	if h.worktree.createCalls[0].branchName != "yyork/"+sess.ID {
 		t.Errorf("branch = %q, want %q", h.worktree.createCalls[0].branchName, "yyork/"+sess.ID)
 	}
+	if len(h.agent.hookCalls) != 1 {
+		t.Fatalf("hookCalls = %d, want 1", len(h.agent.hookCalls))
+	}
+	if h.agent.hookCalls[0].SessionID != sess.ID {
+		t.Errorf("hook SessionID = %q, want %q", h.agent.hookCalls[0].SessionID, sess.ID)
+	}
+	if h.agent.hookCalls[0].WorkspacePath != wantWorktree {
+		t.Errorf("hook WorkspacePath = %q, want %q", h.agent.hookCalls[0].WorkspacePath, wantWorktree)
+	}
 
 	// Event published.
 	events := h.drainEvents(t, 1, 100*time.Millisecond)
@@ -379,6 +396,33 @@ func TestSpawnRollsBackOnProviderFailure(t *testing.T) {
 	case e := <-h.subCh:
 		t.Errorf("unexpected event: %+v", e)
 	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func TestSpawnRollsBackOnHookFailure(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	h.agent.hooksErr = errors.New("hooks blew up")
+
+	_, err := h.engine.Spawn(context.Background(), session.SpawnRequest{
+		ProjectPath: "/tmp/proj",
+	})
+	if err == nil {
+		t.Fatal("expected error from hook failure")
+	}
+
+	if len(h.worktree.createCalls) != 1 {
+		t.Errorf("worktree createCalls = %d, want 1", len(h.worktree.createCalls))
+	}
+	if len(h.worktree.removeCalls) != 1 {
+		t.Errorf("worktree removeCalls = %d, want 1 (rollback)", len(h.worktree.removeCalls))
+	}
+	if len(h.provider.createCalls) != 0 {
+		t.Errorf("provider was called despite hook failure; calls = %d", len(h.provider.createCalls))
+	}
+	rows, _ := h.repo.List(context.Background())
+	if len(rows) != 0 {
+		t.Errorf("rows = %d, want 0", len(rows))
 	}
 }
 

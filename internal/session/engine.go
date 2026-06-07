@@ -109,11 +109,11 @@ type EngineConfig struct {
 // to the store, and lifecycle event publication. Operations are
 // transactional — a failure anywhere in Spawn leaves no partial state.
 type Engine struct {
-	repo         store.SessionRepo
-	worktree     worktree.Module
-	provider     DurabilityProvider
-	plugins      *plugin.Registry
-	bus          events.Publisher
+	repo               store.SessionRepo
+	worktree           worktree.Module
+	provider           DurabilityProvider
+	plugins            *plugin.Registry
+	bus                events.Publisher
 	worktreeBase       string
 	defaultAgent       string
 	defaultPermissions agent.PermissionMode
@@ -169,11 +169,11 @@ func NewEngine(cfg EngineConfig) (*Engine, error) {
 	}
 
 	return &Engine{
-		repo:         cfg.Repo,
-		worktree:     cfg.Worktree,
-		provider:     cfg.Provider,
-		plugins:      cfg.Plugins,
-		bus:          cfg.Bus,
+		repo:               cfg.Repo,
+		worktree:           cfg.Worktree,
+		provider:           cfg.Provider,
+		plugins:            cfg.Plugins,
+		bus:                cfg.Bus,
 		worktreeBase:       base,
 		defaultAgent:       defaultAgent,
 		defaultPermissions: defaultPermissions,
@@ -206,13 +206,13 @@ type SpawnRequest struct {
 }
 
 // Spawn brings up a new session: creates a git worktree, asks the agent
-// plugin for its launch command, hands it to the durability provider, and
-// persists a row to the store on success.
+// plugin for its launch command, installs agent hooks, persists the session
+// row, and hands the launch command to the durability provider.
 //
-// Errors at any stage roll back partial state — no row is persisted, no
+// Errors at any stage roll back partial state — no row is left behind, no
 // worktree is left behind, no zellij session is left running. The session
-// row is INSERTed only after the durability provider confirms the session
-// is live, so consumers reading the store never see a "starting" half-row.
+// row is INSERTed before the durability provider starts the agent so native
+// startup hooks can merge metadata into an existing row.
 func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, error) {
 	if strings.TrimSpace(req.ProjectPath) == "" {
 		return store.Session{}, errors.New("session.Spawn: ProjectPath is required")
@@ -267,7 +267,17 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 		return store.Session{}, fmt.Errorf("session.Spawn: build launch command: %w", err)
 	}
 
-	// Step 2b: optional per-agent pre-launch setup. Agents that implement
+	// Step 2b: install workspace-local hooks before the native agent starts.
+	if err := agentPlugin.GetAgentHooks(ctx, agent.WorkspaceHookConfig{
+		SessionID:     id,
+		WorkspacePath: workspacePath,
+		DataDir:       filepath.Dir(e.worktreeBase),
+	}); err != nil {
+		e.rollbackWorktree(ctx, req.ProjectPath, workspacePath, branchName)
+		return store.Session{}, fmt.Errorf("session.Spawn: install agent hooks: %w", err)
+	}
+
+	// Step 2c: optional per-agent pre-launch setup. Agents that implement
 	// the preLauncher capability (e.g. Claude Code pre-seeding workspace
 	// trust so its blocking trust dialog doesn't hang the session) run here,
 	// after the worktree exists but before the durability session starts.
@@ -278,19 +288,8 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 		}
 	}
 
-	// Step 3: spawn the durability-provider session running the agent.
-	if err := e.provider.CreateSession(ctx, CreateOpts{
-		Name:      id,
-		LaunchCmd: launchCmd,
-		Cwd:       workspacePath,
-		Env:       map[string]string{"YYORK_SESSION_ID": id},
-	}); err != nil {
-		e.rollbackWorktree(ctx, req.ProjectPath, workspacePath, branchName)
-		return store.Session{}, fmt.Errorf("session.Spawn: create durability session: %w", err)
-	}
-
-	// Step 4: persist. If this fails we kill the zellij session we just
-	// brought up — better to be consistent than to leak.
+	// Step 3: persist before launch so native hooks can update the row as soon
+	// as the agent starts.
 	now := e.now()
 	metadata := map[string]any{}
 	if req.Prompt != "" {
@@ -311,9 +310,20 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 		UpdatedAt:     now,
 	}
 	if err := e.repo.Insert(ctx, sess); err != nil {
-		_ = e.provider.KillSession(ctx, id)
 		e.rollbackWorktree(ctx, req.ProjectPath, workspacePath, branchName)
 		return store.Session{}, fmt.Errorf("session.Spawn: persist session row: %w", err)
+	}
+
+	// Step 4: spawn the durability-provider session running the agent.
+	if err := e.provider.CreateSession(ctx, CreateOpts{
+		Name:      id,
+		LaunchCmd: launchCmd,
+		Cwd:       workspacePath,
+		Env:       map[string]string{"YYORK_SESSION_ID": id},
+	}); err != nil {
+		_ = e.repo.Delete(ctx, id)
+		e.rollbackWorktree(ctx, req.ProjectPath, workspacePath, branchName)
+		return store.Session{}, fmt.Errorf("session.Spawn: create durability session: %w", err)
 	}
 
 	e.bus.Publish(events.NewSessionCreated(id))
