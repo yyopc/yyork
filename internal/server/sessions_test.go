@@ -61,8 +61,8 @@ func TestListSessionsReturnsSeededRows(t *testing.T) {
 	repo := s.Sessions()
 
 	for _, row := range []store.Session{
-		{ID: "01HRSERVER000000000000000A", ProjectPath: "/tmp/a", ProjectName: "a", AgentPlugin: "codex", WorkspacePath: "/tmp/a/.w", ZellijSession: "01HRSERVER000000000000000A"},
-		{ID: "01HRSERVER000000000000000B", ProjectPath: "/tmp/b", ProjectName: "b", AgentPlugin: "codex", WorkspacePath: "/tmp/b/.w", ZellijSession: "01HRSERVER000000000000000B"},
+		{ID: "01HRSERVER000000000000000A", ProjectPath: "/tmp/a", ProjectName: "a", AgentPlugin: "codex", WorkspacePath: "/tmp/a/.w", ZellijSession: "01HRSERVER000000000000000A", Metadata: map[string]any{"recap": "Reviewed the workspace setup."}},
+		{ID: "01HRSERVER000000000000000B", ProjectPath: "/tmp/b", ProjectName: "b", AgentPlugin: "codex", WorkspacePath: "/tmp/b/.w", ZellijSession: "01HRSERVER000000000000000B", Metadata: map[string]any{"displayName": "Project overview", "prompt": "tell me about this project"}},
 	} {
 		if err := repo.Insert(context.Background(), row); err != nil {
 			t.Fatalf("Insert: %v", err)
@@ -82,6 +82,27 @@ func TestListSessionsReturnsSeededRows(t *testing.T) {
 	_ = json.NewDecoder(resp.Body).Decode(&got)
 	if len(got) != 2 {
 		t.Fatalf("expected 2 rows, got %d", len(got))
+	}
+	var recap string
+	var renamedTitle string
+	var renamedRecap string
+	for _, row := range got {
+		if row["id"] == "01HRSERVER000000000000000A" {
+			recap, _ = row["recap"].(string)
+		}
+		if row["id"] == "01HRSERVER000000000000000B" {
+			renamedTitle, _ = row["title"].(string)
+			renamedRecap, _ = row["recap"].(string)
+		}
+	}
+	if recap != "Reviewed the workspace setup." {
+		t.Fatalf("recap = %q, want hook recap", recap)
+	}
+	if renamedTitle != "Project overview" {
+		t.Fatalf("renamed title = %q, want displayName", renamedTitle)
+	}
+	if renamedRecap != "" {
+		t.Fatalf("renamed recap = %q, want empty until last assistant message exists", renamedRecap)
 	}
 
 	// ?project filter
@@ -221,6 +242,108 @@ func TestStopSessionCallsStopper(t *testing.T) {
 	if len(stopper.stopped) != 1 || stopper.stopped[0] != "abc123" {
 		t.Fatalf("stopper.stopped = %v, want [abc123]", stopper.stopped)
 	}
+}
+
+func TestRenameSessionSetsDisplayName(t *testing.T) {
+	t.Parallel()
+	s := openTestStore(t)
+	repo := s.Sessions()
+	if err := repo.Insert(context.Background(), store.Session{
+		ID: "01HRRENAME0000000000000001", ProjectPath: "/tmp/a", ProjectName: "a",
+		AgentPlugin: "codex", WorkspacePath: "/tmp/a/.w", ZellijSession: "01HRRENAME0000000000000001",
+	}); err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+
+	srv := server.New(server.Config{Sessions: repo, EventBus: events.NewBus()})
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	resp := patchSession(t, ts.URL, "01HRRENAME0000000000000001", `{"displayName":"  My Agent  "}`)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	var dto map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&dto); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	metadata, _ := dto["metadata"].(map[string]any)
+	if metadata["displayName"] != "My Agent" {
+		t.Fatalf("displayName = %v, want %q (trimmed)", metadata["displayName"], "My Agent")
+	}
+
+	// The write must persist to the store, not just echo back.
+	row, err := repo.Get(context.Background(), "01HRRENAME0000000000000001")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if row.Metadata["displayName"] != "My Agent" {
+		t.Fatalf("persisted displayName = %v, want %q", row.Metadata["displayName"], "My Agent")
+	}
+}
+
+func TestRenameSessionEmptyClearsDisplayName(t *testing.T) {
+	t.Parallel()
+	s := openTestStore(t)
+	repo := s.Sessions()
+	if err := repo.Insert(context.Background(), store.Session{
+		ID: "01HRRENAME0000000000000002", ProjectPath: "/tmp/a", ProjectName: "a",
+		AgentPlugin: "codex", WorkspacePath: "/tmp/a/.w", ZellijSession: "01HRRENAME0000000000000002",
+		Metadata: map[string]any{"displayName": "Old Name"},
+	}); err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+
+	srv := server.New(server.Config{Sessions: repo, EventBus: events.NewBus()})
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	resp := patchSession(t, ts.URL, "01HRRENAME0000000000000002", `{"displayName":"   "}`)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	row, err := repo.Get(context.Background(), "01HRRENAME0000000000000002")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if row.Metadata["displayName"] != "" {
+		t.Fatalf("displayName = %v, want empty (cleared)", row.Metadata["displayName"])
+	}
+}
+
+func TestRenameSessionNotFound(t *testing.T) {
+	t.Parallel()
+	srv := server.New(server.Config{
+		Sessions: openTestStore(t).Sessions(),
+		EventBus: events.NewBus(),
+	})
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	resp := patchSession(t, ts.URL, "missing", `{"displayName":"x"}`)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", resp.StatusCode)
+	}
+}
+
+// patchSession issues a PATCH /api/sessions/{id} with the given JSON body.
+func patchSession(t *testing.T, baseURL, id, body string) *http.Response {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPatch, baseURL+"/api/sessions/"+id, strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("NewRequest: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("PATCH /api/sessions/%s: %v", id, err)
+	}
+	return resp
 }
 
 func TestStopSessionReturns501WithoutStopper(t *testing.T) {

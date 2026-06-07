@@ -26,6 +26,10 @@ const (
 	// the terminated session's id so SSE subscribers can drop the entry
 	// from the running view.
 	TypeSessionTerminated Type = "session.terminated"
+
+	// TypeSessionUpdated fires after mutable session metadata changes. The
+	// payload is the session id so subscribers can re-query the row.
+	TypeSessionUpdated Type = "session.updated"
 )
 
 // Event is a single message on the bus.
@@ -135,6 +139,14 @@ func NewSessionCreated(sessionID string) Event {
 func NewSessionTerminated(sessionID string) Event {
 	return Event{
 		Type:    TypeSessionTerminated,
+		Payload: map[string]any{"id": sessionID},
+	}
+}
+
+// NewSessionUpdated builds a TypeSessionUpdated event for sessionID.
+func NewSessionUpdated(sessionID string) Event {
+	return Event{
+		Type:    TypeSessionUpdated,
 		Payload: map[string]any{"id": sessionID},
 	}
 }

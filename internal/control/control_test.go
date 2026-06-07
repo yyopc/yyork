@@ -116,6 +116,7 @@ func TestToEvent(t *testing.T) {
 	}{
 		{"created", Envelope{Type: "session.created", ID: "x"}, true, events.TypeSessionCreated},
 		{"terminated", Envelope{Type: "session.terminated", ID: "y"}, true, events.TypeSessionTerminated},
+		{"updated", Envelope{Type: "session.updated", ID: "u"}, true, events.TypeSessionUpdated},
 		{"unknown", Envelope{Type: "session.exploded", ID: "z"}, false, ""},
 		{"empty", Envelope{}, false, ""},
 	}

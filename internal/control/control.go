@@ -156,6 +156,8 @@ func ToEvent(env Envelope) (events.Event, bool) {
 		return events.NewSessionCreated(env.ID), true
 	case events.TypeSessionTerminated:
 		return events.NewSessionTerminated(env.ID), true
+	case events.TypeSessionUpdated:
+		return events.NewSessionUpdated(env.ID), true
 	default:
 		return events.Event{}, false
 	}

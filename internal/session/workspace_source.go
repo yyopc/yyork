@@ -70,16 +70,33 @@ func (s *StoreWorkspaceSource) Workspace(ctx context.Context) (Workspace, error)
 
 func toLegacySession(row store.Session) Session {
 	prompt := stringField(row.Metadata, "prompt")
+	title := stringField(row.Metadata, "title")
+	recap := stringField(row.Metadata, "recap")
+	if recap == "" {
+		// Legacy compatibility for rows created before the recap rename.
+		recap = stringField(row.Metadata, "summary")
+	}
+	// displayName is a user-set rename; it always wins over the auto-derived
+	// title/prompt. The bare id is never shown — an unnamed, un-prompted
+	// session reads as "new agent: <id>" instead of an opaque slug.
+	displayName := stringField(row.Metadata, "displayName")
 	metadataJSON := ""
 	if len(row.Metadata) > 0 {
 		if buf, err := json.Marshal(row.Metadata); err == nil {
 			metadataJSON = string(buf)
 		}
 	}
-	title := prompt
-	if title == "" {
-		title = row.ID
+	resolvedTitle := displayName
+	if resolvedTitle == "" {
+		resolvedTitle = title
 	}
+	if resolvedTitle == "" {
+		resolvedTitle = prompt
+	}
+	if resolvedTitle == "" {
+		resolvedTitle = "new agent: " + row.ID
+	}
+	title = resolvedTitle
 
 	return Session{
 		ID:                row.ID,
@@ -87,10 +104,11 @@ func toLegacySession(row store.Session) Session {
 		Agent:             row.AgentPlugin,
 		AttachCommand:     []string{"zellij", "attach", row.ZellijSession},
 		CWD:               row.WorkspacePath,
-		Description:       prompt,
+		Description:       recap,
 		Kind:              KindWorker,
 		Metadata:          metadataJSON,
 		Project:           row.ProjectPath,
+		Recap:             recap,
 		State:             StateWorking, // v1: no activity-state capture yet.
 		TerminalKey:       row.ZellijSession,
 		TerminalSupported: true,

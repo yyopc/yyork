@@ -26,6 +26,7 @@ type Session struct {
 	Kind              Kind     `json:"kind,omitempty"`
 	Metadata          string   `json:"metadata"`
 	Project           string   `json:"project"`
+	Recap             string   `json:"recap"`
 	Selected          bool     `json:"selected,omitempty"`
 	State             State    `json:"state"`
 	TerminalKey       string   `json:"-"`

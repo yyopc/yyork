@@ -3,8 +3,10 @@ package server
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/yyovil/yyork/internal/control"
@@ -24,6 +26,8 @@ type sessionDTO struct {
 	ZellijSession string         `json:"zellijSession"`
 	PID           int64          `json:"pid,omitempty"`
 	Metadata      map[string]any `json:"metadata,omitempty"`
+	Title         string         `json:"title"`
+	Recap         string         `json:"recap"`
 	CreatedAt     time.Time      `json:"createdAt"`
 	UpdatedAt     time.Time      `json:"updatedAt"`
 }
@@ -38,9 +42,41 @@ func toSessionDTO(s store.Session) sessionDTO {
 		ZellijSession: s.ZellijSession,
 		PID:           s.PID,
 		Metadata:      s.Metadata,
+		Title:         resolvedSessionTitle(s),
+		Recap:         resolvedSessionRecap(s),
 		CreatedAt:     s.CreatedAt,
 		UpdatedAt:     s.UpdatedAt,
 	}
+}
+
+func resolvedSessionTitle(s store.Session) string {
+	for _, key := range []string{"displayName", "title", "prompt"} {
+		if value := metadataString(s.Metadata, key); value != "" {
+			return value
+		}
+	}
+	return "new agent: " + s.ID
+}
+
+func resolvedSessionRecap(s store.Session) string {
+	if recap := metadataString(s.Metadata, "recap"); recap != "" {
+		return recap
+	}
+	// Legacy compatibility for stores created before metadata.summary was
+	// renamed to metadata.recap. New writes and migrations use recap.
+	return metadataString(s.Metadata, "summary")
+}
+
+func metadataString(metadata map[string]any, key string) string {
+	value, ok := metadata[key]
+	if !ok {
+		return ""
+	}
+	text, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(text)
 }
 
 // handleStopSession terminates the session identified by the {sessionID}
@@ -66,6 +102,79 @@ func (s *Server) handleStopSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// displayNameMaxLen caps a user-supplied session name. Names are presented in
+// a narrow sidebar row, so anything longer is noise; the UI truncates anyway.
+const displayNameMaxLen = 120
+
+// renameRequest is the JSON body for PATCH /api/sessions/{sessionID}. An empty
+// (or whitespace-only) displayName clears the override, reverting the session
+// to its auto-derived title.
+type renameRequest struct {
+	DisplayName string `json:"displayName"`
+}
+
+// handleRenameSession sets (or clears) the user-facing display name for a
+// session by shallow-merging a `displayName` field into the store metadata
+// blob. The store is yyork-owned, so this write never races the orchestrator's
+// own session files. On success it publishes a session.updated event so every
+// open dashboard refreshes via SSE.
+func (s *Server) handleRenameSession(w http.ResponseWriter, r *http.Request) {
+	if s.sessions == nil {
+		http.Error(w, "session store unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	sessionID := r.PathValue("sessionID")
+	if sessionID == "" {
+		http.Error(w, "session id is required", http.StatusBadRequest)
+		return
+	}
+
+	var payload renameRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&payload); err != nil {
+		http.Error(w, "invalid rename payload", http.StatusBadRequest)
+		return
+	}
+
+	displayName := truncateRunes(strings.TrimSpace(payload.DisplayName), displayNameMaxLen)
+
+	ctx := r.Context()
+	if err := s.sessions.MergeMetadata(ctx, sessionID, map[string]any{
+		"displayName": displayName,
+	}); errors.Is(err, store.ErrSessionNotFound) {
+		http.Error(w, "session not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if s.eventBus != nil {
+		s.eventBus.Publish(events.NewSessionUpdated(sessionID))
+	}
+
+	row, err := s.sessions.Get(ctx, sessionID)
+	if errors.Is(err, store.ErrSessionNotFound) {
+		http.Error(w, "session not found", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, toSessionDTO(row))
+}
+
+// truncateRunes shortens s to at most max runes, preserving valid UTF-8.
+func truncateRunes(s string, max int) string {
+	runes := []rune(s)
+	if len(runes) <= max {
+		return s
+	}
+	return string(runes[:max])
 }
 
 // handleListSessions returns the running sessions tracked in SQLite. When
