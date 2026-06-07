@@ -1,0 +1,13 @@
+I've created a gh org: https://github.com/yyopc and I want to mv the ownership of my project: https://github.com/yyovil/yyork to my org now.
+
+---
+
+after transfering the ownership, you'd have to update the README.md as well
+
+---
+
+we would also hv to update the remote right?
+
+---
+
+Now we need to write the README.md for the yyopc. I'll explain the inspiration for the naming here: yyo is my prefix (I go by the alias: yyovil on the internet) and opc for One Person Company.
