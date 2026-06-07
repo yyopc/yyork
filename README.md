@@ -1,8 +1,8 @@
-# better-ao
+# yyork
 
 Local-first agent orchestration for parallel AI coding work.
 
-better-ao spawns AI coding agents into isolated, durable workspaces and lets
+yyork spawns AI coding agents into isolated, durable workspaces and lets
 you supervise them from one dashboard. Each session runs in its own git
 worktree inside a [Zellij](https://zellij.dev) session, so agents work in
 parallel without stepping on each other, survive your browser closing or the
@@ -23,16 +23,16 @@ Build the single binary (it embeds the dashboard, so this is the only artifact y
 
 ```bash
 pnpm install
-pnpm backend:build      # builds the dashboard, embeds it, compiles ./better-ao
+pnpm backend:build      # builds the dashboard, embeds it, compiles ./yyork
 ```
 
 `pnpm backend:build` chains three steps: `pnpm web:build` → copy `web/dist`
-into the embed dir → `go build`. The resulting `./better-ao` serves the
+into the embed dir → `go build`. The resulting `./yyork` serves the
 dashboard from inside the binary — no separate web server needed at runtime.
 
-## Using better-ao
+## Using yyork
 
-State lives in `~/.better-ao/`:
+State lives in `~/.yyork/`:
 
 - `state.db` — a SQLite database of currently-running sessions
 - `worktrees/<sessionId>/` — one git worktree per session
@@ -40,7 +40,7 @@ State lives in `~/.better-ao/`:
 ### 1. Start the server
 
 ```bash
-./better-ao              # starts the dashboard + API on 127.0.0.1:7331 and opens your browser
+./yyork              # starts the dashboard + API on 127.0.0.1:7331 and opens your browser
 ```
 
 Run it with no arguments — there is no `start` subcommand. Use `-addr` to
@@ -52,10 +52,10 @@ From inside the project you want the agent to work on (it must be a git repo):
 
 ```bash
 cd ~/Projects/my-app
-better-ao spawn --prompt "add a health-check endpoint"
+yyork spawn --prompt "add a health-check endpoint"
 ```
 
-This prints a session id (a ULID), creates a `better-ao/<sessionId>` git
+This prints a session id (a ULID), creates a `yyork/<sessionId>` git
 worktree branched from your repo's default branch, launches the agent inside a
 fresh Zellij session, and the dashboard shows the new session within
 milliseconds (live, over server-sent events — no polling).
@@ -75,25 +75,25 @@ any shell:
 zellij attach <sessionId>
 ```
 
-The session survives your browser closing, the better-ao server restarting, and
+The session survives your browser closing, the yyork server restarting, and
 the agent process exiting (a keep-alive shell holds the pane open so you can
 read post-mortem output).
 
 ### 4. List and stop
 
 ```bash
-better-ao session list                 # show running sessions
-better-ao session list --project <abs-path>   # filter to one project
-better-ao stop <sessionId>             # kill the Zellij session, remove the worktree + branch, drop the row
+yyork session list                 # show running sessions
+yyork session list --project <abs-path>   # filter to one project
+yyork stop <sessionId>             # kill the Zellij session, remove the worktree + branch, drop the row
 ```
 
 ### Capturing an agent's work
 
 In v1 there is no in-app review or merge yet — you capture work the normal git
 way. **Get the work onto your remote before you `stop` a session or reboot**,
-because both teardown paths delete the `better-ao/<sessionId>` branch:
+because both teardown paths delete the `yyork/<sessionId>` branch:
 
-- have the agent run `gh pr create` / `git push -u origin better-ao/<sessionId>`, or
+- have the agent run `gh pr create` / `git push -u origin yyork/<sessionId>`, or
 - merge the branch into your main line yourself.
 
 A deleted branch is recoverable via `git reflog` for a while, but treat
@@ -107,7 +107,7 @@ Vite serves the dashboard with hot reload and proxies `/api` to the Go server:
 ```bash
 nix develop
 pnpm install
-better-ao        # the Nix-shell wrapper: Vite dashboard on :3000 + Go API
+yyork        # the Nix-shell wrapper: Vite dashboard on :3000 + Go API
 ```
 
 Without the Nix shell, use the package script:
@@ -176,7 +176,7 @@ Use `pnpm e2e:live-terminal:manual` to open the current running stack in a heade
 Manual terminal acceptance is:
 
 1. Start or reuse a real AO worker so at least one terminal-supported session appears.
-2. Start the local stack with `better-ao` or `pnpm dev`.
+2. Start the local stack with `yyork` or `pnpm dev`.
 3. Run `pnpm e2e:live-terminal:manual-soak` from the repository root.
 4. Watch the headed browser: terminal output should remain visible, reconnect/switch controls should not show failure toasts, and the selected worker should stay attached across workspace refreshes.
 5. Let the terminal sit open or use the normal app for the intended manual window.
@@ -184,11 +184,11 @@ Manual terminal acceptance is:
 
 ## Layout
 
-- `cmd/better-ao`: CLI entrypoint (`spawn`, `session list`, `stop`, and the no-verb server) plus the embedded dashboard
+- `cmd/yyork`: CLI entrypoint (`spawn`, `session list`, `stop`, and the no-verb server) plus the embedded dashboard
 - `internal/app`: wires the store, engine, event bus, and HTTP server together
 - `internal/server`: HTTP API, `/api/sessions`, the `/api/events` SSE stream, and dashboard serving
 - `internal/session`: the spawn engine — `Spawn` / `Stop` / `Reconcile` — and the session model
-- `internal/store`: SQLite store (`~/.better-ao/state.db`) with goose migrations
+- `internal/store`: SQLite store (`~/.yyork/state.db`) with goose migrations
 - `internal/worktree`: per-session `git worktree` create/remove wrapper
 - `internal/events`: in-process pub/sub bus that feeds the SSE stream
 - `internal/durabilityprovider`: Zellij session create/kill/attach
@@ -199,11 +199,11 @@ Manual terminal acceptance is:
 
 ## Scripts
 
-- `better-ao` (Nix shell) / `pnpm dev`: start the dev stack — Vite dashboard + Go API with hot reload
+- `yyork` (Nix shell) / `pnpm dev`: start the dev stack — Vite dashboard + Go API with hot reload
 - `pnpm web:dev`: start only the Vite dev server
 - `pnpm backend:dev`: start only the Go server
 - `pnpm web:build`: build the dashboard SPA into `web/dist`
-- `pnpm backend:build`: build the dashboard, embed it, and compile `./better-ao`
+- `pnpm backend:build`: build the dashboard, embed it, and compile `./yyork`
 - `pnpm build`: build the web package and Go binary
 - `pnpm lint`: run backend tests and frontend lint checks
 - `pnpm cli:test`: run launcher command and env parsing tests

@@ -1,4 +1,4 @@
-// Package logging configures better-ao's structured, colorized logging.
+// Package logging configures yyork's structured, colorized logging.
 //
 // It installs a charmbracelet/log logger as the default slog handler, so the
 // rest of the codebase keeps calling slog.Info/Warn/Error while output is
@@ -18,7 +18,7 @@ import (
 )
 
 // Setup builds the colorized logger and installs it as the slog default,
-// writing to w. Verbosity is read from BETTER_AO_LOG_LEVEL
+// writing to w. Verbosity is read from YYORK_LOG_LEVEL
 // (debug|info|warn|error), defaulting to info. The returned logger is the
 // same one wired into slog, handy for callers that want to log directly.
 func Setup(w io.Writer) *charm.Logger {
@@ -32,7 +32,7 @@ func Setup(w io.Writer) *charm.Logger {
 }
 
 func levelFromEnv() charm.Level {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("BETTER_AO_LOG_LEVEL"))) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("YYORK_LOG_LEVEL"))) {
 	case "debug":
 		return charm.DebugLevel
 	case "warn", "warning":

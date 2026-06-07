@@ -1,6 +1,6 @@
 # Data Model & Schema
 
-Companion to [PRD.md](./PRD.md) and [PLAN.md](./PLAN.md). The PRD describes *what* and *why*; this doc describes the **persisted shape** of better-ao's state — every table, why it looks the way it does, and the rules for evolving it.
+Companion to [PRD.md](./PRD.md) and [PLAN.md](./PLAN.md). The PRD describes *what* and *why*; this doc describes the **persisted shape** of yyork's state — every table, why it looks the way it does, and the rules for evolving it.
 
 Source of truth is the migrations under [`internal/store/migrations/`](../../internal/store/migrations/). This doc explains them; if the two ever disagree, the SQL wins.
 
@@ -8,9 +8,9 @@ Source of truth is the migrations under [`internal/store/migrations/`](../../int
 
 1. **The database is a mirror of *live* state, not a log.** A row exists in `sessions` **if and only if** that session is currently alive. Termination — explicit stop, reconciler detecting a dead zellij session, or spawn rollback — *deletes* the row. There is no history table, no archive, no soft-delete `lifecycle_state` column. "What's running right now?" is the only question this database answers, and it answers it with `SELECT * FROM sessions`.
 
-2. **Local-first, single-file, zero-ops.** The whole database is one SQLite file at `~/.better-ao/state.db`. No server, no daemon, no migration tooling the user has to install — migrations are embedded in the binary and applied on startup.
+2. **Local-first, single-file, zero-ops.** The whole database is one SQLite file at `~/.yyork/state.db`. No server, no daemon, no migration tooling the user has to install — migrations are embedded in the binary and applied on startup.
 
-3. **Schema-light, JSON for the long tail.** Columns are reserved for fields better-ao queries or indexes on. Plugin-specific odds and ends (a codex thread id, etc.) go into a single `metadata` JSON blob rather than sprouting columns the core doesn't understand.
+3. **Schema-light, JSON for the long tail.** Columns are reserved for fields yyork queries or indexes on. Plugin-specific odds and ends (a codex thread id, etc.) go into a single `metadata` JSON blob rather than sprouting columns the core doesn't understand.
 
 4. **Timestamps are unix seconds (`INTEGER`).** Stored as `INTEGER NOT NULL`, marshalled to/from `time.Time` (UTC) in Go. Simpler to compare and index than text timestamps, and free of timezone ambiguity.
 
@@ -20,11 +20,11 @@ As of today there is exactly **one** table: `sessions`. The sections below descr
 
 ### `sessions`
 
-One running better-ao agent session — a git worktree + a zellij session + the agent process inside it.
+One running yyork agent session — a git worktree + a zellij session + the agent process inside it.
 
 | Column | Type | Null | Description |
 |---|---|---|---|
-| `id` | `TEXT` | no (**PK**) | Session identifier. Also names the worktree branch (`better-ao/{id}`) and the zellij session. |
+| `id` | `TEXT` | no (**PK**) | Session identifier. Also names the worktree branch (`yyork/{id}`) and the zellij session. |
 | `project_path` | `TEXT` | no | Absolute path of the project the session was spawned on. Indexed. |
 | `project_name` | `TEXT` | yes | Human-friendly project label. Derived/optional. |
 | `agent_plugin` | `TEXT` | no | Which agent plugin drives the session (e.g. `codex`). |
@@ -76,7 +76,7 @@ When the model grows beyond `sessions`, keep it consistent:
 ## Diagram
 
 ```
-                      ~/.better-ao/state.db  (SQLite, WAL)
+                      ~/.yyork/state.db  (SQLite, WAL)
   ┌──────────────────────────────────────────────────────────┐
   │  sessions                                                  │
   │  ─────────────────────────────────────────────────────    │

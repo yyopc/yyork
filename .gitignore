@@ -18,16 +18,16 @@ coverage/
 .vinxi
 dist/
 build/
-/better-ao
-experiments/fang-cli/better-ao-fang
+/yyork
+experiments/fang-cli/yyork-fang
 **/public/storybook/
 storybook-static
 
 # Embedded dashboard mirror (copied from web/dist/client/ by
 # scripts/copy-dashboard.mjs before `go build`). Only the .gitkeep is
 # committed; everything else is build output.
-cmd/better-ao/dashboard/*
-!cmd/better-ao/dashboard/.gitkeep
+cmd/yyork/dashboard/*
+!cmd/yyork/dashboard/.gitkeep
 
 # misc
 .DS_Store

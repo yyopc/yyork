@@ -20,10 +20,10 @@ export function resolveDevConfig(options) {
   const webEnv = readEnvFiles(options.webDir, webEnvFileNames);
 
   return {
-    backendHost: env.BETTER_AO_BACKEND_HOST ?? '127.0.0.1',
+    backendHost: env.YYORK_BACKEND_HOST ?? '127.0.0.1',
     backendPort: parsePort(
-      'BETTER_AO_BACKEND_PORT',
-      env.BETTER_AO_BACKEND_PORT,
+      'YYORK_BACKEND_PORT',
+      env.YYORK_BACKEND_PORT,
       7331
     ),
     webPort: parsePort(

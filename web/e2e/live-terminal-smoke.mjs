@@ -39,7 +39,7 @@ const slowMoMs = numberOption(
 );
 const requestedBackendPort = portOption(
   '--backend-port',
-  process.env.BETTER_AO_BACKEND_PORT
+  process.env.YYORK_BACKEND_PORT
 );
 const requestedWebPort = portOption('--web-port', process.env.VITE_PORT);
 const shouldReuseRunningStack = process.argv.includes('--reuse-running');
@@ -258,12 +258,12 @@ function reusedStack() {
 }
 
 function startOwnedStack(ports) {
-  const child = spawn(process.execPath, ['./scripts/better-ao.mjs'], {
+  const child = spawn(process.execPath, ['./scripts/yyork.mjs'], {
     cwd: rootDir,
     detached: process.platform !== 'win32',
     env: {
       ...process.env,
-      BETTER_AO_BACKEND_PORT: String(ports.backendPort),
+      YYORK_BACKEND_PORT: String(ports.backendPort),
       VITE_PORT: String(ports.webPort),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -291,7 +291,7 @@ function waitForStackOrigins(child) {
     const timeout = setTimeout(() => {
       fail(
         new Error(
-          `Timed out waiting for better-ao stack origins.\n\n${output.trim()}`
+          `Timed out waiting for yyork stack origins.\n\n${output.trim()}`
         )
       );
     }, stackTimeoutMs);
@@ -321,12 +321,12 @@ function waitForStackOrigins(child) {
       output += text;
       stream.write(text);
 
-      const backendMatch = text.match(/better-ao backend:\s*(\S+)/);
+      const backendMatch = text.match(/yyork backend:\s*(\S+)/);
       if (backendMatch) {
         backendOrigin = backendMatch[1];
       }
 
-      const webMatch = text.match(/better-ao web:\s*(\S+)/);
+      const webMatch = text.match(/yyork web:\s*(\S+)/);
       if (webMatch) {
         webOrigin = webMatch[1];
       }
@@ -344,7 +344,7 @@ function waitForStackOrigins(child) {
 
       fail(
         new Error(
-          `better-ao stack exited before it was ready: code=${code} signal=${signal}\n\n${output.trim()}`
+          `yyork stack exited before it was ready: code=${code} signal=${signal}\n\n${output.trim()}`
         )
       );
     });

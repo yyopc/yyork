@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// Session is the persisted shape of one running better-ao session.
+// Session is the persisted shape of one running yyork session.
 //
 // A row exists in the `sessions` table if and only if the session is alive.
 // Termination — explicit stop, reconciler-detected zellij gone, spawn

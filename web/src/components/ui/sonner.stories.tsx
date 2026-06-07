@@ -69,7 +69,7 @@ export const Success = () => {
   useAutoToast('sonner-story-success', (id) =>
     toast.success('Opened project', {
       id,
-      description: '/Users/you/Projects/better-ao',
+      description: '/Users/you/Projects/yyork',
       duration: Number.POSITIVE_INFINITY,
     })
   );
@@ -117,7 +117,7 @@ export const AllVariants = () => {
     const ids = [
       toast.success('Opened project', {
         id: 'sonner-story-all-success',
-        description: '/Users/you/Projects/better-ao',
+        description: '/Users/you/Projects/yyork',
         duration: Number.POSITIVE_INFINITY,
       }),
       toast.info('Session restored', {

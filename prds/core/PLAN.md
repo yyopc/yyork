@@ -10,12 +10,12 @@ Build bottom-up. Each milestone is independently testable. The first user-visibl
 
 | # | Milestone | What ships | Depends on |
 |---|---|---|---|
-| M0 | DB bootstrap | `~/.better-ao/state.db` is created and migrated on first run | — |
+| M0 | DB bootstrap | `~/.yyork/state.db` is created and migrated on first run | — |
 | M1 | Worktree module | `internal/worktree` package, tested against real git | M0 |
 | M2 | Events bus | `internal/events` package | — |
 | M3 | Zellij creation | `internal/terminal` gains `CreateZellijSession` / `KillZellijSession` | — |
 | M4 | Spawn engine | `internal/session.Spawn`, `.Stop`, `.Reconcile` wired | M0–M3 |
-| M5 | CLI verbs | `better-ao spawn`, `session list`, `stop`; remove `start`/`dashboard` | M4 |
+| M5 | CLI verbs | `yyork spawn`, `session list`, `stop`; remove `start`/`dashboard` | M4 |
 | M6 | Server: SQLite + SSE | Read endpoints repointed to store; `/api/events` SSE | M0, M2 |
 | M7 | Codex plugin cleanup | ~300 lines of file-scanning code deleted | — |
 | M8 | Dashboard adjustments | Flat running-list, SSE subscription, polling removed | M5, M6 |
@@ -26,7 +26,7 @@ M2, M3, M7 are independent and can run in parallel with M1 if useful.
 
 ## M0 — DB bootstrap
 
-**Goal**: better-ao server creates and migrates its SQLite database on first run.
+**Goal**: yyork server creates and migrates its SQLite database on first run.
 
 **Work**:
 - New: `internal/store/` package
@@ -34,12 +34,12 @@ M2, M3, M7 are independent and can run in parallel with M1 if useful.
   - `Close() error`.
 - New: `internal/store/migrations/0001_create_sessions.sql` — schema per PRD.
 - Dependency: `github.com/ncruces/go-sqlite3` + `github.com/pressly/goose/v3` added to `go.mod`.
-- Server boot wires `Store.Open(~/.better-ao/state.db)`. Creates `~/.better-ao/` if missing.
+- Server boot wires `Store.Open(~/.yyork/state.db)`. Creates `~/.yyork/` if missing.
 
 **Acceptance**:
-- `better-ao` runs against an empty home; the DB file is created.
+- `yyork` runs against an empty home; the DB file is created.
 - Re-running is a no-op (migrations idempotent).
-- `sqlite3 ~/.better-ao/state.db ".schema sessions"` shows the expected columns.
+- `sqlite3 ~/.yyork/state.db ".schema sessions"` shows the expected columns.
 
 **Tests**:
 - `internal/store/store_test.go` — `Open` against `:memory:`, assert migration runs, assert WAL is on.
@@ -52,7 +52,7 @@ M2, M3, M7 are independent and can run in parallel with M1 if useful.
 
 ## M1 — Worktree module
 
-**Goal**: a deep, testable wrapper over `git worktree` that better-ao can use without knowing git CLI details.
+**Goal**: a deep, testable wrapper over `git worktree` that yyork can use without knowing git CLI details.
 
 **Work**:
 - New: `internal/worktree/` package
@@ -64,7 +64,7 @@ M2, M3, M7 are independent and can run in parallel with M1 if useful.
 **Acceptance**:
 - All ops produce expected git state in a temp repo.
 - Non-git directory rejected with a specific error type the engine can match on.
-- Branch name `better-ao/{ulid}` works (slash in branch name OK in git).
+- Branch name `yyork/{ulid}` works (slash in branch name OK in git).
 
 **Tests**:
 - `internal/worktree/worktree_test.go` — integration tests against `t.TempDir()` git repos. No mocks.
@@ -124,7 +124,7 @@ M2, M3, M7 are independent and can run in parallel with M1 if useful.
 
 **Tests**:
 - Most coverage via M4's integration tests with the real engine — `terminal.CreateZellijSession` itself uses real zellij and is awkward to unit-test in isolation.
-- Optional: a build-tagged `terminal_zellij_smoke_test.go` that exercises create + list + kill against real zellij, gated on `BETTER_AO_ZELLIJ_SMOKE=1`.
+- Optional: a build-tagged `terminal_zellij_smoke_test.go` that exercises create + list + kill against real zellij, gated on `YYORK_ZELLIJ_SMOKE=1`.
 
 **Risks**:
 - Exact zellij invocation — *the* implementation unknown. The detached-client + PTY + Setsid pattern is designed but unproven. Buffer: 4 hours of zellij-fiddling possible. If `--layout` doesn't accept the shape we need, fall back to writing a workspace-local `.zellij` layout dir.
@@ -165,10 +165,10 @@ M2, M3, M7 are independent and can run in parallel with M1 if useful.
 
 ## M5 — CLI verbs
 
-**Goal**: `better-ao spawn`, `session list`, `stop` work end-to-end. First user-visible win.
+**Goal**: `yyork spawn`, `session list`, `stop` work end-to-end. First user-visible win.
 
 **Work**:
-- `cmd/better-ao/main.go`:
+- `cmd/yyork/main.go`:
   - Remove `start` and `dashboard` from the switch + help.
   - Add `spawn` subcommand: flags `--agent`, `--prompt`, `--system-prompt`, `--system-prompt-file`, `--permissions`. Resolves project from `os.Getwd()`. Constructs `SpawnRequest`. Calls `engine.Spawn`. Prints the new session id.
   - Add `session` subcommand with `list` subaction (filters `--project`, `--state`).
@@ -177,13 +177,13 @@ M2, M3, M7 are independent and can run in parallel with M1 if useful.
 - Engine bootstrap factored so the CLI can construct an `Engine` (opens store, loads plugins) without starting the server.
 
 **Acceptance**:
-- `cd ~/Projects/better-ao && better-ao spawn --agent=codex --prompt="hello"` creates a zellij session and prints a ULID.
+- `cd ~/Projects/yyork && yyork spawn --agent=codex --prompt="hello"` creates a zellij session and prints a ULID.
 - `zellij attach <ulid>` shows the running codex.
-- `better-ao session list` shows the running session.
-- `better-ao stop <ulid>` terminates it cleanly; the next `session list` excludes it.
+- `yyork session list` shows the running session.
+- `yyork stop <ulid>` terminates it cleanly; the next `session list` excludes it.
 
 **Tests**:
-- Extend `cmd/better-ao/main_test.go` for new verbs' arg parsing.
+- Extend `cmd/yyork/main_test.go` for new verbs' arg parsing.
 - Dogfood smoke at the end: actually run the loop above against your own checkout.
 
 **Risks**:
@@ -205,7 +205,7 @@ M2, M3, M7 are independent and can run in parallel with M1 if useful.
 
 **Acceptance**:
 - `curl localhost:7331/api/workspace` returns sessions from SQLite.
-- `curl -N localhost:7331/api/events` streams events; running `better-ao spawn` in another terminal emits a `session.created` line within ~50ms.
+- `curl -N localhost:7331/api/events` streams events; running `yyork spawn` in another terminal emits a `session.created` line within ~50ms.
 - After server restart, sessions whose zellij is gone are marked terminated before the first API request returns.
 
 **Tests**:
@@ -256,8 +256,8 @@ M2, M3, M7 are independent and can run in parallel with M1 if useful.
 
 **Acceptance**:
 - Dashboard renders sessions present in SQLite on first load.
-- `better-ao spawn` from a terminal produces a new card in the dashboard within ~ms with no manual refresh.
-- `better-ao stop` makes the card disappear.
+- `yyork spawn` from a terminal produces a new card in the dashboard within ~ms with no manual refresh.
+- `yyork stop` makes the card disappear.
 - Killing/restarting the server: dashboard reconnects, shows the post-sweep state.
 - No periodic GETs in the network tab.
 
@@ -280,7 +280,7 @@ Per PRD's "Modules with tests" list:
 | `internal/worktree` | M1 | integration tests against real temp git repos |
 | `internal/events` | M2 | unit tests on pub/sub semantics |
 | `internal/session` | M4 | integration tests with real store + fakes for terminal/worktree |
-| `cmd/better-ao` | M5 | arg parsing tests + manual dogfood smoke |
+| `cmd/yyork` | M5 | arg parsing tests + manual dogfood smoke |
 | `internal/server` | M6 | integration tests with seeded store + wired bus |
 
 Modules deliberately *not* unit-tested in isolation:
@@ -294,12 +294,12 @@ Modules deliberately *not* unit-tested in isolation:
 For interrogation: these are *not* in this plan. If you want to pull any into v1, say so and we re-scope.
 
 - Dashboard spawn UX (`POST /api/sessions` + a "+" button).
-- Hooks (`better-ao session set`, `GetAgentHooks` invocation, per-plugin hook installer).
+- Hooks (`yyork session set`, `GetAgentHooks` invocation, per-plugin hook installer).
 - Resume (`GetRestoreCommand` actually called, `ListResumableThreads` plugin method, "resume past work" UI).
-- Activity capture (`.better-ao/activity.jsonl`, activity-state derivation).
+- Activity capture (`.yyork/activity.jsonl`, activity-state derivation).
 - Kanban columns with `prompt`/`triage`/`working`/`done`.
 - Notifier / SCM / Tracker plugins.
-- Migration tool (`better-ao import-from-ao`).
+- Migration tool (`yyork import-from-ao`).
 - A second durability provider (tmux, raw process, remote).
 - A second agent plugin (Claude Code, OpenCode).
 

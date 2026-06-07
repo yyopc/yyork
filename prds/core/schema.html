@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>better-ao — Data Model &amp; Schema</title>
+<title>yyork — Data Model &amp; Schema</title>
 <style>
   :root {
     --bg: #0c0d10;
@@ -180,12 +180,12 @@
 <div class="wrap">
 
   <header>
-    <p class="kicker">better-ao · core · data model</p>
+    <p class="kicker">yyork · core · data model</p>
     <h1>Schema &amp; <span class="grad">Data Model</span></h1>
-    <p class="lede">The persisted shape of better-ao's state — every table, why it looks the way it does, and the rules for evolving it. Source of truth is the goose migrations under <code>internal/store/migrations/</code>; this page explains them.</p>
+    <p class="lede">The persisted shape of yyork's state — every table, why it looks the way it does, and the rules for evolving it. Source of truth is the goose migrations under <code>internal/store/migrations/</code>; this page explains them.</p>
     <div class="meta-row">
       <span class="chip"><b>SQLite</b> · WAL</span>
-      <span class="chip">~/.better-ao/<b>state.db</b></span>
+      <span class="chip">~/.yyork/<b>state.db</b></span>
       <span class="chip"><b>1</b> table</span>
       <span class="chip">driver: <b>ncruces/go-sqlite3</b> (wasm, no cgo)</span>
       <span class="chip">migrations: <b>goose/v3</b></span>
@@ -205,7 +205,7 @@
       </div>
       <div class="card">
         <h3><span class="dot">▸</span> Schema-light</h3>
-        <p>Columns only for what better-ao queries or indexes. Plugin odds and ends live in a single <code>metadata</code> JSON blob.</p>
+        <p>Columns only for what yyork queries or indexes. Plugin odds and ends live in a single <code>metadata</code> JSON blob.</p>
       </div>
       <div class="card">
         <h3><span class="dot">▸</span> Unix-seconds time</h3>
@@ -235,7 +235,7 @@
             <td><span class="col">id</span><span class="pk-badge">PK</span></td>
             <td><span class="ty">TEXT</span></td>
             <td><span class="nn">no</span></td>
-            <td class="desc">Session id. Also names the branch <code>better-ao/{id}</code> and the zellij session.</td>
+            <td class="desc">Session id. Also names the branch <code>yyork/{id}</code> and the zellij session.</td>
           </tr>
           <tr>
             <td><span class="col">project_path</span></td>
@@ -346,7 +346,7 @@
 
   <section>
     <h2><span class="n">05</span>Diagram</h2>
-<pre class="diagram">                  ~/.better-ao/state.db  <span class="hl">(SQLite, WAL)</span>
+<pre class="diagram">                  ~/.yyork/state.db  <span class="hl">(SQLite, WAL)</span>
 ┌──────────────────────────────────────────────────────────┐
 │  <span class="hl">sessions</span>                                                  │
 │  ─────────────────────────────────────────────────────    │
@@ -366,7 +366,7 @@
   </section>
 
   <footer>
-    better-ao · prds/core/schema.html · generated from internal/store/migrations/
+    yyork · prds/core/schema.html · generated from internal/store/migrations/
   </footer>
 
 </div>

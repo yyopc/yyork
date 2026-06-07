@@ -6,13 +6,13 @@ import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { parseEnvFile, resolveDevConfig } from './better-ao-config.mjs';
+import { parseEnvFile, resolveDevConfig } from './yyork-config.mjs';
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const launcherPath = resolve(rootDir, 'scripts/better-ao.mjs');
+const launcherPath = resolve(rootDir, 'scripts/yyork.mjs');
 const packageJSON = JSON.parse(readFileSync(resolve(rootDir, 'package.json')));
 
-test('better-ao --help prints usage without starting servers', () => {
+test('yyork --help prints usage without starting servers', () => {
   const result = runLauncher(['--help']);
 
   assert.equal(result.status, 0);
@@ -21,7 +21,7 @@ test('better-ao --help prints usage without starting servers', () => {
   assertNoServerStart(result);
 });
 
-test('better-ao --version prints the package version', () => {
+test('yyork --version prints the package version', () => {
   const result = runLauncher(['--version']);
 
   assert.equal(result.status, 0);
@@ -32,32 +32,32 @@ test('better-ao --version prints the package version', () => {
   assertNoServerStart(result);
 });
 
-test('better-ao rejects unknown options before starting servers', () => {
+test('yyork rejects unknown options before starting servers', () => {
   const result = runLauncher(['--bad-option']);
 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Unknown option: --bad-option/);
-  assert.match(result.stderr, /better-ao --help/);
+  assert.match(result.stderr, /yyork --help/);
   assertNoServerStart(result);
 });
 
-test('better-ao rejects invalid backend port before starting servers', () => {
+test('yyork rejects invalid backend port before starting servers', () => {
   const result = runLauncher([], {
-    BETTER_AO_BACKEND_PORT: 'bad',
+    YYORK_BACKEND_PORT: 'bad',
     VITE_PORT: '54551',
   });
 
   assert.equal(result.status, 1);
   assert.match(
     result.stderr,
-    /BETTER_AO_BACKEND_PORT must be an integer port between 1 and 65535/
+    /YYORK_BACKEND_PORT must be an integer port between 1 and 65535/
   );
   assertNoServerStart(result);
 });
 
-test('better-ao rejects invalid web port before starting servers', () => {
+test('yyork rejects invalid web port before starting servers', () => {
   const result = runLauncher([], {
-    BETTER_AO_BACKEND_PORT: '54550',
+    YYORK_BACKEND_PORT: '54550',
     VITE_PORT: 'bad',
   });
 
@@ -69,24 +69,24 @@ test('better-ao rejects invalid web port before starting servers', () => {
   assertNoServerStart(result);
 });
 
-test('better-ao config parses Vite env files', () => {
+test('yyork config parses Vite env files', () => {
   assert.deepEqual(
     parseEnvFile(`
       # ignored comment
       VITE_PORT=4321
-      export BETTER_AO_BACKEND_PORT="7654"
+      export YYORK_BACKEND_PORT="7654"
       QUOTED='value'
     `),
     {
-      BETTER_AO_BACKEND_PORT: '7654',
+      YYORK_BACKEND_PORT: '7654',
       QUOTED: 'value',
       VITE_PORT: '4321',
     }
   );
 });
 
-test('better-ao config uses web/.env VITE_PORT when shell env omits it', () => {
-  const webDir = mkdtempSync(resolve(tmpdir(), 'better-ao-web-env-'));
+test('yyork config uses web/.env VITE_PORT when shell env omits it', () => {
+  const webDir = mkdtempSync(resolve(tmpdir(), 'yyork-web-env-'));
   writeFileSync(resolve(webDir, '.env'), 'VITE_PORT=4567\n');
 
   assert.deepEqual(resolveDevConfig({ env: {}, webDir }), {
@@ -96,8 +96,8 @@ test('better-ao config uses web/.env VITE_PORT when shell env omits it', () => {
   });
 });
 
-test('better-ao config lets shell VITE_PORT override web/.env', () => {
-  const webDir = mkdtempSync(resolve(tmpdir(), 'better-ao-web-env-'));
+test('yyork config lets shell VITE_PORT override web/.env', () => {
+  const webDir = mkdtempSync(resolve(tmpdir(), 'yyork-web-env-'));
   writeFileSync(resolve(webDir, '.env'), 'VITE_PORT=4567\n');
 
   assert.equal(
@@ -123,10 +123,10 @@ function runLauncher(args, env = {}) {
 }
 
 function assertNoServerStart(result) {
-  assert.doesNotMatch(result.stdout, /better-ao backend:/);
-  assert.doesNotMatch(result.stdout, /better-ao web:/);
-  assert.doesNotMatch(result.stderr, /better-ao backend:/);
-  assert.doesNotMatch(result.stderr, /better-ao web:/);
+  assert.doesNotMatch(result.stdout, /yyork backend:/);
+  assert.doesNotMatch(result.stdout, /yyork web:/);
+  assert.doesNotMatch(result.stderr, /yyork backend:/);
+  assert.doesNotMatch(result.stderr, /yyork web:/);
 }
 
 function escapeRegExp(value) {

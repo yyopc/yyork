@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yyovil/better-ao/internal/events"
-	"github.com/yyovil/better-ao/internal/plugin"
-	pluginagent "github.com/yyovil/better-ao/internal/plugin/agent"
-	"github.com/yyovil/better-ao/internal/session"
-	"github.com/yyovil/better-ao/internal/store"
+	"github.com/yyovil/yyork/internal/events"
+	"github.com/yyovil/yyork/internal/plugin"
+	pluginagent "github.com/yyovil/yyork/internal/plugin/agent"
+	"github.com/yyovil/yyork/internal/session"
+	"github.com/yyovil/yyork/internal/store"
 )
 
 // -- Fakes ---------------------------------------------------------------
@@ -287,8 +287,8 @@ func TestSpawnHappyPath(t *testing.T) {
 	if !equalStrings(created.LaunchCmd, wantLaunch) {
 		t.Errorf("created.LaunchCmd = %v, want %v", created.LaunchCmd, wantLaunch)
 	}
-	if created.Env["BETTER_AO_SESSION_ID"] != sess.ID {
-		t.Errorf("env[BETTER_AO_SESSION_ID] = %q, want %q", created.Env["BETTER_AO_SESSION_ID"], sess.ID)
+	if created.Env["YYORK_SESSION_ID"] != sess.ID {
+		t.Errorf("env[YYORK_SESSION_ID] = %q, want %q", created.Env["YYORK_SESSION_ID"], sess.ID)
 	}
 
 	// Worktree was created at the expected path.
@@ -299,8 +299,8 @@ func TestSpawnHappyPath(t *testing.T) {
 	if h.worktree.createCalls[0].worktreePath != wantWorktree {
 		t.Errorf("worktree path = %q, want %q", h.worktree.createCalls[0].worktreePath, wantWorktree)
 	}
-	if h.worktree.createCalls[0].branchName != "better-ao/"+sess.ID {
-		t.Errorf("branch = %q, want %q", h.worktree.createCalls[0].branchName, "better-ao/"+sess.ID)
+	if h.worktree.createCalls[0].branchName != "yyork/"+sess.ID {
+		t.Errorf("branch = %q, want %q", h.worktree.createCalls[0].branchName, "yyork/"+sess.ID)
 	}
 
 	// Event published.

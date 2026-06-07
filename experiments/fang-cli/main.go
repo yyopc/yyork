@@ -1,5 +1,5 @@
-// Command better-ao-fang is a THROWAWAY experiment: it mirrors the real
-// better-ao CLI command surface (cmd/better-ao) but drives it with
+// Command yyork-fang is a THROWAWAY experiment: it mirrors the real
+// yyork CLI command surface (cmd/yyork) but drives it with
 // spf13/cobra + charmbracelet/fang instead of stdlib flag + a hand-rolled
 // lipgloss help renderer. The handlers are stubs — the point is to compare
 // help/error/version/completion/manpage UX against the real binary, not to
@@ -19,8 +19,8 @@ import (
 
 const version = "0.0.1"
 
-// brand maps better-ao's existing lipgloss v1 palette (see
-// cmd/better-ao/help.go newHelpStyles) onto fang's ColorScheme so the
+// brand maps yyork's existing lipgloss v1 palette (see
+// cmd/yyork/help.go newHelpStyles) onto fang's ColorScheme so the
 // comparison is apples-to-apples: same colors, different machinery.
 func brand(c lipgloss.LightDarkFunc) fang.ColorScheme {
 	pink := lipgloss.Color("212")
@@ -67,9 +67,9 @@ func newRootCmd() *cobra.Command {
 	var open bool
 
 	root := &cobra.Command{
-		Use:   "better-ao",
+		Use:   "yyork",
 		Short: "Local-first agent orchestration for parallel AI coding work.",
-		Long: "better-ao orchestrates parallel AI coding agents across Zellij-backed " +
+		Long: "yyork orchestrates parallel AI coding agents across Zellij-backed " +
 			"workspaces, repos, and issue trackers.\n\n" +
 			"Run with no command to start the local dashboard and API server.",
 		// No verb => start the local server (mirrors runServer).
@@ -80,7 +80,7 @@ func newRootCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
-	root.Flags().StringVar(&addr, "addr", "127.0.0.1:7331", "address for the better-ao local server")
+	root.Flags().StringVar(&addr, "addr", "127.0.0.1:7331", "address for the yyork local server")
 	root.Flags().BoolVar(&open, "open", true, "open the dashboard in the default browser")
 
 	root.AddGroup(
@@ -103,9 +103,9 @@ func newSpawnCmd() *cobra.Command {
 		Short:   "Spawn a new agent session in the current project.",
 		Long: "Spawn a new agent session in the current project directory.\n\n" +
 			"The current directory must be a git repository. A per-session git worktree " +
-			"is created on branch better-ao/<sessionId>, the configured agent is launched " +
+			"is created on branch yyork/<sessionId>, the configured agent is launched " +
 			"inside a fresh zellij session, and the session row is persisted to " +
-			"~/.better-ao/state.db once the zellij session confirms it is live.",
+			"~/.yyork/state.db once the zellij session confirms it is live.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Fprintf(cmd.OutOrStdout(), "[stub] spawn agent=%s prompt=%q\n", agent, prompt)
 			return nil
@@ -146,7 +146,7 @@ func newStopCmd() *cobra.Command {
 		GroupID: "core",
 		Short:   "Terminate a running session.",
 		Long: "Cleanly terminate a session: kill the zellij session, remove the worktree " +
-			"(best-effort), and delete the row from ~/.better-ao/state.db.\n\n" +
+			"(best-effort), and delete the row from ~/.yyork/state.db.\n\n" +
 			"Stopping a session id that has no row is a no-op (exit 0).",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -175,7 +175,7 @@ func newSendCmd() *cobra.Command {
 	return cmd
 }
 
-// plannedCmds mirrors plannedCommands from cmd/better-ao/main.go: verbs that
+// plannedCmds mirrors plannedCommands from cmd/yyork/main.go: verbs that
 // exist in the Agent Orchestrator parity surface but aren't implemented yet.
 // As real cobra commands they get help, completion, and "did you mean"
 // suggestions for free.
@@ -203,7 +203,7 @@ func plannedCmds() []*cobra.Command {
 			GroupID: "planned",
 			Short:   p.short + " [planned]",
 			RunE: func(cmd *cobra.Command, args []string) error {
-				return fmt.Errorf("command %q is part of the Agent Orchestrator parity surface, but is not implemented in better-ao yet", p.name)
+				return fmt.Errorf("command %q is part of the Agent Orchestrator parity surface, but is not implemented in yyork yet", p.name)
 			},
 		})
 	}

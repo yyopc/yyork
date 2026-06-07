@@ -9,13 +9,13 @@ import (
 )
 
 const (
-	configDirName  = ".better-ao"
+	configDirName  = ".yyork"
 	configFileName = "config"
 	configFileType = "yaml"
 )
 
-// Config is the user-facing Better-AO configuration loaded from
-// ~/.better-ao/config.yaml.
+// Config is the user-facing yyork configuration loaded from
+// ~/.yyork/config.yaml.
 type Config struct {
 	Agents map[string]AgentConfig `mapstructure:"agents"`
 }
@@ -24,7 +24,7 @@ type Config struct {
 // own validation for their custom keys.
 type AgentConfig map[string]any
 
-// Load reads ~/.better-ao/config.yaml. A missing file returns an empty config.
+// Load reads ~/.yyork/config.yaml. A missing file returns an empty config.
 func Load() (Config, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {

@@ -6,7 +6,7 @@
 //
 // The test cleans up the session it creates even if any sub-assertion
 // fails, but if the test process itself is killed mid-run, the zellij
-// session may persist; run `zellij kill-session better-ao-smoke-...` to
+// session may persist; run `zellij kill-session yyork-smoke-...` to
 // clean up.
 package durabilityprovider_test
 
@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yyovil/better-ao/internal/durabilityprovider"
-	"github.com/yyovil/better-ao/internal/session"
+	"github.com/yyovil/yyork/internal/durabilityprovider"
+	"github.com/yyovil/yyork/internal/session"
 )
 
 func TestZellijProviderCreateAndKill_Smoke(t *testing.T) {
@@ -25,7 +25,7 @@ func TestZellijProviderCreateAndKill_Smoke(t *testing.T) {
 
 	z := durabilityprovider.NewZellijProvider()
 
-	name := "better-ao-smoke-" + nowSuffix()
+	name := "yyork-smoke-" + nowSuffix()
 	cwd := t.TempDir()
 
 	t.Cleanup(func() {
@@ -48,7 +48,7 @@ func TestZellijProviderCreateAndKill_Smoke(t *testing.T) {
 		Name:      name,
 		LaunchCmd: []string{"/bin/true"},
 		Cwd:       cwd,
-		Env:       map[string]string{"BETTER_AO_SESSION_ID": name},
+		Env:       map[string]string{"YYORK_SESSION_ID": name},
 	}); err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}

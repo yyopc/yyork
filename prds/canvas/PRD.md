@@ -12,7 +12,7 @@ The user should be able to supervise a worker without bouncing between the AO da
 
 ## Product context
 
-better-ao is a local-first Agent Orchestrator dashboard for parallel AI coding work. The current app has:
+yyork is a local-first Agent Orchestrator dashboard for parallel AI coding work. The current app has:
 
 - A single project/sidebar navigation surface.
 - A main workspace where sidebar selection drives the active project or terminal target.
@@ -26,7 +26,7 @@ Canvas extends the existing workspace instead of adding another navigation rail.
 
 The interaction model is inspired by the Codex app's thread side panel. Files, Browser, Review, and Terminal are presented as side-panel tabs, not as separate products.
 
-For better-ao, the matching concept is:
+For yyork, the matching concept is:
 
 - Sidebar-driven target selection: project rows open the Kanban board, and session rows open terminals.
 - Canvas trigger: a compact right-side toggle button in the selected target header.
@@ -210,7 +210,7 @@ MVP framing policy:
 
 Future:
 
-- If arbitrary browsing becomes a core requirement, better-ao needs a desktop shell or webview-backed runtime. A Vite web dashboard alone cannot provide that.
+- If arbitrary browsing becomes a core requirement, yyork needs a desktop shell or webview-backed runtime. A Vite web dashboard alone cannot provide that.
 
 ## Target model
 
@@ -371,7 +371,7 @@ Keep the Pierre adapters feature-local. Move to `web/src/components` only if a s
 
 ## Visual design
 
-Use the current better-ao product language.
+Use the current yyork product language.
 
 - Aesthetic: industrial/utilitarian.
 - Density: compact.

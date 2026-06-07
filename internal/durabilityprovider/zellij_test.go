@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/yyovil/better-ao/internal/session"
+	"github.com/yyovil/yyork/internal/session"
 )
 
 func TestZellijProviderSendMessagePastesAndSubmits(t *testing.T) {

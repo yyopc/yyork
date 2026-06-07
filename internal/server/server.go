@@ -14,12 +14,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/yyovil/better-ao/internal/durabilityprovider"
-	"github.com/yyovil/better-ao/internal/events"
-	"github.com/yyovil/better-ao/internal/plugin"
-	"github.com/yyovil/better-ao/internal/session"
-	"github.com/yyovil/better-ao/internal/store"
-	"github.com/yyovil/better-ao/internal/terminal"
+	"github.com/yyovil/yyork/internal/durabilityprovider"
+	"github.com/yyovil/yyork/internal/events"
+	"github.com/yyovil/yyork/internal/plugin"
+	"github.com/yyovil/yyork/internal/session"
+	"github.com/yyovil/yyork/internal/store"
+	"github.com/yyovil/yyork/internal/terminal"
 )
 
 // SessionStopper terminates a running session. The session.Engine satisfies
@@ -372,11 +372,11 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>better-ao</title>
+    <title>yyork</title>
   </head>
   <body>
     <main>
-      <h1>better-ao</h1>
+      <h1>yyork</h1>
       <p>Build the web dashboard first with <code>pnpm web:build</code>.</p>
     </main>
   </body>
@@ -419,11 +419,11 @@ func parsePositiveInt(value string, fallback int) int {
 
 func terminalEnvForSession(workerSession session.Session) []string {
 	return []string{
-		"BETTER_AO_SESSION_ID=" + workerSession.ID,
-		"BETTER_AO_WORKER_ID=" + workerSession.WorkerID,
-		"BETTER_AO_AGENT=" + workerSession.Agent,
-		"BETTER_AO_PROJECT=" + workerSession.Project,
-		"BETTER_AO_ZELLIJ_SESSION=" + workerSession.ZellijSession,
+		"YYORK_SESSION_ID=" + workerSession.ID,
+		"YYORK_WORKER_ID=" + workerSession.WorkerID,
+		"YYORK_AGENT=" + workerSession.Agent,
+		"YYORK_PROJECT=" + workerSession.Project,
+		"YYORK_ZELLIJ_SESSION=" + workerSession.ZellijSession,
 	}
 }
 

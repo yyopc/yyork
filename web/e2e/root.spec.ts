@@ -377,7 +377,7 @@ function waitForHomeWorkspacePreferences(page: Page) {
   return expect
     .poll(() =>
       page.evaluate(() =>
-        window.localStorage.getItem('better-ao.home.workspace-preferences')
+        window.localStorage.getItem('yyork.home.workspace-preferences')
       )
     )
     .not.toBeNull();
@@ -387,7 +387,7 @@ test('root route renders the orchestrator workspace', async ({ page }) => {
   await page.goto('/');
 
   await expect(page).toHaveTitle(/Agent Orchestrator/);
-  await expect(page.getByRole('heading', { name: 'better-ao' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'yyork' })).toBeVisible();
   await expect(
     page.getByRole('navigation', { name: 'Projects' })
   ).toBeVisible();

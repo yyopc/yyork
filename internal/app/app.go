@@ -10,17 +10,17 @@ import (
 	"os"
 	"time"
 
-	"github.com/yyovil/better-ao/internal/control"
-	"github.com/yyovil/better-ao/internal/durabilityprovider"
-	"github.com/yyovil/better-ao/internal/events"
-	"github.com/yyovil/better-ao/internal/logging"
-	"github.com/yyovil/better-ao/internal/plugin"
-	"github.com/yyovil/better-ao/internal/plugin/agent/claudecode"
-	"github.com/yyovil/better-ao/internal/plugin/agent/codex"
-	"github.com/yyovil/better-ao/internal/server"
-	"github.com/yyovil/better-ao/internal/session"
-	"github.com/yyovil/better-ao/internal/store"
-	"github.com/yyovil/better-ao/internal/worktree"
+	"github.com/yyovil/yyork/internal/control"
+	"github.com/yyovil/yyork/internal/durabilityprovider"
+	"github.com/yyovil/yyork/internal/events"
+	"github.com/yyovil/yyork/internal/logging"
+	"github.com/yyovil/yyork/internal/plugin"
+	"github.com/yyovil/yyork/internal/plugin/agent/claudecode"
+	"github.com/yyovil/yyork/internal/plugin/agent/codex"
+	"github.com/yyovil/yyork/internal/server"
+	"github.com/yyovil/yyork/internal/session"
+	"github.com/yyovil/yyork/internal/store"
+	"github.com/yyovil/yyork/internal/worktree"
 )
 
 type Config struct {
@@ -32,7 +32,7 @@ type Config struct {
 	WebDir string
 
 	// WebFS is an embedded dashboard filesystem (typically populated by
-	// cmd/better-ao via //go:embed). Used in production single-binary
+	// cmd/yyork via //go:embed). Used in production single-binary
 	// builds. If WebDir is empty and WebFS contains an index.html, the
 	// server serves the dashboard from the embed.
 	WebFS fs.FS
@@ -113,7 +113,7 @@ func Run(ctx context.Context, cfg Config) error {
 		WebFS:    cfg.WebFS,
 		// The workspace source the server's existing terminal-attach
 		// pipeline reads from is now backed by the SQLite store rather
-		// than the legacy ~/.agent-orchestrator/ reader. better-ao spawns
+		// than the legacy ~/.agent-orchestrator/ reader. yyork spawns
 		// its own sessions; they appear in the dashboard via the same
 		// pipeline that already powers browser terminal attach.
 		WorkspaceSource: session.NewStoreWorkspaceSource(dataStore.Sessions()),
@@ -148,7 +148,7 @@ func Run(ctx context.Context, cfg Config) error {
 	}()
 
 	url := "http://" + listener.Addr().String()
-	logging.Banner(os.Stderr, "better-ao", [][2]string{
+	logging.Banner(os.Stderr, "yyork", [][2]string{
 		{"server", url},
 		{"store", dbPath},
 	})

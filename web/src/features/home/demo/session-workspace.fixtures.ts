@@ -12,7 +12,7 @@ const workingClaudeSession = {
   // "claude-code" (see internal/plugin/agent/claudecode). Use it here so the
   // demo/storybook fixtures match what the running app actually sends.
   agent: 'claude-code',
-  cwd: '/Users/tanishqpalandurkar/Projects/better-ao',
+  cwd: '/Users/tanishqpalandurkar/Projects/yyork',
   description:
     'Trace branch state and expose it consistently for dashboard state.',
   id: 'session-ao-1',

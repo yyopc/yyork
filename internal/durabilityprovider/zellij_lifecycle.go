@@ -14,7 +14,7 @@ import (
 
 	"github.com/aymanbagabas/go-pty"
 
-	"github.com/yyovil/better-ao/internal/session"
+	"github.com/yyovil/yyork/internal/session"
 )
 
 // CreateSession brings up a new zellij session named opts.Name running
@@ -25,7 +25,7 @@ import (
 //   - Zellij is a client/server program. We spawn a client with a PTY
 //     attached so zellij has a real TTY to talk to, and with Setsid so the
 //     client lives in its own process group (insulated from signals to
-//     better-ao). The zellij server (a separate daemon) owns the session
+//     yyork). The zellij server (a separate daemon) owns the session
 //     and keeps it alive after the client exits.
 //   - We render the launch command into a temporary KDL layout file. The
 //     keep-alive shell wrap means killing the agent does not also kill the
@@ -286,7 +286,7 @@ func writeLaunchLayout(launchCmd []string, cwd string) (string, error) {
 		kdlQuote(bashCmd),
 	)
 
-	f, err := os.CreateTemp("", "better-ao-layout-*.kdl")
+	f, err := os.CreateTemp("", "yyork-layout-*.kdl")
 	if err != nil {
 		return "", fmt.Errorf("zellij: create layout file: %w", err)
 	}

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/yyovil/better-ao/internal/session"
+	"github.com/yyovil/yyork/internal/session"
 )
 
 func TestWorkspaceProviderReadsLiveAOWorkerSessions(t *testing.T) {
@@ -126,9 +126,9 @@ func TestWorkspaceProviderReadsLiveAOWorkerSessions(t *testing.T) {
 func TestWorkspaceProviderSupportsZellijRuntime(t *testing.T) {
 	baseDir := t.TempDir()
 	writeFile(t, filepath.Join(baseDir, runningFileName), `{
-  "projects": ["better-ao_abc123"]
+  "projects": ["yyork_abc123"]
 }`)
-	sessionsDir := filepath.Join(baseDir, "projects", "better-ao_abc123", "sessions")
+	sessionsDir := filepath.Join(baseDir, "projects", "yyork_abc123", "sessions")
 	writeFile(t, filepath.Join(sessionsDir, "bao-1.json"), `{
   "agent": "codex",
   "branch": "feature/zellij-runtime",

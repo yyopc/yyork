@@ -120,7 +120,7 @@ export const WorkerSessionsNested: Story = {
         eyebrow="Terminal"
         title="AO-2"
         lines={[
-          '$ pnpm --filter @better-ao/web dev',
+          '$ pnpm --filter @yyork/web dev',
           'ready in 281 ms',
           'local: http://localhost:3000',
         ]}
@@ -359,7 +359,7 @@ function ConceptSidebarShell(props: { children: ReactNode }) {
       <SidebarHeader className="h-15 shrink-0 justify-center gap-0 border-b border-sidebar-border p-0 px-3">
         <div className="flex min-w-0 items-center gap-1.5">
           <h1 className="truncate text-base leading-6 font-bold text-sidebar-foreground">
-            better-ao
+            yyork
           </h1>
           <span className="rounded-full border border-sidebar-border bg-sidebar-primary px-1.5 py-0.5 text-[10px] leading-none font-semibold text-sidebar-primary-foreground">
             alpha
@@ -1046,7 +1046,7 @@ function getSelectedTargetWorkspaceModel(
 
     return {
       agent: 'project',
-      cwd: '/Users/tanishqpalandurkar/Projects/better-ao',
+      cwd: '/Users/tanishqpalandurkar/Projects/yyork',
       eyebrow: activeProject.name,
       lines: [
         '$ ao status',
@@ -1068,7 +1068,7 @@ function getSelectedTargetWorkspaceModel(
 
   return {
     agent: session.agent,
-    cwd: session.cwd ?? '/Users/tanishqpalandurkar/Projects/better-ao',
+    cwd: session.cwd ?? '/Users/tanishqpalandurkar/Projects/yyork',
     eyebrow: `${projectName} / ${targetKind}`,
     lines: [
       isOrchestrator

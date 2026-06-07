@@ -29,10 +29,10 @@ describe('terminal connection helpers', () => {
     expect(
       createTerminalWebSocketURL(
         { id: 'session-ao-2', project: 'agent-orchestrator' },
-        { host: 'better-ao.local', protocol: 'https:' }
+        { host: 'yyork.local', protocol: 'https:' }
       )
     ).toBe(
-      'wss://better-ao.local/api/sessions/session-ao-2/terminal?cols=100&project=agent-orchestrator&rows=30'
+      'wss://yyork.local/api/sessions/session-ao-2/terminal?cols=100&project=agent-orchestrator&rows=30'
     );
   });
 

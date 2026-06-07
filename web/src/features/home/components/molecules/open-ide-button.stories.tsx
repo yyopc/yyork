@@ -8,9 +8,9 @@ const meta = {
   component: OpenIdeButton,
   args: {
     session: {
-      cwd: '/Users/tanishqpalandurkar/Projects/better-ao',
+      cwd: '/Users/tanishqpalandurkar/Projects/yyork',
       id: 'ao-1',
-      project: 'better-ao',
+      project: 'yyork',
       title: 'Live worker',
     },
   },

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yyovil/better-ao/internal/control"
-	"github.com/yyovil/better-ao/internal/events"
+	"github.com/yyovil/yyork/internal/control"
+	"github.com/yyovil/yyork/internal/events"
 )
 
 const testControlToken = "test-token"

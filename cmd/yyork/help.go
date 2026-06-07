@@ -61,16 +61,16 @@ func printRootHelp(w io.Writer) {
 	var b strings.Builder
 
 	b.WriteByte('\n')
-	b.WriteString("  " + s.title.Render("better-ao") + "  " +
+	b.WriteString("  " + s.title.Render("yyork") + "  " +
 		s.tagline.Render("Local-first agent orchestration for parallel AI coding work.") + "\n\n")
 
 	commands := [][2]string{
-		{"better-ao [options]", "Start the local dashboard and API server."},
-		{"better-ao spawn [options]", "Spawn a new agent session in the current project."},
-		{"better-ao session list [options]", "List running sessions."},
-		{"better-ao stop <sessionID>", "Terminate a running session."},
-		{"better-ao send [options] <message>", "Send a message to a session's agent."},
-		{"better-ao help [command]", "Show help for a command."},
+		{"yyork [options]", "Start the local dashboard and API server."},
+		{"yyork spawn [options]", "Spawn a new agent session in the current project."},
+		{"yyork session list [options]", "List running sessions."},
+		{"yyork stop <sessionID>", "Terminate a running session."},
+		{"yyork send [options] <message>", "Send a message to a session's agent."},
+		{"yyork help [command]", "Show help for a command."},
 	}
 	cmdW := colWidth(commands)
 
@@ -95,7 +95,7 @@ func printRootHelp(w io.Writer) {
 	b.WriteByte('\n')
 
 	serverOpts := [][2]string{
-		{"-addr string", "Address for the better-ao local server."},
+		{"-addr string", "Address for the yyork local server."},
 		{"-open", "Open the dashboard in the default browser."},
 	}
 	serverDefaults := map[string]string{
@@ -103,7 +103,7 @@ func printRootHelp(w io.Writer) {
 		"-open":        "true",
 	}
 	b.WriteString("  " + s.header.Render("SERVER OPTIONS") + "  " +
-		s.note.Render("for `better-ao` with no verb") + "\n")
+		s.note.Render("for `yyork` with no verb") + "\n")
 	optW := colWidth(serverOpts)
 	for _, row := range serverOpts {
 		b.WriteString("    " + s.flag.Render(pad(row[0], optW)) + "  " +
@@ -165,23 +165,23 @@ func renderCommandHelp(w io.Writer, title, desc string, usage []string, opts [][
 func printCommandHelp(command string, stdout io.Writer, stderr io.Writer) int {
 	switch command {
 	case "server", "":
-		renderCommandHelp(stdout, "better-ao",
+		renderCommandHelp(stdout, "yyork",
 			"Start the local dashboard and API server.",
-			[]string{"better-ao [options]"},
+			[]string{"yyork [options]"},
 			[][2]string{
-				{"-addr string", "Address for the better-ao local server. Default: 127.0.0.1:7331"},
+				{"-addr string", "Address for the yyork local server. Default: 127.0.0.1:7331"},
 				{"-open", "Open the dashboard in the default browser. Default: true"},
 				{"-h, --help", "Show this help text."},
 			})
 		return 0
 	case "spawn":
-		renderCommandHelp(stdout, "better-ao spawn",
+		renderCommandHelp(stdout, "yyork spawn",
 			"Spawn a new agent session in the current project directory.\n\n"+
 				"The current directory must be a git repository. A per-session git worktree\n"+
-				"is created on branch better-ao/<sessionId>, the configured agent is\n"+
+				"is created on branch yyork/<sessionId>, the configured agent is\n"+
 				"launched inside a fresh zellij session, and the session row is persisted to\n"+
-				"~/.better-ao/state.db once the zellij session confirms it is live.",
-			[]string{"better-ao spawn [options]"},
+				"~/.yyork/state.db once the zellij session confirms it is live.",
+			[]string{"yyork spawn [options]"},
 			[][2]string{
 				{"--prompt string", "Prompt the orchestrator passes to the worker agent. Required."},
 				{"--agent string", "Agent plugin to run: claude-code (default) | codex."},
@@ -191,28 +191,28 @@ func printCommandHelp(command string, stdout io.Writer, stderr io.Writer) int {
 			})
 		return 0
 	case "session":
-		renderCommandHelp(stdout, "better-ao session",
+		renderCommandHelp(stdout, "yyork session",
 			"Manage running sessions.",
-			[]string{"better-ao session list [options]"},
+			[]string{"yyork session list [options]"},
 			[][2]string{
 				{"--project string", "Filter to a single project's absolute path."},
 				{"-h, --help", "Show this help text."},
 			})
 		return 0
 	case "stop":
-		renderCommandHelp(stdout, "better-ao stop",
+		renderCommandHelp(stdout, "yyork stop",
 			"Cleanly terminate a session: kill the zellij session, remove the\n"+
-				"worktree (best-effort), and delete the row from ~/.better-ao/state.db.\n\n"+
+				"worktree (best-effort), and delete the row from ~/.yyork/state.db.\n\n"+
 				"Stopping a session id that has no row is a no-op (exit 0).",
-			[]string{"better-ao stop <sessionID>"},
+			[]string{"yyork stop <sessionID>"},
 			[][2]string{
 				{"-h, --help", "Show this help text."},
 			})
 		return 0
 	case "send":
-		renderCommandHelp(stdout, "better-ao send",
+		renderCommandHelp(stdout, "yyork send",
 			"Send a message to a session's agent as if typed by the user.",
-			[]string{"better-ao send --session <id> [--project <id>] <message>"},
+			[]string{"yyork send --session <id> [--project <id>] <message>"},
 			[][2]string{
 				{"-session string", "Target session id. Required."},
 				{"-project string", "Project id, to disambiguate duplicate session ids across projects."},
@@ -221,15 +221,15 @@ func printCommandHelp(command string, stdout io.Writer, stderr io.Writer) int {
 		return 0
 	default:
 		if summary, ok := plannedCommands[command]; ok {
-			renderCommandHelp(stdout, "better-ao "+command,
+			renderCommandHelp(stdout, "yyork "+command,
 				summary+".\n\nStatus: planned Agent Orchestrator parity command.",
-				[]string{"better-ao " + command + "  [planned]"},
+				[]string{"yyork " + command + "  [planned]"},
 				nil)
 			return 0
 		}
 
 		fmt.Fprintf(stderr, "Unknown command: %s\n", command)
-		fmt.Fprintln(stderr, "Run `better-ao --help` for usage.")
+		fmt.Fprintln(stderr, "Run `yyork --help` for usage.")
 		return 1
 	}
 }

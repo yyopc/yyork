@@ -1,4 +1,4 @@
-module better-ao-fang-experiment
+module yyork-fang-experiment
 
 go 1.25.10
 

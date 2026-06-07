@@ -47,7 +47,7 @@ const (
 
 	// strategyEnvVar is the environment variable read to select a strategy when
 	// ManagerConfig.AttachStrategy is unset.
-	strategyEnvVar = "BETTER_AO_TERMINAL_ATTACH"
+	strategyEnvVar = "YYORK_TERMINAL_ATTACH"
 )
 
 // SessionConfig describes the terminal a WebSocket connection wants to drive.
@@ -73,7 +73,7 @@ type ManagerConfig struct {
 	MaxScroll int
 	Runner    Runner
 	// AttachStrategy, when non-empty and valid, OVERRIDES the env var and the
-	// default. Precedence: this field > BETTER_AO_TERMINAL_ATTACH env var >
+	// default. Precedence: this field > YYORK_TERMINAL_ATTACH env var >
 	// default ("emulator"). An invalid value falls through to the next source.
 	AttachStrategy AttachStrategy
 }

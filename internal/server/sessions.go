@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/yyovil/better-ao/internal/control"
-	"github.com/yyovil/better-ao/internal/events"
-	"github.com/yyovil/better-ao/internal/store"
+	"github.com/yyovil/yyork/internal/control"
+	"github.com/yyovil/yyork/internal/events"
+	"github.com/yyovil/yyork/internal/store"
 )
 
 // sessionDTO is the JSON shape /api/sessions returns. It mirrors
@@ -105,7 +105,7 @@ func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) {
 // /api/events SSE fan-out delivers it to open boards.
 //
 // Authentication is a shared token from the server runfile (0600), carried in
-// the X-Better-AO-Token header. Because only processes that can read that file
+// the X-yyork-Token header. Because only processes that can read that file
 // know the token, a browser page cannot forge a request here — this is the
 // guard against a malicious page CSRF-ing the localhost endpoint. The token is
 // compared in constant time. Unknown event types are rejected so a caller

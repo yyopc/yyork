@@ -1,11 +1,11 @@
 {
-  "name": "better-ao",
+  "name": "yyork",
   "version": "0.0.1",
   "private": true,
   "description": "Orchestrate parallel AI coding agents across Zellij-backed workspaces, repos, and issue trackers",
-  "homepage": "https://github.com/yyovil/better-ao#readme",
+  "homepage": "https://github.com/yyovil/yyork#readme",
   "bugs": {
-    "url": "https://github.com/yyovil/better-ao/issues"
+    "url": "https://github.com/yyovil/yyork/issues"
   },
   "license": "MIT",
   "author": {
@@ -15,31 +15,31 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yyovil/better-ao.git"
+    "url": "git+https://github.com/yyovil/yyork.git"
   },
   "bin": {
-    "better-ao": "./scripts/better-ao.mjs"
+    "yyork": "./scripts/yyork.mjs"
   },
   "type": "module",
   "scripts": {
-    "prepare": "pnpm --filter @better-ao/web exec lefthook install --force",
+    "prepare": "pnpm --filter @yyork/web exec lefthook install --force",
     "api:generate": "node ./scripts/run-go.mjs run ./api/generate-workspace-contract.go",
-    "better-ao": "node ./scripts/better-ao.mjs",
-    "dev": "node ./scripts/better-ao.mjs",
+    "yyork": "node ./scripts/yyork.mjs",
+    "dev": "node ./scripts/yyork.mjs",
     "cli:test": "node --test scripts/*.test.mjs",
-    "web:dev": "pnpm --filter @better-ao/web dev",
-    "web:build": "pnpm --filter @better-ao/web build",
-    "web:lint": "pnpm --filter @better-ao/web lint",
-    "web:test": "pnpm --filter @better-ao/web test:ci",
+    "web:dev": "pnpm --filter @yyork/web dev",
+    "web:build": "pnpm --filter @yyork/web build",
+    "web:lint": "pnpm --filter @yyork/web lint",
+    "web:test": "pnpm --filter @yyork/web test:ci",
     "backend:dev": "node ./scripts/dev-backend.mjs",
-    "backend:build": "pnpm web:build && node ./scripts/copy-dashboard.mjs && node ./scripts/run-go.mjs build -o ./better-ao ./cmd/better-ao",
+    "backend:build": "pnpm web:build && node ./scripts/copy-dashboard.mjs && node ./scripts/run-go.mjs build -o ./yyork ./cmd/yyork",
     "backend:test": "node ./scripts/run-go.mjs test ./...",
     "build": "pnpm web:build && pnpm backend:build",
     "lint": "pnpm backend:test && pnpm web:lint",
-    "lint:ts": "pnpm --filter @better-ao/web lint:ts",
+    "lint:ts": "pnpm --filter @yyork/web lint:ts",
     "test": "pnpm backend:test && pnpm cli:test && pnpm web:test",
-    "test:ci": "pnpm --filter @better-ao/web test:ci",
-    "e2e": "pnpm --filter @better-ao/web e2e",
+    "test:ci": "pnpm --filter @yyork/web test:ci",
+    "e2e": "pnpm --filter @yyork/web e2e",
     "e2e:live-terminal": "pnpm --dir web e2e:live-terminal",
     "e2e:live-terminal:reconnect": "pnpm --dir web e2e:live-terminal:reconnect",
     "e2e:live-terminal:soak": "pnpm --dir web e2e:live-terminal:soak",

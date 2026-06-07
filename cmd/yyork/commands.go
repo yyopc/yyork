@@ -10,15 +10,15 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/yyovil/better-ao/internal/control"
-	"github.com/yyovil/better-ao/internal/durabilityprovider"
-	"github.com/yyovil/better-ao/internal/plugin"
-	pluginagent "github.com/yyovil/better-ao/internal/plugin/agent"
-	"github.com/yyovil/better-ao/internal/plugin/agent/claudecode"
-	"github.com/yyovil/better-ao/internal/plugin/agent/codex"
-	"github.com/yyovil/better-ao/internal/session"
-	"github.com/yyovil/better-ao/internal/store"
-	"github.com/yyovil/better-ao/internal/worktree"
+	"github.com/yyovil/yyork/internal/control"
+	"github.com/yyovil/yyork/internal/durabilityprovider"
+	"github.com/yyovil/yyork/internal/plugin"
+	pluginagent "github.com/yyovil/yyork/internal/plugin/agent"
+	"github.com/yyovil/yyork/internal/plugin/agent/claudecode"
+	"github.com/yyovil/yyork/internal/plugin/agent/codex"
+	"github.com/yyovil/yyork/internal/session"
+	"github.com/yyovil/yyork/internal/store"
+	"github.com/yyovil/yyork/internal/worktree"
 )
 
 // defaultAgentPlugin is the agent used when `spawn` is run without --agent.
@@ -95,7 +95,7 @@ func runSpawn(ctx context.Context, args []string, stdout io.Writer, stderr io.Wr
 
 	if strings.TrimSpace(prompt) == "" {
 		fmt.Fprintln(stderr, "spawn: --prompt is required")
-		fmt.Fprintln(stderr, "Run `better-ao help spawn` for usage.")
+		fmt.Fprintln(stderr, "Run `yyork help spawn` for usage.")
 		return 1
 	}
 
@@ -144,7 +144,7 @@ func runSession(ctx context.Context, args []string, stdout io.Writer, stderr io.
 		return runSessionList(ctx, subArgs, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "session: unknown subcommand %q\n", sub)
-		fmt.Fprintln(stderr, "Run `better-ao help session` for usage.")
+		fmt.Fprintln(stderr, "Run `yyork help session` for usage.")
 		return 1
 	}
 }
@@ -220,7 +220,7 @@ func runStop(ctx context.Context, args []string, stdout io.Writer, stderr io.Wri
 	}
 	if flags.NArg() != 1 {
 		fmt.Fprintln(stderr, "stop: exactly one <sessionID> argument is required")
-		fmt.Fprintln(stderr, "Run `better-ao help stop` for usage.")
+		fmt.Fprintln(stderr, "Run `yyork help stop` for usage.")
 		return 1
 	}
 	id := flags.Arg(0)

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Mirrors web/dist/ into cmd/better-ao/dashboard/ so the //go:embed
-// directive in cmd/better-ao/dashboard.go picks up the latest dashboard
+// Mirrors web/dist/ into cmd/yyork/dashboard/ so the //go:embed
+// directive in cmd/yyork/dashboard.go picks up the latest dashboard
 // build. Used by `pnpm backend:build`; the destination directory is
 // gitignored except for a sentinel .gitkeep.
 import { cp, mkdir, readdir, rm, stat } from 'node:fs/promises';
@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const sourceDir = resolve(rootDir, 'web', 'dist');
-const targetDir = resolve(rootDir, 'cmd', 'better-ao', 'dashboard');
+const targetDir = resolve(rootDir, 'cmd', 'yyork', 'dashboard');
 const sentinelFile = '.gitkeep';
 
 async function main() {

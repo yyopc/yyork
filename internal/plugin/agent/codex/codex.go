@@ -18,9 +18,9 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/yyovil/better-ao/internal/plugin"
-	"github.com/yyovil/better-ao/internal/plugin/agent"
-	"github.com/yyovil/better-ao/internal/utils"
+	"github.com/yyovil/yyork/internal/plugin"
+	"github.com/yyovil/yyork/internal/plugin/agent"
+	"github.com/yyovil/yyork/internal/utils"
 )
 
 const (
@@ -111,7 +111,7 @@ func (p *Plugin) GetRestoreCommand(ctx context.Context, cfg agent.RestoreConfig)
 }
 
 // SessionInfo is a no-op in v1. Codex's native thread id, transcript path,
-// and summary are not surfaced through better-ao yet. The future hook
+// and summary are not surfaced through yyork yet. The future hook
 // slice will populate session metadata with the thread id directly,
 // removing any need to discover it via file scanning.
 func (p *Plugin) SessionInfo(ctx context.Context, session agent.SessionRef) (agent.SessionInfo, bool, error) {

@@ -186,7 +186,7 @@ func TestManagerReadsPTYRunnerOutput(t *testing.T) {
 		t.Fatalf("ensure terminal: %v", err)
 	}
 
-	command, marker := terminalSmokeCommand("better-ao-manager-pty-smoke")
+	command, marker := terminalSmokeCommand("yyork-manager-pty-smoke")
 	if _, err := term.process.Write([]byte(command)); err != nil {
 		t.Fatalf("write command: %v", err)
 	}
@@ -208,7 +208,7 @@ func TestSessionTerminalReadsPTYRunnerOutput(t *testing.T) {
 	})
 	go term.readLoop()
 
-	command, marker := terminalSmokeCommand("better-ao-session-pty-smoke")
+	command, marker := terminalSmokeCommand("yyork-session-pty-smoke")
 	if _, err := term.process.Write([]byte(command)); err != nil {
 		t.Fatalf("write command: %v", err)
 	}
@@ -243,7 +243,7 @@ func TestEmulatorServeWSWithPTYRunner(t *testing.T) {
 	}
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
-	command, marker := terminalSmokeCommand("better-ao-emulator-ws-smoke")
+	command, marker := terminalSmokeCommand("yyork-emulator-ws-smoke")
 	if err := conn.Write(ctx, websocket.MessageBinary, []byte(command)); err != nil {
 		t.Fatalf("write command: %v", err)
 	}

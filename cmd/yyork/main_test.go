@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yyovil/better-ao/internal/app"
+	"github.com/yyovil/yyork/internal/app"
 )
 
 func TestRunCLIHelpPrintsImplementedAndPlannedSurface(t *testing.T) {
@@ -27,10 +27,10 @@ func TestRunCLIHelpPrintsImplementedAndPlannedSurface(t *testing.T) {
 	}
 	output := stdout.String()
 	for _, want := range []string{
-		"better-ao [options]",
-		"better-ao spawn",
-		"better-ao session list",
-		"better-ao stop",
+		"yyork [options]",
+		"yyork spawn",
+		"yyork session list",
+		"yyork stop",
 		"PLANNED",
 		"status",
 	} {
@@ -39,8 +39,8 @@ func TestRunCLIHelpPrintsImplementedAndPlannedSurface(t *testing.T) {
 		}
 	}
 	for _, unwanted := range []string{
-		"better-ao start ",
-		"better-ao dashboard",
+		"yyork start ",
+		"yyork dashboard",
 	} {
 		if strings.Contains(output, unwanted) {
 			t.Fatalf("help output should not mention removed verb %q:\n%s", unwanted, output)
@@ -75,7 +75,7 @@ func TestRunCLINoArgsStartsServerWithDefaults(t *testing.T) {
 		t.Fatal("expected server to open the browser by default")
 	}
 	// In single-binary mode the server is wired to the embedded FS, not a
-	// WebDir path. The embed lives under cmd/better-ao/dashboard/ and is
+	// WebDir path. The embed lives under cmd/yyork/dashboard/ and is
 	// passed via WebFS.
 	if got.WebDir != "" {
 		t.Fatalf("expected WebDir to be empty (embed mode), got: %s", got.WebDir)
@@ -145,7 +145,7 @@ func TestRunCLIPlannedCommandPrintsPlannedNotice(t *testing.T) {
 	if called {
 		t.Fatal("planned command should not run the app")
 	}
-	if !strings.Contains(stderr.String(), "not implemented in better-ao yet") {
+	if !strings.Contains(stderr.String(), "not implemented in yyork yet") {
 		t.Fatalf("unexpected stderr: %s", stderr.String())
 	}
 }
@@ -197,7 +197,7 @@ func TestRunCLISessionListSubcommandHelp(t *testing.T) {
 	if code != 1 {
 		t.Fatalf("unexpected exit code: %d", code)
 	}
-	if !strings.Contains(stdout.String(), "better-ao session") {
+	if !strings.Contains(stdout.String(), "yyork session") {
 		t.Fatalf("expected help output, got:\n%s", stdout.String())
 	}
 }

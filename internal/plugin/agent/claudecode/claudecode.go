@@ -6,7 +6,7 @@
 // resume and hook capture are deferred to a later slice.
 //
 // Claude Code starts an interactive session by default (no -p/--print), which
-// is exactly what better-ao wants: a live agent the user can attach to in the
+// is exactly what yyork wants: a live agent the user can attach to in the
 // browser terminal or via `zellij attach`. The initial task prompt is passed
 // as the positional argument; the orchestrator system prompt (if any) is
 // appended to Claude's default system prompt so its built-in coding
@@ -24,14 +24,14 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/yyovil/better-ao/internal/plugin"
-	"github.com/yyovil/better-ao/internal/plugin/agent"
-	"github.com/yyovil/better-ao/internal/utils"
+	"github.com/yyovil/yyork/internal/plugin"
+	"github.com/yyovil/yyork/internal/plugin/agent"
+	"github.com/yyovil/yyork/internal/utils"
 )
 
 const (
 	// pluginID is the registry id and the value users pass to
-	// `better-ao spawn --agent`.
+	// `yyork spawn --agent`.
 	pluginID = "claude-code"
 
 	// claudeSessionUUIDMetadataKey is where we'd persist Claude Code's
@@ -78,7 +78,7 @@ func (p *Plugin) GetConfigSpec(ctx context.Context) (agent.ConfigSpec, error) {
 //	       [--append-system-prompt <system prompt>] \
 //	       [-- <prompt>]
 //
-// <mode> is acceptEdits, auto, or bypassPermissions. better-ao's "default"
+// <mode> is acceptEdits, auto, or bypassPermissions. yyork's "default"
 // mode emits no --permission-mode flag, so Claude's TUI resolves the starting
 // mode from ~/.claude/settings.json exactly as a normal launch.
 //
@@ -121,11 +121,11 @@ func (p *Plugin) GetPromptDeliveryStrategy(ctx context.Context, cfg agent.Launch
 // PreLaunch is an optional capability the spawn engine invokes (via type
 // assertion) immediately before creating the session. Claude Code shows a
 // blocking "do you trust this folder?" dialog the first time it runs in any
-// directory. Every better-ao worktree is a fresh path, so without this the
+// directory. Every yyork worktree is a fresh path, so without this the
 // agent would hang at that prompt with no one to answer it.
 //
-// A better-ao worktree is derived from the repo the user is already running
-// better-ao in, so it is inherently trusted. PreLaunch records that trust in
+// A yyork worktree is derived from the repo the user is already running
+// yyork in, so it is inherently trusted. PreLaunch records that trust in
 // ~/.claude.json before launch, additively and atomically, so it cannot
 // clobber a concurrently-running Claude instance's config.
 func (p *Plugin) PreLaunch(ctx context.Context, cfg agent.LaunchConfig) error {
@@ -159,7 +159,7 @@ func (p *Plugin) GetRestoreCommand(ctx context.Context, cfg agent.RestoreConfig)
 }
 
 // SessionInfo is a no-op in v1. Claude Code's native session UUID and
-// transcript are not surfaced through better-ao yet.
+// transcript are not surfaced through yyork yet.
 func (p *Plugin) SessionInfo(ctx context.Context, session agent.SessionRef) (agent.SessionInfo, bool, error) {
 	if err := ctx.Err(); err != nil {
 		return agent.SessionInfo{}, false, err
@@ -180,7 +180,7 @@ func resolveSystemPrompt(cfg agent.LaunchConfig) (string, error) {
 	return cfg.SystemPrompt, nil
 }
 
-// appendPermissionFlags maps better-ao's permission modes onto Claude Code's
+// appendPermissionFlags maps yyork's permission modes onto Claude Code's
 // --permission-mode values:
 //   - default            → no flag. Claude's TUI resolves the starting mode
 //     from ~/.claude/settings.json (defaultMode), exactly as a normal launch.

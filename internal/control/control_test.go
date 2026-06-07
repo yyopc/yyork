@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yyovil/better-ao/internal/events"
+	"github.com/yyovil/yyork/internal/events"
 )
 
 // isolateHome points HOME at a temp dir so Path() resolves to a per-test
-// runfile location and never touches the developer's real ~/.better-ao.
+// runfile location and never touches the developer's real ~/.yyork.
 func isolateHome(t *testing.T) {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())

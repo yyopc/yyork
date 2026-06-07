@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/yyovil/better-ao/internal/plugin/agent"
+	"github.com/yyovil/yyork/internal/plugin/agent"
 )
 
 func TestGetLaunchCommandBypassWithPrompt(t *testing.T) {
@@ -149,7 +149,7 @@ func TestEnsureWorkspaceTrustedCreatesEntry(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	work := "/Users/me/.better-ao/worktrees/01ABC"
+	work := "/Users/me/.yyork/worktrees/01ABC"
 	if err := ensureWorkspaceTrusted(cfgPath, work); err != nil {
 		t.Fatalf("ensureWorkspaceTrusted: %v", err)
 	}

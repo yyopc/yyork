@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/yyovil/better-ao/internal/plugin/agent"
+	"github.com/yyovil/yyork/internal/plugin/agent"
 )
 
 func TestGetLaunchCommandBuildsCrossPlatformArgv(t *testing.T) {

@@ -23,7 +23,7 @@ func TestPTYRunnerSmoke(t *testing.T) {
 	}
 	defer process.Close()
 
-	command, marker := terminalSmokeCommand("better-ao-runner-smoke")
+	command, marker := terminalSmokeCommand("yyork-runner-smoke")
 	output := make(chan string, 1)
 	go func() {
 		var buf bytes.Buffer

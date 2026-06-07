@@ -13,7 +13,7 @@ import (
 
 // These tests exercise Option A — the per-client attach strategy. Each one
 // selects StrategyPerClient explicitly via ManagerConfig so the suite does not
-// depend on the BETTER_AO_TERMINAL_ATTACH env var or the package default.
+// depend on the YYORK_TERMINAL_ATTACH env var or the package default.
 
 // TestClientAttachHandlesResizeAndInput verifies that resize control messages
 // and binary input route to the per-connection attach process.
@@ -154,7 +154,7 @@ func TestPerClientServeWSWithPTYRunner(t *testing.T) {
 	}
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
-	command, marker := terminalSmokeCommand("better-ao-perclient-ws-smoke")
+	command, marker := terminalSmokeCommand("yyork-perclient-ws-smoke")
 	if err := conn.Write(ctx, websocket.MessageBinary, []byte(command)); err != nil {
 		t.Fatalf("write command: %v", err)
 	}

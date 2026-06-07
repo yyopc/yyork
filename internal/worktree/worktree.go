@@ -2,8 +2,8 @@
 // the spawn engine can create and remove per-session worktrees without
 // knowing git's command-line details.
 //
-// In v1, every spawn calls Create with a path under ~/.better-ao/worktrees/
-// and a branch named better-ao/{sessionId}. The base ref is detected from
+// In v1, every spawn calls Create with a path under ~/.yyork/worktrees/
+// and a branch named yyork/{sessionId}. The base ref is detected from
 // the project's actual git state via BaseRef.
 package worktree
 
@@ -53,14 +53,14 @@ type Module interface {
 	Remove(ctx context.Context, projectPath, worktreePath, branchName string) error
 }
 
-// DefaultBase returns ~/.better-ao/worktrees, the v1 default location for
+// DefaultBase returns ~/.yyork/worktrees, the v1 default location for
 // session worktrees.
 func DefaultBase() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("resolve home directory: %w", err)
 	}
-	return filepath.Join(home, ".better-ao", "worktrees"), nil
+	return filepath.Join(home, ".yyork", "worktrees"), nil
 }
 
 // New returns the default Module backed by the `git` binary on PATH.

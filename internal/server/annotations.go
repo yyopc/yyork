@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/yyovil/better-ao/internal/durabilityprovider"
-	"github.com/yyovil/better-ao/internal/session"
-	"github.com/yyovil/better-ao/internal/store"
+	"github.com/yyovil/yyork/internal/durabilityprovider"
+	"github.com/yyovil/yyork/internal/session"
+	"github.com/yyovil/yyork/internal/store"
 )
 
 type annotationsRequest struct {
@@ -17,7 +17,7 @@ type annotationsRequest struct {
 }
 
 // annotation mirrors the subset of the agentation v1.1 Annotation shape that
-// better-ao forwards to an agent as a user message.
+// yyork forwards to an agent as a user message.
 type annotation struct {
 	ID              string `json:"id"`
 	Comment         string `json:"comment"`

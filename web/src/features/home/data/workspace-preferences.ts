@@ -4,7 +4,7 @@ import {
 } from '@/features/home/domain/session-workspace';
 
 const homeWorkspacePreferencesStorageKey =
-  'better-ao.home.workspace-preferences';
+  'yyork.home.workspace-preferences';
 const homeWorkspacePreferencesVersion = 1;
 
 export interface HomeWorkspacePreferences {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yyovil/better-ao/internal/store"
+	"github.com/yyovil/yyork/internal/store"
 )
 
 func TestOpenCreatesDataDirAndAppliesMigrations(t *testing.T) {
@@ -75,7 +75,7 @@ func TestSessionInsertGetListDelete(t *testing.T) {
 		ProjectPath:   "/tmp/proj",
 		ProjectName:   "proj",
 		AgentPlugin:   "codex",
-		WorkspacePath: "/tmp/proj/.better-ao/worktrees/01HRTESTSESSIONID00000000A",
+		WorkspacePath: "/tmp/proj/.yyork/worktrees/01HRTESTSESSIONID00000000A",
 		ZellijSession: "01HRTESTSESSIONID00000000A",
 		PID:           12345,
 		Metadata: map[string]any{

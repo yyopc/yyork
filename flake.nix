@@ -1,5 +1,5 @@
 {
-  description = "better-ao local agent orchestrator development shell";
+  description = "yyork local agent orchestrator development shell";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -17,8 +17,8 @@
       let
         pkgs = import nixpkgs { inherit system; };
         go = pkgs.go_1_25;
-        betterAoDev = pkgs.writeShellApplication {
-          name = "better-ao";
+        yyorkDev = pkgs.writeShellApplication {
+          name = "yyork";
           runtimeInputs = [
             pkgs.coreutils
             pkgs.pnpm_10
@@ -30,7 +30,7 @@
             done
 
             if [ ! -f "$root/pnpm-workspace.yaml" ]; then
-              echo "Unable to find the better-ao workspace root."
+              echo "Unable to find the yyork workspace root."
               exit 1
             fi
 
@@ -42,7 +42,7 @@
       {
         devShells.default = pkgs.mkShell {
           buildInputs = [
-            betterAoDev
+            yyorkDev
             go
             pkgs.nodejs_22
             pkgs.pnpm_10

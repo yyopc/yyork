@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yyovil/better-ao/internal/worktree"
+	"github.com/yyovil/yyork/internal/worktree"
 )
 
 func TestIsGitRepo(t *testing.T) {
@@ -89,7 +89,7 @@ func TestCreateAndRemoveWorktree(t *testing.T) {
 	worktreesBase := filepath.Join(t.TempDir(), "worktrees")
 	sid := "01HRTESTSESSION00000000000"
 	worktreePath := filepath.Join(worktreesBase, sid)
-	branchName := "better-ao/" + sid
+	branchName := "yyork/" + sid
 
 	if err := m.Create(ctx, repo, worktreePath, branchName, baseRef); err != nil {
 		t.Fatalf("Create: %v", err)
@@ -117,7 +117,7 @@ func TestCreateAndRemoveWorktree(t *testing.T) {
 		t.Fatalf("worktree directory still exists: %v", err)
 	}
 
-	// The branch must be gone too — no leaked better-ao/<sid> branches.
+	// The branch must be gone too — no leaked yyork/<sid> branches.
 	branches := runGit(t, repo, "branch", "--list", branchName)
 	if strings.TrimSpace(branches) != "" {
 		t.Fatalf("branch %q still exists after Remove:\n%s", branchName, branches)
@@ -139,7 +139,7 @@ func TestRemoveDeletesBranchEvenWithCommits(t *testing.T) {
 
 	sid := "01HRTESTCOMMITS0000000000"
 	worktreePath := filepath.Join(t.TempDir(), "worktrees", sid)
-	branchName := "better-ao/" + sid
+	branchName := "yyork/" + sid
 
 	if err := m.Create(ctx, repo, worktreePath, branchName, baseRef); err != nil {
 		t.Fatalf("Create: %v", err)
@@ -173,7 +173,7 @@ func TestRemoveWithEmptyBranchSkipsBranchDeletion(t *testing.T) {
 
 	sid := "01HRTESTNOBRANCH000000000"
 	worktreePath := filepath.Join(t.TempDir(), "worktrees", sid)
-	branchName := "better-ao/" + sid
+	branchName := "yyork/" + sid
 	if err := m.Create(ctx, repo, worktreePath, branchName, baseRef); err != nil {
 		t.Fatalf("Create: %v", err)
 	}

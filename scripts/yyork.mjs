@@ -5,7 +5,7 @@ import { createServer } from 'node:net';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { resolveDevConfig, UsageError } from './better-ao-config.mjs';
+import { resolveDevConfig, UsageError } from './yyork-config.mjs';
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const cliArgs = process.argv.slice(2);
@@ -81,7 +81,7 @@ for (const child of children) {
 function startBackend(host, port) {
   const backendArgs = [
     'run',
-    './cmd/better-ao',
+    './cmd/yyork',
     '-addr',
     `${host}:${port}`,
     '-open=false',
@@ -121,7 +121,7 @@ function printStartupBanner({ backendOrigin, webOrigin }) {
   const paint = (codes, text) =>
     color ? `\u001b[${codes}m${text}\u001b[0m` : text;
 
-  const badge = paint('1;30;48;5;212', ' better-ao ');
+  const badge = paint('1;30;48;5;212', ' yyork ');
   const arrow = paint('38;5;212', '➜');
   const label = (text) => paint('38;5;241', text.padEnd(7));
   const value = (text) => paint('4;38;5;86', text);
@@ -135,22 +135,22 @@ function printStartupBanner({ backendOrigin, webOrigin }) {
 
 function exitWithUsageError(message) {
   console.error(message);
-  console.error('Run better-ao --help for usage.');
+  console.error('Run yyork --help for usage.');
   process.exit(1);
 }
 
 function printHelp() {
-  console.log(`better-ao
+  console.log(`yyork
 
-Start the local better-ao dashboard and API/terminal server.
+Start the local yyork dashboard and API/terminal server.
 
 Usage:
-  better-ao
+  yyork
   pnpm dev
 
 Environment:
-  BETTER_AO_BACKEND_HOST  Backend bind host. Default: 127.0.0.1
-  BETTER_AO_BACKEND_PORT  Preferred backend port. Default: 7331
+  YYORK_BACKEND_HOST  Backend bind host. Default: 127.0.0.1
+  YYORK_BACKEND_PORT  Preferred backend port. Default: 7331
   VITE_PORT               Preferred web port. Default: web/.env or 3000
 
 Options:

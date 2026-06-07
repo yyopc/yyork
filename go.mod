@@ -1,4 +1,4 @@
-module github.com/yyovil/better-ao
+module github.com/yyovil/yyork
 
 go 1.25.7
 

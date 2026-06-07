@@ -179,7 +179,7 @@ function AppBrand() {
 function BrandTypography() {
   return (
     <>
-      <span className="truncate text-base leading-6 font-bold">better-ao</span>
+      <span className="truncate text-base leading-6 font-bold">yyork</span>
       <span className="shrink-0 rounded-full border border-sidebar-border bg-sidebar-primary px-1.5 py-0.5 text-[10px] leading-none font-semibold text-sidebar-primary-foreground">
         alpha
       </span>

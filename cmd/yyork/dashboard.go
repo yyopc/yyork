@@ -7,7 +7,7 @@ import (
 )
 
 // dashboardEmbed bundles the built dashboard into the Go binary at compile
-// time. The pattern requires `cmd/better-ao/dashboard/` to exist with at
+// time. The pattern requires `cmd/yyork/dashboard/` to exist with at
 // least one file — the committed `.gitkeep` satisfies that even on a fresh
 // checkout. `pnpm backend:build` runs `pnpm web:build` first, then mirrors
 // `web/dist/*` into this directory, so a real built dashboard is present

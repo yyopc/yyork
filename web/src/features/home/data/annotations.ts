@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 /**
  * AnnotationPayload is the subset of the agentation v1.1 Annotation shape that
- * better-ao forwards to an agent. The in-app agentation instance emits these
+ * yyork forwards to an agent. The in-app agentation instance emits these
  * via `onAnnotationAdd`; the worker's glue postMessages them to the dashboard.
  */
 export interface AnnotationPayload {

@@ -2,10 +2,10 @@ import { spawn, spawnSync } from 'node:child_process';
 
 const backendOrigin =
   process.env.VITE_BACKEND_ORIGIN ?? 'http://127.0.0.1:7331';
-const backendArgs = ['run', './cmd/better-ao', '-open=false'];
+const backendArgs = ['run', './cmd/yyork', '-open=false'];
 
 if (await isHealthyBackend(backendOrigin)) {
-  console.log(`Reusing better-ao backend at ${backendOrigin}`);
+  console.log(`Reusing yyork backend at ${backendOrigin}`);
   holdOpen();
 } else if (hasCommand('go', ['version'])) {
   run('go', backendArgs);

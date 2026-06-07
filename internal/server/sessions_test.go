@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yyovil/better-ao/internal/events"
-	"github.com/yyovil/better-ao/internal/server"
-	"github.com/yyovil/better-ao/internal/store"
+	"github.com/yyovil/yyork/internal/events"
+	"github.com/yyovil/yyork/internal/server"
+	"github.com/yyovil/yyork/internal/store"
 )
 
 func openTestStore(t *testing.T) store.Store {

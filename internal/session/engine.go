@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yyovil/better-ao/internal/events"
-	"github.com/yyovil/better-ao/internal/plugin"
-	"github.com/yyovil/better-ao/internal/plugin/agent"
-	"github.com/yyovil/better-ao/internal/store"
-	"github.com/yyovil/better-ao/internal/worktree"
+	"github.com/yyovil/yyork/internal/events"
+	"github.com/yyovil/yyork/internal/plugin"
+	"github.com/yyovil/yyork/internal/plugin/agent"
+	"github.com/yyovil/yyork/internal/store"
+	"github.com/yyovil/yyork/internal/worktree"
 )
 
 // CreateOpts describes a durability-provider session the engine wants to
@@ -21,8 +21,8 @@ import (
 // package does not need to import its caller for this spec — that keeps
 // the dependency graph going one direction.
 type CreateOpts struct {
-	// Name is the durability-provider session name. In better-ao this is
-	// the better-ao session id (a ULID), so the same string is the row's
+	// Name is the durability-provider session name. In yyork this is
+	// the yyork session id (a ULID), so the same string is the row's
 	// primary key, the zellij session name, and the directory leaf for the
 	// per-session worktree.
 	Name string
@@ -83,7 +83,7 @@ type EngineConfig struct {
 	Bus events.Publisher
 
 	// WorktreeBase is the directory under which per-session worktrees live.
-	// Defaults to ~/.better-ao/worktrees if empty.
+	// Defaults to ~/.yyork/worktrees if empty.
 	WorktreeBase string
 
 	// DefaultAgent is used when SpawnRequest.AgentPlugin is empty.
@@ -94,7 +94,7 @@ type EngineConfig struct {
 	// SpawnRequest.Permissions is empty. Defaults to "bypass-permissions"
 	// (the only mode that truly runs unattended). This is the engine-level
 	// fallback; once the user-facing setting lands (web dashboard / CLI /
-	// ~/.better-ao/config.toml), the config loader populates this field.
+	// ~/.yyork/config.toml), the config loader populates this field.
 	DefaultPermissions agent.PermissionMode
 
 	// now is injected by tests; defaults to time.Now.
@@ -283,7 +283,7 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 		Name:      id,
 		LaunchCmd: launchCmd,
 		Cwd:       workspacePath,
-		Env:       map[string]string{"BETTER_AO_SESSION_ID": id},
+		Env:       map[string]string{"YYORK_SESSION_ID": id},
 	}); err != nil {
 		e.rollbackWorktree(ctx, req.ProjectPath, workspacePath, branchName)
 		return store.Session{}, fmt.Errorf("session.Spawn: create durability session: %w", err)
@@ -438,7 +438,7 @@ func (e *Engine) rollbackWorktree(ctx context.Context, projectPath, worktreePath
 // the same in Create (spawn) and Remove (stop/reconcile/rollback), so this
 // single derivation keeps them in lockstep.
 func branchNameFor(id string) string {
-	return "better-ao/" + id
+	return "yyork/" + id
 }
 
 // idAlphabet is Crockford base32 in lowercase (no i/l/o/u) so session ids read

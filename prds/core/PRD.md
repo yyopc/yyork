@@ -2,15 +2,15 @@
 
 ## Problem Statement
 
-I want to use better-ao to build better-ao. Today I can't — better-ao is a viewer over an externally-managed Agent Orchestrator stack. To actually run an agent on a task, I have to use a separate `ao` CLI to spawn a worker, then come back to better-ao to watch it. Everything write-side lives outside the app: spawning, stopping, managing sessions. The 23-command surface declared in `cmd/better-ao/main.go` is all stubs that print "not implemented yet."
+I want to use yyork to build yyork. Today I can't — yyork is a viewer over an externally-managed Agent Orchestrator stack. To actually run an agent on a task, I have to use a separate `ao` CLI to spawn a worker, then come back to yyork to watch it. Everything write-side lives outside the app: spawning, stopping, managing sessions. The 23-command surface declared in `cmd/yyork/main.go` is all stubs that print "not implemented yet."
 
-The desktop apps I'd otherwise use for this — Conductor, Crush, and friends — are slow and have features that simply don't work. I want a local-first tool I actually own. better-ao should *be* the next-gen ao, not a frontend over it.
+The desktop apps I'd otherwise use for this — Conductor, Crush, and friends — are slow and have features that simply don't work. I want a local-first tool I actually own. yyork should *be* the next-gen ao, not a frontend over it.
 
-The minimum thing missing is a spawn path: a way for better-ao itself to create a zellij-backed agent session on a project, persist it, and expose it in the dashboard for browser terminal attachment. Until that exists, better-ao can't dogfood itself.
+The minimum thing missing is a spawn path: a way for yyork itself to create a zellij-backed agent session on a project, persist it, and expose it in the dashboard for browser terminal attachment. Until that exists, yyork can't dogfood itself.
 
 ## Solution
 
-better-ao takes ownership of the agent-orchestration stack end-to-end. The user starts the server with `better-ao` (no verb). From any project directory they run `better-ao spawn` with a prompt and an agent plugin choice. The engine creates a per-session git worktree on a `better-ao/{sessionId}` branch, creates a zellij session running the agent CLI inside that worktree, persists the session to a local SQLite database, and the running dashboard immediately shows the new session via a server-sent-events stream — no polling. The user clicks into the session in the browser and gets a live terminal attached to the running agent.
+yyork takes ownership of the agent-orchestration stack end-to-end. The user starts the server with `yyork` (no verb). From any project directory they run `yyork spawn` with a prompt and an agent plugin choice. The engine creates a per-session git worktree on a `yyork/{sessionId}` branch, creates a zellij session running the agent CLI inside that worktree, persists the session to a local SQLite database, and the running dashboard immediately shows the new session via a server-sent-events stream — no polling. The user clicks into the session in the browser and gets a live terminal attached to the running agent.
 
 No external `ao` CLI involved. The full loop — spawn, watch, stop — happens inside one tool.
 
@@ -18,85 +18,85 @@ For v1 this is intentionally a *minimum* spawn slice: spawn, list, stop, attach.
 
 ## User Stories
 
-1. As a developer dogfooding better-ao, I want to start the server by running `better-ao` with no arguments, so that I don't have to remember a subcommand verb just to launch the dashboard.
+1. As a developer dogfooding yyork, I want to start the server by running `yyork` with no arguments, so that I don't have to remember a subcommand verb just to launch the dashboard.
 
-2. As a developer dogfooding better-ao, I want `better-ao spawn` to launch a new agent session on whichever project I'm currently `cd`'d into, so that I don't have to specify the project path explicitly for the common case.
+2. As a developer dogfooding yyork, I want `yyork spawn` to launch a new agent session on whichever project I'm currently `cd`'d into, so that I don't have to specify the project path explicitly for the common case.
 
-3. As a developer dogfooding better-ao, I want each spawned agent to run inside its own git worktree on a `better-ao/{sessionId}` branch, so that parallel agents on the same repo don't step on each other's files.
+3. As a developer dogfooding yyork, I want each spawned agent to run inside its own git worktree on a `yyork/{sessionId}` branch, so that parallel agents on the same repo don't step on each other's files.
 
-4. As a developer dogfooding better-ao, I want the base branch for new worktrees to be detected from my repo's actual git configuration (`refs/remotes/origin/HEAD`, falling back to my currently checked-out branch), so that better-ao respects whatever branching convention my project uses instead of assuming `main` or `master`.
+4. As a developer dogfooding yyork, I want the base branch for new worktrees to be detected from my repo's actual git configuration (`refs/remotes/origin/HEAD`, falling back to my currently checked-out branch), so that yyork respects whatever branching convention my project uses instead of assuming `main` or `master`.
 
-5. As a developer dogfooding better-ao, I want spawn to fail cleanly with a clear error when I try to spawn in a non-git directory, so that I'm not surprised by inconsistent worktree behavior in non-repo projects.
+5. As a developer dogfooding yyork, I want spawn to fail cleanly with a clear error when I try to spawn in a non-git directory, so that I'm not surprised by inconsistent worktree behavior in non-repo projects.
 
-6. As a developer dogfooding better-ao, I want each spawned session to get a stable, sortable, copy-pasteable session id (ULID), so that I can refer to sessions in CLI commands and shell history without ambiguity.
+6. As a developer dogfooding yyork, I want each spawned session to get a stable, sortable, copy-pasteable session id (ULID), so that I can refer to sessions in CLI commands and shell history without ambiguity.
 
-7. As a developer dogfooding better-ao, I want session ids to be human-readable enough that I can read them from a terminal output or share them in a message, so that the CLI doesn't feel hostile to humans.
+7. As a developer dogfooding yyork, I want session ids to be human-readable enough that I can read them from a terminal output or share them in a message, so that the CLI doesn't feel hostile to humans.
 
-8. As a developer dogfooding better-ao, I want my session to keep running even after my dashboard tab closes or my browser crashes, so that I don't lose work when I navigate away.
+8. As a developer dogfooding yyork, I want my session to keep running even after my dashboard tab closes or my browser crashes, so that I don't lose work when I navigate away.
 
-9. As a developer dogfooding better-ao, I want my session to keep running even after the better-ao server itself is restarted, so that server upgrades or crashes don't kill my in-flight agents.
+9. As a developer dogfooding yyork, I want my session to keep running even after the yyork server itself is restarted, so that server upgrades or crashes don't kill my in-flight agents.
 
-10. As a developer dogfooding better-ao, I want to attach to a running session's terminal in the browser, so that I can see what the agent is doing in real time.
+10. As a developer dogfooding yyork, I want to attach to a running session's terminal in the browser, so that I can see what the agent is doing in real time.
 
-11. As a developer dogfooding better-ao, I want the terminal to behave like a real terminal (resize correctly, render colors, handle escape sequences) when attached via the browser, so that the agent CLI is usable from inside the dashboard.
+11. As a developer dogfooding yyork, I want the terminal to behave like a real terminal (resize correctly, render colors, handle escape sequences) when attached via the browser, so that the agent CLI is usable from inside the dashboard.
 
-12. As a developer dogfooding better-ao, I want to be able to attach to a session from a regular terminal too (via `zellij attach <session-name>`), so that better-ao isn't the only window into my work.
+12. As a developer dogfooding yyork, I want to be able to attach to a session from a regular terminal too (via `zellij attach <session-name>`), so that yyork isn't the only window into my work.
 
-13. As a developer dogfooding better-ao, I want my session to survive the agent process exiting (e.g., agent crashed mid-run), so that I can see the post-mortem output instead of the pane vanishing.
+13. As a developer dogfooding yyork, I want my session to survive the agent process exiting (e.g., agent crashed mid-run), so that I can see the post-mortem output instead of the pane vanishing.
 
-14. As a developer dogfooding better-ao, I want `better-ao session list` to show me every session better-ao knows about, with its id, project, agent, lifecycle state, and creation time, so that I can quickly see what's running and what's terminated.
+14. As a developer dogfooding yyork, I want `yyork session list` to show me every session yyork knows about, with its id, project, agent, lifecycle state, and creation time, so that I can quickly see what's running and what's terminated.
 
-15. As a developer dogfooding better-ao, I want `better-ao stop <sessionId>` to cleanly terminate a session — killing the zellij session, updating its lifecycle state — so that I have an explicit shutdown verb that doesn't leave orphan processes.
+15. As a developer dogfooding yyork, I want `yyork stop <sessionId>` to cleanly terminate a session — killing the zellij session, updating its lifecycle state — so that I have an explicit shutdown verb that doesn't leave orphan processes.
 
-16. As a developer dogfooding better-ao, I want spawn to be transactional: if any step fails (worktree creation, zellij startup, db write), the partial state gets rolled back, so that I'm never left with half-spawned sessions to clean up manually.
+16. As a developer dogfooding yyork, I want spawn to be transactional: if any step fails (worktree creation, zellij startup, db write), the partial state gets rolled back, so that I'm never left with half-spawned sessions to clean up manually.
 
-17. As a developer dogfooding better-ao, I want the dashboard to learn about a newly-spawned session within milliseconds of running `better-ao spawn` in my terminal, so that I don't have to refresh the page to see what I just created.
+17. As a developer dogfooding yyork, I want the dashboard to learn about a newly-spawned session within milliseconds of running `yyork spawn` in my terminal, so that I don't have to refresh the page to see what I just created.
 
-18. As a developer dogfooding better-ao, I want the dashboard to learn about lifecycle changes (a session terminating, going to failed state, etc.) without polling, so that the network tab isn't full of GET requests and updates feel instant.
+18. As a developer dogfooding yyork, I want the dashboard to learn about lifecycle changes (a session terminating, going to failed state, etc.) without polling, so that the network tab isn't full of GET requests and updates feel instant.
 
-19. As a developer dogfooding better-ao, I want better-ao to not poll an external CLI for liveness on a timer, so that my CPU isn't spinning when nothing is happening.
+19. As a developer dogfooding yyork, I want yyork to not poll an external CLI for liveness on a timer, so that my CPU isn't spinning when nothing is happening.
 
-20. As a developer dogfooding better-ao, I want the dashboard to handle network interruptions gracefully — reconnecting the event stream automatically when the connection drops, so that a flaky network doesn't require a page reload.
+20. As a developer dogfooding yyork, I want the dashboard to handle network interruptions gracefully — reconnecting the event stream automatically when the connection drops, so that a flaky network doesn't require a page reload.
 
-21. As a developer dogfooding better-ao, I want terminated and failed sessions hidden from the dashboard by default, so that my view shows what's actually running and not a graveyard of past work.
+21. As a developer dogfooding yyork, I want terminated and failed sessions hidden from the dashboard by default, so that my view shows what's actually running and not a graveyard of past work.
 
-22. As a developer dogfooding better-ao, I want terminated session rows preserved in the database (even if hidden from the dashboard), so that a future "history" view or resume feature has something to read from without re-architecting storage.
+22. As a developer dogfooding yyork, I want terminated session rows preserved in the database (even if hidden from the dashboard), so that a future "history" view or resume feature has something to read from without re-architecting storage.
 
-23. As a developer dogfooding better-ao, I want all session state to live in one SQLite file (`~/.better-ao/state.db`), so that I can inspect, back up, or move my state with standard tools.
+23. As a developer dogfooding yyork, I want all session state to live in one SQLite file (`~/.yyork/state.db`), so that I can inspect, back up, or move my state with standard tools.
 
-24. As a developer dogfooding better-ao, I want concurrent writes to the database (engine spawning one session while another reads, for example) to be safe by default, so that I never lose updates due to race conditions.
+24. As a developer dogfooding yyork, I want concurrent writes to the database (engine spawning one session while another reads, for example) to be safe by default, so that I never lose updates due to race conditions.
 
-25. As a developer dogfooding better-ao, I want the database schema to be versioned via migrations, so that schema changes between better-ao versions don't corrupt my state.
+25. As a developer dogfooding yyork, I want the database schema to be versioned via migrations, so that schema changes between yyork versions don't corrupt my state.
 
-26. As a developer dogfooding better-ao, I want the agent plugin layer to be a real abstraction (`internal/plugin/agent/agent.go`), so that adding a new agent (Claude Code, OpenCode, whatever) later is a plugin slot, not a rewrite.
+26. As a developer dogfooding yyork, I want the agent plugin layer to be a real abstraction (`internal/plugin/agent/agent.go`), so that adding a new agent (Claude Code, OpenCode, whatever) later is a plugin slot, not a rewrite.
 
-27. As a developer dogfooding better-ao, I want the Codex plugin (the only one implemented today) to stop trying to scan `~/.codex/sessions/` for native session metadata, since I'm not using restore in v1, so that the plugin code is ~300 lines smaller and clearer.
+27. As a developer dogfooding yyork, I want the Codex plugin (the only one implemented today) to stop trying to scan `~/.codex/sessions/` for native session metadata, since I'm not using restore in v1, so that the plugin code is ~300 lines smaller and clearer.
 
-28. As a developer dogfooding better-ao, I want the CLI's `start`/`dashboard` verbs removed and the help text updated, so that there's exactly one way to launch the server.
+28. As a developer dogfooding yyork, I want the CLI's `start`/`dashboard` verbs removed and the help text updated, so that there's exactly one way to launch the server.
 
-29. As a developer dogfooding better-ao, I want `better-ao --help` to reflect what's actually implemented, with the rest of the "planned" commands removed from the help output until they ship, so that the help text isn't full of "not implemented yet" landmines.
+29. As a developer dogfooding yyork, I want `yyork --help` to reflect what's actually implemented, with the rest of the "planned" commands removed from the help output until they ship, so that the help text isn't full of "not implemented yet" landmines.
 
-30. As a developer dogfooding better-ao, I want stopping a session to be safe to repeat (idempotent) — running `better-ao stop X` twice should not fail on the second call, so that scripts and automation can call stop without checking state first.
+30. As a developer dogfooding yyork, I want stopping a session to be safe to repeat (idempotent) — running `yyork stop X` twice should not fail on the second call, so that scripts and automation can call stop without checking state first.
 
-31. As a developer dogfooding better-ao, I want the server to detect dead sessions lazily when something asks about them, so that a previously-running session that the OS killed externally drops out of my dashboard's running view the next time I look at it.
+31. As a developer dogfooding yyork, I want the server to detect dead sessions lazily when something asks about them, so that a previously-running session that the OS killed externally drops out of my dashboard's running view the next time I look at it.
 
-32. As a developer dogfooding better-ao, I want the dashboard to render correctly on its first load even before any SSE event arrives, by reading initial state via a regular GET, so that page loads don't depend on event-stream warm-up.
+32. As a developer dogfooding yyork, I want the dashboard to render correctly on its first load even before any SSE event arrives, by reading initial state via a regular GET, so that page loads don't depend on event-stream warm-up.
 
-33. As a developer dogfooding better-ao, I want the agent plugin to control its own launch command and environment variables, so that each agent's quirks (Codex's `--no-update-check`, Claude's profile, etc.) stay in the plugin and don't leak into the engine.
+33. As a developer dogfooding yyork, I want the agent plugin to control its own launch command and environment variables, so that each agent's quirks (Codex's `--no-update-check`, Claude's profile, etc.) stay in the plugin and don't leak into the engine.
 
-34. As a developer dogfooding better-ao, I want the engine to set `BETTER_AO_SESSION_ID` in the agent's environment at launch time, so that future hook integrations have a stable identity to use even though hooks aren't wired in v1.
+34. As a developer dogfooding yyork, I want the engine to set `YYORK_SESSION_ID` in the agent's environment at launch time, so that future hook integrations have a stable identity to use even though hooks aren't wired in v1.
 
-35. As a developer dogfooding better-ao, I want spawn to wait until the zellij session is actually live (confirmed via `zellij list-sessions`) before reporting success, so that the dashboard never sees a session row pointing at a not-yet-existing zellij session.
+35. As a developer dogfooding yyork, I want spawn to wait until the zellij session is actually live (confirmed via `zellij list-sessions`) before reporting success, so that the dashboard never sees a session row pointing at a not-yet-existing zellij session.
 
-36. As a developer dogfooding better-ao, I want the dashboard after a Mac reboot to show a clean (empty) running-sessions list, so that I get a true clean slate without manually pruning anything.
+36. As a developer dogfooding yyork, I want the dashboard after a Mac reboot to show a clean (empty) running-sessions list, so that I get a true clean slate without manually pruning anything.
 
-37. As a developer dogfooding better-ao, I want the engine on boot to sweep the database and mark any rows whose zellij session no longer exists as terminated, so that the dashboard's first render after a restart is accurate.
+37. As a developer dogfooding yyork, I want the engine on boot to sweep the database and mark any rows whose zellij session no longer exists as terminated, so that the dashboard's first render after a restart is accurate.
 
 ## Implementation Decisions
 
 ### Storage primitive: SQLite
 
-State lives in a single SQLite file at `~/.better-ao/state.db`, accessed via `github.com/ncruces/go-sqlite3` (real upstream SQLite compiled to WebAssembly, executed by the `wazero` pure-Go runtime — no cgo, Nix-friendly). Migrations are managed by `goose` with SQL files under `internal/store/migrations/`. WAL mode is enabled at server boot to allow concurrent reads while writes are in flight.
+State lives in a single SQLite file at `~/.yyork/state.db`, accessed via `github.com/ncruces/go-sqlite3` (real upstream SQLite compiled to WebAssembly, executed by the `wazero` pure-Go runtime — no cgo, Nix-friendly). Migrations are managed by `goose` with SQL files under `internal/store/migrations/`. WAL mode is enabled at server boot to allow concurrent reads while writes are in flight.
 
 ### Schema sketch
 
@@ -137,7 +137,7 @@ Generated via `github.com/oklog/ulid/v2`. Time-sortable, 26 chars, Crockford bas
 
 ### Project = the current directory
 
-`better-ao spawn` resolves the project from `os.Getwd()` at invocation time. No `--project=` flag in v1.
+`yyork spawn` resolves the project from `os.Getwd()` at invocation time. No `--project=` flag in v1.
 
 ### Sessions persist; dashboard filters
 
@@ -153,7 +153,7 @@ A single column, `lifecycle_state`, describes the **session** (unit of work) —
 
 - `starting` — spawn in progress, worktree may exist, zellij may not yet
 - `running` — zellij session is live, agent process observed at least once
-- `terminated` — explicit `better-ao stop`, or reconciler detected zellij gone, clean exit
+- `terminated` — explicit `yyork stop`, or reconciler detected zellij gone, clean exit
 - `failed` — spawn rolled back due to error, or reconciler detected anomalous death
 
 Transitions:
@@ -165,9 +165,9 @@ Transitions:
 
 Terminated and failed are sinks — no transitions out. Rows in those states are hidden from the default dashboard view but persist in the database.
 
-### Worktrees: one per session, on `better-ao/{sessionId}`
+### Worktrees: one per session, on `yyork/{sessionId}`
 
-Every spawn creates a git worktree via `git worktree add`. The branch is named `better-ao/{sessionId}` where `{sessionId}` is the ULID. The base ref is detected from the project's actual git state:
+Every spawn creates a git worktree via `git worktree add`. The branch is named `yyork/{sessionId}` where `{sessionId}` is the ULID. The base ref is detected from the project's actual git state:
 
 1. Try `git symbolic-ref refs/remotes/origin/HEAD` — gives `origin/main` or `origin/master` as actually configured on the remote.
 2. Fall back to whatever branch is currently checked out (`git symbolic-ref HEAD`).
@@ -190,7 +190,7 @@ If polling times out, spawn is rolled back: kill the client process, remove the 
 
 ### Stop semantics
 
-`better-ao stop <sessionId>` is:
+`yyork stop <sessionId>` is:
 
 1. `zellij kill-session <sessionId>` — terminates the session including the keep-alive shell.
 2. `git worktree remove <workspace_path>` — best-effort cleanup; if it fails (uncommitted changes), log and continue.
@@ -203,10 +203,10 @@ Idempotent: stopping an already-terminated session is a no-op (skip the kill, sk
 
 The CLI shrinks to:
 
-- `better-ao` (no verb) — start the local dashboard + API server. Replaces `better-ao start` / `better-ao dashboard` which are removed.
-- `better-ao spawn` — spawn a new session. Flags include `--agent` (default `codex` since it's the only plugin), `--prompt`, `--system-prompt` / `--system-prompt-file`, `--permissions`.
-- `better-ao session list` — list sessions, optionally filtered by `--project` and `--state`.
-- `better-ao stop <sessionId>` — terminate.
+- `yyork` (no verb) — start the local dashboard + API server. Replaces `yyork start` / `yyork dashboard` which are removed.
+- `yyork spawn` — spawn a new session. Flags include `--agent` (default `codex` since it's the only plugin), `--prompt`, `--system-prompt` / `--system-prompt-file`, `--permissions`.
+- `yyork session list` — list sessions, optionally filtered by `--project` and `--state`.
+- `yyork stop <sessionId>` — terminate.
 
 All other entries in the current `plannedCommands` map are removed from help output; we'll add them back as commands ship.
 
@@ -240,7 +240,7 @@ External death (agent crashes, zellij killed externally) is not detected until t
 
 ### Hook infrastructure is dormant in v1
 
-`GetAgentHooks` stays as a method on the agent plugin interface — Codex's implementation remains a no-op. The engine does *not* call `GetAgentHooks` during spawn in v1. `BETTER_AO_SESSION_ID` is still set on the agent's environment so the plumbing is ready for when hooks land in a future slice, but no helper binary (`better-ao session set`) ships. No `BETTER_AO_DATA_DIR` env var — the data directory is fixed at `~/.better-ao/`, the `better-ao` binary already knows it, and hooks will route through `better-ao session set` rather than editing files directly, so the path doesn't need to ride on the agent's environment.
+`GetAgentHooks` stays as a method on the agent plugin interface — Codex's implementation remains a no-op. The engine does *not* call `GetAgentHooks` during spawn in v1. `YYORK_SESSION_ID` is still set on the agent's environment so the plumbing is ready for when hooks land in a future slice, but no helper binary (`yyork session set`) ships. No `YYORK_DATA_DIR` env var — the data directory is fixed at `~/.yyork/`, the `yyork` binary already knows it, and hooks will route through `yyork session set` rather than editing files directly, so the path doesn't need to ride on the agent's environment.
 
 ### Codex plugin cleanup
 
@@ -250,7 +250,7 @@ The ~300 lines of session-file scanning in the Codex plugin (`findCodexSessionFi
 
 ### Project paths and the `internal/ao` reader
 
-`internal/ao/workspace.go` is not deleted in v1; it stays buildable for transitional reasons. The dashboard no longer calls it. A follow-up slice can either remove it entirely or convert it to a one-way migrator (`better-ao import-from-ao`) that copies old AO state into our SQLite.
+`internal/ao/workspace.go` is not deleted in v1; it stays buildable for transitional reasons. The dashboard no longer calls it. A follow-up slice can either remove it entirely or convert it to a one-way migrator (`yyork import-from-ao`) that copies old AO state into our SQLite.
 
 ### Spawn is transactional
 
@@ -273,7 +273,7 @@ Each step's failure path is wired explicitly. Failed-spawn rows preserve enough 
 - **`internal/terminal`** — extended with `CreateZellijSession(name, layoutKDL, env, cwd) error` and `KillZellijSession(name) error`. The existing attach pipeline is unchanged.
 - **`internal/events`** — typed pub/sub bus. `Publish(event)`, `Subscribe() <-chan Event`. Buffered, drops on slow subscriber rather than blocking publishers. Event types in v1: `session.created`, `session.lifecycle_changed`, `session.terminated` (carries the terminated id so SSE subscribers can drop the entry from the running-view).
 - **`internal/server`** — repoints read endpoints to `store`; adds SSE handler subscribed to `events`.
-- **`cmd/better-ao`** — CLI changes: drop `start`/`dashboard`, add `spawn`, `session`, `stop`. Update help text.
+- **`cmd/yyork`** — CLI changes: drop `start`/`dashboard`, add `spawn`, `session`, `stop`. Update help text.
 - **`internal/plugin/agent` + `internal/plugin/agent/codex`** — interface unchanged; Codex implementation strips ~300 lines of file scanning, `SessionInfo` and `GetAgentHooks` become no-ops.
 
 The deep modules (high-leverage, isolated, stable interface) are `internal/store`, `internal/worktree`, `internal/events`, and `internal/session`. Most tests concentrate on these.
@@ -292,13 +292,13 @@ This means refactoring the implementation should never force a test rewrite as l
 
 - **`internal/session`** — integration tests using real `store` (in-memory) plus fake `terminal`/`worktree` adapters that return preprogrammed outcomes. Cover: happy-path spawn end-to-end (resulting DB row + events), failed spawn when zellij polling times out (row left in `failed` state, worktree removed), no row when worktree creation fails, idempotent stop (stopping an already-terminated session is a no-op), lazy reconciliation updating a session to `terminated` when the terminal adapter reports zellij missing, dashboard query filter excludes `terminated` and `failed` by default.
 
-- **`internal/worktree`** — integration tests against a real temp git repo (`git init`, commit a file, then exercise the module). Cover: create worktree on `better-ao/{ulid}` branch (assert filesystem state + `git worktree list` output), remove worktree (assert cleanup), reject non-git directory, base ref detection from `origin/HEAD` when present and fallback to current `HEAD` when not. No mocks; uses the real `git` binary.
+- **`internal/worktree`** — integration tests against a real temp git repo (`git init`, commit a file, then exercise the module). Cover: create worktree on `yyork/{ulid}` branch (assert filesystem state + `git worktree list` output), remove worktree (assert cleanup), reject non-git directory, base ref detection from `origin/HEAD` when present and fallback to current `HEAD` when not. No mocks; uses the real `git` binary.
 
 - **`internal/events`** — small unit tests for pub/sub semantics: published events delivered to all current subscribers, late subscribers don't see past events, slow subscriber doesn't block publishers (drop policy verified).
 
 - **`internal/server`** — integration tests with a seeded in-memory store and a wired event bus. Cover: `GET /api/sessions` returns expected JSON shape, `GET /api/events` SSE stream delivers session lifecycle events as they're published.
 
-- **`cmd/better-ao`** — extend existing `main_test.go` patterns for the new verbs (`spawn`, `session list`, `stop`). Cover: flag parsing, help text, dispatch to engine.
+- **`cmd/yyork`** — extend existing `main_test.go` patterns for the new verbs (`spawn`, `session list`, `stop`). Cover: flag parsing, help text, dispatch to engine.
 
 ### Modules without dedicated tests
 
@@ -310,13 +310,13 @@ This means refactoring the implementation should never force a test rewrite as l
 
 Existing test patterns in the codebase:
 
-- `cmd/better-ao/main_test.go` — Go `testing` patterns for the CLI surface.
+- `cmd/yyork/main_test.go` — Go `testing` patterns for the CLI surface.
 - `internal/server/*_test.go` and `internal/terminal/*_test.go` — HTTP/websocket integration test patterns the new SSE endpoint follows.
 - `web/e2e/live-terminal-smoke.mjs` and the dozen `pnpm e2e:live-terminal:*` variants — real-runtime end-to-end coverage that catches dashboard regressions across the spawn changes.
 
 ## Out of Scope
 
-- **Hook infrastructure of any kind.** No `better-ao session set` CLI command, no `GetAgentHooks` invocation in spawn flow, no PostToolUse / SessionStart / activity-jsonl wiring. The plugin interface keeps `GetAgentHooks` defined for future use, but Codex stays a no-op and the engine doesn't call it.
+- **Hook infrastructure of any kind.** No `yyork session set` CLI command, no `GetAgentHooks` invocation in spawn flow, no PostToolUse / SessionStart / activity-jsonl wiring. The plugin interface keeps `GetAgentHooks` defined for future use, but Codex stays a no-op and the engine doesn't call it.
 
 - **Resume.** `GetRestoreCommand` stays no-op. No "resume past session" UI or CLI verb. No Codex thread-id capture, no Claude conversation-id capture. Past sessions can be viewed in the list but not re-launched.
 
@@ -338,7 +338,7 @@ Existing test patterns in the codebase:
 
 - **Periodic background reconciliation.** No ticker. External death is detected only on the next API read.
 
-- **Configuration UI.** `~/.better-ao/config.yaml` is referenced by the plugin interface's godoc but no v1 surface reads or writes it. Defaults are hardcoded.
+- **Configuration UI.** `~/.yyork/config.yaml` is referenced by the plugin interface's godoc but no v1 surface reads or writes it. Defaults are hardcoded.
 
 - **Multi-machine / remote backends.** State is local; SQLite is on the user's disk.
 
@@ -350,7 +350,7 @@ Existing test patterns in the codebase:
 
 ### Why this slice and not the Canvas Review (diff) panel
 
-Canvas Review would also be a credible "next thing" — it would let users supervise agents without bouncing to an editor. But Canvas Review presumes there's a worker session to inspect, and today better-ao can't create one. Spawn is upstream of every other feature: until better-ao owns the spawn-and-manage stack, every other capability is parasitic on the external `ao` CLI. Ship spawn first, then Canvas Review becomes the obvious next move.
+Canvas Review would also be a credible "next thing" — it would let users supervise agents without bouncing to an editor. But Canvas Review presumes there's a worker session to inspect, and today yyork can't create one. Spawn is upstream of every other feature: until yyork owns the spawn-and-manage stack, every other capability is parasitic on the external `ao` CLI. Ship spawn first, then Canvas Review becomes the obvious next move.
 
 ### Relationship to the original `agent-orchestrator` project
 
@@ -362,25 +362,25 @@ This design distills the original `ao` project's durability model: lazy on-read 
 
 ### Terminology: "durability provider"
 
-The **durability provider** is the multiplexer that holds an agent process and lets clients attach/detach without killing the workload. In better-ao v1 the durability provider is Zellij — the only one. Equivalent to AO's "runtime" plugin slot, renamed here because "runtime" is overloaded in software contexts (Go runtime, browser runtime, container runtime) and "durability provider" names the actual responsibility: providing process durability across attach/detach/restart.
+The **durability provider** is the multiplexer that holds an agent process and lets clients attach/detach without killing the workload. In yyork v1 the durability provider is Zellij — the only one. Equivalent to AO's "runtime" plugin slot, renamed here because "runtime" is overloaded in software contexts (Go runtime, browser runtime, container runtime) and "durability provider" names the actual responsibility: providing process durability across attach/detach/restart.
 
 The **agent** is the workload that runs on top of the durability provider. The agent (Codex, eventually Claude Code, etc.) is what the user actually wants to run; the durability provider is the container that makes it survive disconnections. The two are orthogonal concepts and should be named differently in code: `Agent` and `DurabilityProvider` interfaces, not collapsed.
 
 For v1 the durability provider is not yet a plugin slot — there's exactly one and the code references Zellij directly. The abstraction earns its keep the moment a second provider (tmux, raw process, remote SSH-host with its own multiplexer) is added; that's a follow-up slice.
 
-### The `better-ao to build better-ao` dogfood loop
+### The `yyork to build yyork` dogfood loop
 
-The acceptance criterion for v1 isn't "all the planned commands work." It's "I can open `better-ao`, run `better-ao spawn --agent=codex --prompt='...'` against this repo, attach the browser terminal, watch the agent work, and stop it cleanly — all without touching the original `ao` CLI." When that loop is solid, the Canvas Review panel, hook infrastructure, dashboard spawn, plugin ecosystem, and everything else stop being parasitic and become real product layers.
+The acceptance criterion for v1 isn't "all the planned commands work." It's "I can open `yyork`, run `yyork spawn --agent=codex --prompt='...'` against this repo, attach the browser terminal, watch the agent work, and stop it cleanly — all without touching the original `ao` CLI." When that loop is solid, the Canvas Review panel, hook infrastructure, dashboard spawn, plugin ecosystem, and everything else stop being parasitic and become real product layers.
 
 ### Migration path from existing AO state
 
-There is none in v1, deliberately. Users with existing `~/.agent-orchestrator/` state can keep using the original `ao` CLI in parallel; better-ao writes to a separate location (`~/.better-ao/state.db`) and reads only from there. A future slice can add `better-ao import-from-ao` or similar — design space left open by the deprecated-but-compiling `internal/ao/workspace.go`.
+There is none in v1, deliberately. Users with existing `~/.agent-orchestrator/` state can keep using the original `ao` CLI in parallel; yyork writes to a separate location (`~/.yyork/state.db`) and reads only from there. A future slice can add `yyork import-from-ao` or similar — design space left open by the deprecated-but-compiling `internal/ao/workspace.go`.
 
 ### Forward compatibility for hooks
 
-The engine sets `BETTER_AO_SESSION_ID` on the agent's environment from day one, even though no v1 hook reads it. The `GetAgentHooks` method on the plugin interface is kept, with Codex's implementation as a no-op. When the hook slice lands (likely with Claude Code as the first hook-supporting agent plugin), the plumbing already exists — what gets added is:
+The engine sets `YYORK_SESSION_ID` on the agent's environment from day one, even though no v1 hook reads it. The `GetAgentHooks` method on the plugin interface is kept, with Codex's implementation as a no-op. When the hook slice lands (likely with Claude Code as the first hook-supporting agent plugin), the plumbing already exists — what gets added is:
 
-- A `better-ao session set` CLI subcommand (the helper binary hooks call back into).
+- A `yyork session set` CLI subcommand (the helper binary hooks call back into).
 - `GetAgentHooks` calls in the spawn flow.
 - Per-plugin hook installer implementations.
 
@@ -390,7 +390,7 @@ None of these require changes to the v1 storage, event bus, or session lifecycle
 
 `GetRestoreCommand` stays defined on the plugin interface. Past session rows (terminated and failed) remain in SQLite, which leaves two viable paths when resume lands:
 
-1. **Resume from a past better-ao session row** — pick a terminated session whose `metadata` contains an agent-native thread id (captured by a future hook slice), spawn a new session pointed at that thread.
-2. **Resume from the agent's own storage** — plugin-level `ListResumableThreads()` scans `~/.codex/sessions/`, `~/.claude/projects/...`, etc., independent of better-ao's database.
+1. **Resume from a past yyork session row** — pick a terminated session whose `metadata` contains an agent-native thread id (captured by a future hook slice), spawn a new session pointed at that thread.
+2. **Resume from the agent's own storage** — plugin-level `ListResumableThreads()` scans `~/.codex/sessions/`, `~/.claude/projects/...`, etc., independent of yyork's database.
 
 Both work; the persisted rows give us option (1) without forcing it. The session-history view that hidden terminated rows enable is the same forensic surface that powers resume — one mechanism, two features.

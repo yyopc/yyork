@@ -1,6 +1,6 @@
-// Package store owns the better-ao SQLite database.
+// Package store owns the yyork SQLite database.
 //
-// The database lives at ~/.better-ao/state.db and contains exactly the
+// The database lives at ~/.yyork/state.db and contains exactly the
 // currently-running sessions: a row exists if and only if the session is
 // alive. Termination deletes the row. There is no history table or archive.
 //
@@ -41,7 +41,7 @@ type Store interface {
 	Sessions() SessionRepo
 }
 
-// DefaultPath returns the conventional database path: ~/.better-ao/state.db.
+// DefaultPath returns the conventional database path: ~/.yyork/state.db.
 // The parent directory is not created here; callers should pass the path to
 // Open, which creates it.
 func DefaultPath() (string, error) {
@@ -49,7 +49,7 @@ func DefaultPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve home directory: %w", err)
 	}
-	return filepath.Join(home, ".better-ao", "state.db"), nil
+	return filepath.Join(home, ".yyork", "state.db"), nil
 }
 
 // Open opens the SQLite database at path, creating the parent directory if

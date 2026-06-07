@@ -16,42 +16,42 @@ import (
 // source.
 func TestResolveStrategyPrecedence(t *testing.T) {
 	t.Run("default when unset", func(t *testing.T) {
-		t.Setenv("BETTER_AO_TERMINAL_ATTACH", "")
+		t.Setenv("YYORK_TERMINAL_ATTACH", "")
 		if got := resolveStrategy(""); got != StrategyEmulator {
 			t.Fatalf("expected default %q, got %q", StrategyEmulator, got)
 		}
 	})
 
 	t.Run("default when invalid", func(t *testing.T) {
-		t.Setenv("BETTER_AO_TERMINAL_ATTACH", "bogus")
+		t.Setenv("YYORK_TERMINAL_ATTACH", "bogus")
 		if got := resolveStrategy("nonsense"); got != StrategyEmulator {
 			t.Fatalf("expected invalid values to fall through to default %q, got %q", StrategyEmulator, got)
 		}
 	})
 
 	t.Run("env overrides default", func(t *testing.T) {
-		t.Setenv("BETTER_AO_TERMINAL_ATTACH", string(StrategyPerClient))
+		t.Setenv("YYORK_TERMINAL_ATTACH", string(StrategyPerClient))
 		if got := resolveStrategy(""); got != StrategyPerClient {
 			t.Fatalf("expected env to select %q, got %q", StrategyPerClient, got)
 		}
 	})
 
 	t.Run("config field overrides env", func(t *testing.T) {
-		t.Setenv("BETTER_AO_TERMINAL_ATTACH", string(StrategyPerClient))
+		t.Setenv("YYORK_TERMINAL_ATTACH", string(StrategyPerClient))
 		if got := resolveStrategy(StrategyEmulator); got != StrategyEmulator {
 			t.Fatalf("expected config field to override env, got %q", got)
 		}
 	})
 
 	t.Run("invalid config field falls through to env", func(t *testing.T) {
-		t.Setenv("BETTER_AO_TERMINAL_ATTACH", string(StrategyPerClient))
+		t.Setenv("YYORK_TERMINAL_ATTACH", string(StrategyPerClient))
 		if got := resolveStrategy("garbage"); got != StrategyPerClient {
 			t.Fatalf("expected invalid config field to fall through to env %q, got %q", StrategyPerClient, got)
 		}
 	})
 
 	t.Run("NewManager resolves and exposes the strategy", func(t *testing.T) {
-		t.Setenv("BETTER_AO_TERMINAL_ATTACH", "")
+		t.Setenv("YYORK_TERMINAL_ATTACH", "")
 		m := NewManager(ManagerConfig{AttachStrategy: StrategyPerClient})
 		t.Cleanup(func() { _ = m.Close() })
 		if got := m.Strategy(); got != StrategyPerClient {

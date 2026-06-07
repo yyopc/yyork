@@ -1,11 +1,11 @@
-// Package control links short-lived better-ao CLI processes to a running
-// better-ao server.
+// Package control links short-lived yyork CLI processes to a running
+// yyork server.
 //
 // The bus in internal/events is in-process only: the server's bus fans out to
 // SSE subscribers, but a `spawn` invoked from the terminal runs in a separate
 // process whose bus has no subscribers, so its lifecycle events would vanish.
 // This package bridges that gap. The server advertises its address and a
-// shared secret in a runfile (~/.better-ao/server.json); CLI commands read it
+// shared secret in a runfile (~/.yyork/server.json); CLI commands read it
 // and POST their events to the server's control endpoint, which republishes
 // them on the in-process bus. The result: a board that's already open updates
 // live when you spawn from the CLI, with no polling.
@@ -24,19 +24,19 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/yyovil/better-ao/internal/events"
+	"github.com/yyovil/yyork/internal/events"
 )
 
 const (
 	// runfileName is the server advertisement file. It lives next to
-	// state.db under ~/.better-ao/.
+	// state.db under ~/.yyork/.
 	runfileName = "server.json"
 
 	// TokenHeader carries the shared secret on control requests. The runfile
 	// is written 0600, so only processes that can read it — not browser pages
 	// — can present a valid token. This is the defense that stops a malicious
 	// web page from CSRF-ing the localhost control endpoint into the bus.
-	TokenHeader = "X-Better-AO-Token"
+	TokenHeader = "X-yyork-Token"
 
 	// forwardTimeout bounds how long a CLI command blocks while shipping an
 	// event. A live local server answers in single-digit milliseconds; this
@@ -57,13 +57,13 @@ type Envelope struct {
 	ID   string `json:"id"`
 }
 
-// Path returns the runfile path, ~/.better-ao/server.json.
+// Path returns the runfile path, ~/.yyork/server.json.
 func Path() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("resolve home directory: %w", err)
 	}
-	return filepath.Join(home, ".better-ao", runfileName), nil
+	return filepath.Join(home, ".yyork", runfileName), nil
 }
 
 // NewToken returns a fresh 256-bit hex secret for the runfile.
@@ -168,7 +168,7 @@ func ToEvent(env Envelope) (events.Event, bool) {
 // Best-effort by design: no server (or a stale runfile) means there is no open
 // board to update, so every error is swallowed. Publish blocks until the POST
 // settles rather than firing a goroutine, because the calling process — e.g.
-// `better-ao spawn` — typically exits immediately afterward; a detached
+// `yyork spawn` — typically exits immediately afterward; a detached
 // goroutine would race the process exit and drop the event.
 type ForwardingPublisher struct {
 	client *http.Client

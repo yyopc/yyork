@@ -16,7 +16,7 @@
     {
       "name": "storybook",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@better-ao/web", "storybook"],
+      "runtimeArgs": ["--filter", "@yyork/web", "storybook"],
       "port": 6006
     }
   ]

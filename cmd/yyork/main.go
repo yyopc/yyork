@@ -12,10 +12,10 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/yyovil/better-ao/internal/ao"
-	"github.com/yyovil/better-ao/internal/app"
-	"github.com/yyovil/better-ao/internal/durabilityprovider"
-	"github.com/yyovil/better-ao/internal/logging"
+	"github.com/yyovil/yyork/internal/ao"
+	"github.com/yyovil/yyork/internal/app"
+	"github.com/yyovil/yyork/internal/durabilityprovider"
+	"github.com/yyovil/yyork/internal/logging"
 )
 
 var version = "0.0.1"
@@ -46,8 +46,8 @@ func runCLI(ctx context.Context, args []string, stdout io.Writer, stderr io.Writ
 		fmt.Fprintln(stdout, version)
 		return 0
 	case "":
-		// No verb: start the local server. `better-ao start` /
-		// `better-ao dashboard` no longer exist as user-facing verbs.
+		// No verb: start the local server. `yyork start` /
+		// `yyork dashboard` no longer exist as user-facing verbs.
 		return runServer(ctx, commandArgs, stdout, stderr, runApp)
 	case "spawn":
 		return runSpawn(ctx, commandArgs, stdout, stderr)
@@ -59,12 +59,12 @@ func runCLI(ctx context.Context, args []string, stdout io.Writer, stderr io.Writ
 		return runSend(ctx, commandArgs, stdout, stderr)
 	default:
 		if _, ok := plannedCommands[command]; ok {
-			fmt.Fprintf(stderr, "Command %q is part of the Agent Orchestrator parity surface, but is not implemented in better-ao yet.\n", command)
-			fmt.Fprintln(stderr, "Run `better-ao --help` for implemented commands.")
+			fmt.Fprintf(stderr, "Command %q is part of the Agent Orchestrator parity surface, but is not implemented in yyork yet.\n", command)
+			fmt.Fprintln(stderr, "Run `yyork --help` for implemented commands.")
 			return 1
 		}
 		fmt.Fprintf(stderr, "Unknown command: %s\n", command)
-		fmt.Fprintln(stderr, "Run `better-ao --help` for usage.")
+		fmt.Fprintln(stderr, "Run `yyork --help` for usage.")
 		return 1
 	}
 }
@@ -93,7 +93,7 @@ func splitCommand(args []string) (string, []string) {
 func runHelp(args []string, stdout io.Writer, stderr io.Writer) int {
 	if len(args) > 1 {
 		fmt.Fprintf(stderr, "Too many arguments for help: %s\n", strings.Join(args[1:], " "))
-		fmt.Fprintln(stderr, "Run `better-ao --help` for usage.")
+		fmt.Fprintln(stderr, "Run `yyork --help` for usage.")
 		return 1
 	}
 
@@ -117,7 +117,7 @@ func runServer(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 
 	flags := flag.NewFlagSet(command, flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	flags.StringVar(&addr, "addr", "127.0.0.1:7331", "address for the better-ao local server")
+	flags.StringVar(&addr, "addr", "127.0.0.1:7331", "address for the yyork local server")
 	flags.BoolVar(&openBrowser, "open", true, "open the dashboard in the default browser")
 	flags.Usage = func() {
 		_ = printCommandHelp(command, stderr, stderr)
@@ -129,7 +129,7 @@ func runServer(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 
 	if flags.NArg() > 0 {
 		fmt.Fprintf(stderr, "Unexpected argument for %s: %s\n", command, flags.Arg(0))
-		fmt.Fprintln(stderr, "Run `better-ao help "+command+"` for usage.")
+		fmt.Fprintln(stderr, "Run `yyork help "+command+"` for usage.")
 		return 1
 	}
 
@@ -138,10 +138,10 @@ func runServer(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 	// directly via fmt and intentionally keep the plain stdout/stderr.
 	logging.Setup(stderr)
 
-	// In dev mode the wrapper script (scripts/better-ao.mjs) runs the Vite
+	// In dev mode the wrapper script (scripts/yyork.mjs) runs the Vite
 	// dev server and proxies API requests to us — the dashboard isn't
 	// served from this Go process at all. In single-binary mode the
-	// embedded FS (cmd/better-ao/dashboard) is the source. We pass both
+	// embedded FS (cmd/yyork/dashboard) is the source. We pass both
 	// and let the server prefer whichever is populated.
 	webFS, _ := dashboardFS()
 	err := runApp(ctx, app.Config{
@@ -150,7 +150,7 @@ func runServer(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 		WebFS:       webFS,
 	})
 	if err != nil && !errors.Is(err, context.Canceled) {
-		slog.Error("better-ao exited with an error", "error", err)
+		slog.Error("yyork exited with an error", "error", err)
 		return 1
 	}
 
@@ -180,14 +180,14 @@ func runSend(ctx context.Context, args []string, stdout io.Writer, stderr io.Wri
 
 	if strings.TrimSpace(sessionID) == "" {
 		fmt.Fprintln(stderr, "send: --session is required")
-		fmt.Fprintln(stderr, "Run `better-ao help send` for usage.")
+		fmt.Fprintln(stderr, "Run `yyork help send` for usage.")
 		return 1
 	}
 
 	message := strings.TrimSpace(strings.Join(flags.Args(), " "))
 	if message == "" {
 		fmt.Fprintln(stderr, "send: a message argument is required")
-		fmt.Fprintln(stderr, "Run `better-ao help send` for usage.")
+		fmt.Fprintln(stderr, "Run `yyork help send` for usage.")
 		return 1
 	}
 
