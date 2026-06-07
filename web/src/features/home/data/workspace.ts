@@ -4,6 +4,7 @@ import { z } from 'zod';
 import {
   type SessionWorkspace,
   type WorkerSession,
+  type WorkerSessionRecord,
 } from '@/features/home/domain/session-workspace';
 
 // ---------------------------------------------------------------------------
@@ -28,6 +29,8 @@ const apiSessionSchema = z.object({
   zellijSession: z.string(),
   pid: z.number().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
+  title: z.string().optional().default(''),
+  recap: z.string().optional().default(''),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -63,8 +66,8 @@ async function fetchHomeWorkspace(): Promise<SessionWorkspace> {
 // SSE subscription
 //
 // subscribeToSessionEvents opens an EventSource against /api/events and
-// invalidates the workspace query whenever a session.created or
-// session.terminated event arrives. Returns a cleanup function.
+// invalidates the workspace query whenever a session lifecycle or metadata
+// event arrives. Returns a cleanup function.
 //
 // Why invalidate instead of patching the cache directly? The event payload
 // only carries the session id; we still need to refetch /api/sessions to
@@ -85,12 +88,14 @@ export function subscribeToSessionEvents(queryClient: QueryClient): () => void {
   };
   source.addEventListener('session.created', invalidate);
   source.addEventListener('session.terminated', invalidate);
+  source.addEventListener('session.updated', invalidate);
 
   // EventSource auto-reconnects with built-in backoff on transient errors.
   // We only need to clean up on unmount.
   return () => {
     source.removeEventListener('session.created', invalidate);
     source.removeEventListener('session.terminated', invalidate);
+    source.removeEventListener('session.updated', invalidate);
     source.close();
   };
 }
@@ -111,31 +116,26 @@ function toSessionWorkspace(rows: ApiSession[]): SessionWorkspace {
   };
 }
 
-function toWorkerSession(row: ApiSession): WorkerSession {
-  const prompt =
-    typeof row.metadata?.prompt === 'string' ? row.metadata.prompt : '';
-  const projectName = row.projectName || basename(row.projectPath);
+function toWorkerSession(row: ApiSession): WorkerSessionRecord {
+  const title = row.title.trim() || `new agent: ${row.id}`;
+  const recap = row.recap.trim();
 
   return {
     agent: row.agentPlugin,
     agentPluginId: row.agentPlugin,
+    createdAt: row.createdAt,
     cwd: row.workspacePath,
-    description: prompt,
+    description: recap,
     id: row.id,
     issue: '',
     kind: 'worker',
     metadata: row.metadata ? JSON.stringify(row.metadata) : '',
-    // project MUST be the project id (the absolute projectPath), not the
-    // display name. Projects are keyed by row.projectPath in uniqueProjects,
-    // and workspace-layout filters sessions with projectIds.has(session.project).
-    // Using the name here made every session fail that filter → empty board.
     project: row.projectPath,
-    // Every v1 session lands in "working" — the kanban has columns for
-    // prompt/triage/done but we have no signal to populate them until
-    // activity capture (hooks slice) lands.
+    recap,
     state: 'working',
     terminalSupported: true,
-    title: prompt || projectName,
+    title,
+    updatedAt: row.updatedAt,
     workerId: row.id,
     zellijSession: row.zellijSession,
   };
@@ -182,6 +182,38 @@ export function stopSessionMutationOptions() {
       if (!response.ok) {
         throw new Error(`Failed to stop session: ${response.status}`);
       }
+    },
+  };
+}
+
+// renameSession sets (or clears) a session's persisted display name. An empty
+// displayName reverts the session to its auto-derived title. The backend is
+// the single source of truth: it persists to the SQLite store and emits a
+// session.updated SSE event, so every open dashboard converges without the
+// caller patching the cache directly.
+export function renameSessionMutationOptions() {
+  return {
+    mutationFn: async (input: { sessionId: string; displayName: string }) => {
+      const response = await fetch(
+        `/api/sessions/${encodeURIComponent(input.sessionId)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ displayName: input.displayName }),
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`Failed to rename session: ${response.status}`);
+      }
+
+      const contentType = response.headers.get('content-type') ?? '';
+      if (!contentType.includes('application/json')) {
+        throw new Error(
+          `Failed to rename session: expected JSON, got ${contentType || 'unknown content type'}`
+        );
+      }
+
+      apiSessionSchema.parse(await response.json());
     },
   };
 }

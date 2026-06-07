@@ -5,6 +5,7 @@ import {
   getKanbanColumns,
   getTerminalSession,
   getWorkerSessionGroups,
+  getWorkerSessionNavLabel,
   getWorkerSessionSelectionKey,
   type SessionWorkspace,
   withSelectedWorkerSession,
@@ -25,6 +26,7 @@ const workspace = {
       issue: '[Issue #23]',
       metadata: '[codex/metadata]',
       project: 'agent-orchestrator',
+      recap: 'Fix pending review feedback.',
       selected: true,
       state: 'working',
       title: 'Address review feedback',
@@ -37,6 +39,7 @@ const workspace = {
       issue: '[Issue #24]',
       metadata: '[claude/metadata]',
       project: 'agent-orchestrator',
+      recap: 'Waiting for a maintainer decision.',
       state: 'triage',
       title: 'Clarify release gate',
       workerId: '[AO-2]',
@@ -84,8 +87,10 @@ describe('session workspace projection', () => {
         sessions: [
           {
             agent: 'codex',
+            elapsedLabel: 'now',
             id: 'session-ao-1',
             kind: undefined,
+            label: 'Address review feedback',
             project: 'agent-orchestrator',
             selected: true,
             selectionKey: 'agent-orchestrator:session-ao-1',
@@ -100,8 +105,10 @@ describe('session workspace projection', () => {
         sessions: [
           {
             agent: 'claude',
+            elapsedLabel: 'now',
             id: 'session-ao-2',
             kind: undefined,
+            label: 'Clarify release gate',
             project: 'agent-orchestrator',
             selected: undefined,
             selectionKey: 'agent-orchestrator:session-ao-2',
@@ -111,6 +118,18 @@ describe('session workspace projection', () => {
       },
       { id: 'done', label: 'Done', sessions: [] },
     ]);
+  });
+
+  it('uses the resolved title as the sidebar nav label', () => {
+    expect(
+      getWorkerSessionNavLabel({ id: 'v042rv', title: 'Address review feedback' })
+    ).toBe('Address review feedback');
+  });
+
+  it('falls back to "new agent: <id>" when the title is empty', () => {
+    expect(getWorkerSessionNavLabel({ id: 'v042rv', title: '   ' })).toBe(
+      'new agent: v042rv'
+    );
   });
 
   it('selects duplicate worker ids by project-qualified key', () => {

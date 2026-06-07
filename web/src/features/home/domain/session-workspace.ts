@@ -1,6 +1,13 @@
 import {
+  getElapsedLabel,
+  type SessionActivity,
+  toKanbanCardView,
+  type WorkerSessionRecord,
+} from '@/features/home/domain/kanban-card-model';
+import {
   type ProjectOrchestrator,
   type SessionWorkspace,
+  sessionWorkspaceSchema,
   type TerminalSessionKind,
   type WorkerAgent,
   type WorkerSession,
@@ -8,6 +15,11 @@ import {
   workerSessionStates,
 } from '@/features/home/domain/session-workspace-contract.generated';
 
+export {
+  type SessionActivity,
+  sessionActivityStates,
+  type WorkerSessionRecord,
+} from '@/features/home/domain/kanban-card-model';
 export {
   type ProjectOrchestrator,
   type SessionWorkspace,
@@ -20,14 +32,25 @@ export {
 } from '@/features/home/domain/session-workspace-contract.generated';
 
 export interface KanbanCardData {
+  activity: SessionActivity;
+  activityLabel: string;
   agent: WorkerAgent;
+  agentLabel: string;
+  /** @deprecated Prefer `recap`. */
+  currentLine: string;
+  /** @deprecated Prefer `recap`. */
   description: string;
   id: string;
   issue: string;
+  /** Raw metadata blob — not for direct display. */
   metadata: string;
   project: string;
   selected?: boolean;
   selectionKey: string;
+  recap: string;
+  shortId: string;
+  task: string;
+  /** @deprecated Prefer `task` — kept for transitional callers. */
   title: string;
   workerId: string;
 }
@@ -40,8 +63,15 @@ export interface KanbanColumnData {
 
 export interface WorkerSessionNavItem {
   agent: WorkerAgent;
+  elapsedLabel: string;
   id: string;
   kind?: TerminalSessionKind;
+  /**
+   * Resolved display label for the session. The backend is the single source
+   * of truth: a user-set displayName wins, then the hook-derived title, then
+   * the raw prompt, then "new agent: <id>". The bare workerId is never shown.
+   */
+  label: string;
   project: string;
   selected?: boolean;
   selectionKey: string;
@@ -70,19 +100,8 @@ export function getActiveProject(workspace: SessionWorkspace) {
   );
 }
 
-export function toKanbanCard(session: WorkerSession): KanbanCardData {
-  return {
-    agent: session.agent,
-    description: session.description,
-    id: session.id,
-    issue: session.issue,
-    metadata: session.metadata,
-    project: session.project,
-    selected: session.selected,
-    selectionKey: getWorkerSessionSelectionKey(session),
-    title: session.title,
-    workerId: session.workerId,
-  };
+export function toKanbanCard(session: WorkerSessionRecord): KanbanCardData {
+  return toKanbanCardView(session);
 }
 
 export function getSelectedWorkerSession(sessions: WorkerSession[]) {
@@ -112,6 +131,19 @@ export function getWorkerSessionSelectionKey(
   session: Pick<WorkerSession, 'id' | 'project'>
 ) {
   return `${encodeURIComponent(session.project)}:${encodeURIComponent(session.id)}`;
+}
+
+/**
+ * Resolves the sidebar label for a worker session. `title` is already derived
+ * with full precedence (displayName > title > prompt > "new agent: <id>") in
+ * toWorkerSession, so this just defends against an empty title by falling back
+ * to the same id-based label the backend would produce.
+ */
+export function getWorkerSessionNavLabel(
+  session: Pick<WorkerSession, 'id' | 'title'>
+) {
+  const title = session.title.trim();
+  return title || `new agent: ${session.id}`;
 }
 
 export function getTerminalSession(
@@ -166,8 +198,10 @@ export function getWorkerSessionGroups(
   for (const session of sessions) {
     groupsByState[session.state].sessions.push({
       agent: session.agent,
+      elapsedLabel: getElapsedLabel(session),
       id: session.id,
       kind: session.kind,
+      label: getWorkerSessionNavLabel(session),
       project: session.project,
       selected: session.selected,
       selectionKey: getWorkerSessionSelectionKey(session),

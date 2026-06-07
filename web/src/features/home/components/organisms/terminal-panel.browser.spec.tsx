@@ -130,6 +130,7 @@ const makeSession = (id: string): WorkerSession => ({
   kind: 'worker',
   metadata: '{}',
   project: 'agent-orchestrator',
+  recap: 'desc',
   state: 'working',
   terminalSupported: true,
   title: `Session ${id}`,

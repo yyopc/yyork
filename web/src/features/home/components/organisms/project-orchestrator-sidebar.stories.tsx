@@ -380,7 +380,7 @@ function ConceptSidebarShell(props: { children: ReactNode }) {
                 render={
                   <SidebarMenuButton
                     render={<button type="button" />}
-                    className="h-9 rounded-sm border border-sidebar-border bg-sidebar text-sm leading-5 shadow-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    className="h-9 rounded-sm border border-sidebar-border bg-sidebar text-sm leading-5 text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-sidebar-foreground"
                   />
                 }
               >
@@ -425,17 +425,19 @@ function ProjectsGroup(props: { children: ReactNode }) {
       className="gap-1 px-0"
       aria-label="Projects"
     >
-      <SidebarGroupLabel className="h-5 px-1 text-xs leading-4 font-medium opacity-60">
-        Projects
-      </SidebarGroupLabel>
-      <SidebarGroupAction
-        render={<button type="button" />}
-        aria-label="Add project"
-        title="Add project"
-        className="top-0 right-0"
-      >
-        <PlusIcon aria-hidden="true" />
-      </SidebarGroupAction>
+      <div className="flex h-5 items-center justify-between px-1">
+        <SidebarGroupLabel className="h-auto px-0 text-xs leading-4 font-medium opacity-60">
+          Projects
+        </SidebarGroupLabel>
+        <SidebarGroupAction
+          render={<button type="button" />}
+          aria-label="Add project"
+          title="Add project"
+          className="static top-auto right-auto size-5 shrink-0"
+        >
+          <PlusIcon aria-hidden="true" />
+        </SidebarGroupAction>
+      </div>
       <SidebarGroupContent>
         <SidebarMenu className="min-w-0">{props.children}</SidebarMenu>
       </SidebarGroupContent>
@@ -558,7 +560,14 @@ function WorkerSessionButton(props: {
         className="h-6 w-full ps-16 pe-2"
         onClick={() => props.onSessionSelect?.(props.session.selectionKey)}
       >
-        <span>{getWorkerSessionLabel(props.session.workerId)}</span>
+        <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+          <span className="truncate">
+            {getWorkerSessionLabel(props.session.workerId)}
+          </span>
+          <span className="shrink-0 tabular-nums text-xs leading-4 text-muted-foreground">
+            {props.session.elapsedLabel}
+          </span>
+        </span>
       </SidebarMenuButton>
     </SidebarMenuItem>
   );

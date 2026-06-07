@@ -5,34 +5,50 @@ import {
   type SessionWorkspace,
   toKanbanCard,
   type WorkerSession,
+  type WorkerSessionRecord,
 } from '@/features/home/domain/session-workspace';
 
 const workingClaudeSession = {
-  // The backend emits the agent plugin id verbatim; the claude plugin id is
-  // "claude-code" (see internal/plugin/agent/claudecode). Use it here so the
-  // demo/storybook fixtures match what the running app actually sends.
   agent: 'claude-code',
+  createdAt: '2026-06-07T10:00:00.000Z',
   cwd: '/Users/tanishqpalandurkar/Projects/yyork',
   description:
-    'Trace branch state and expose it consistently for dashboard state.',
+    'Reading branch metadata files and wiring the dashboard projection.',
   id: 'session-ao-1',
   issue: '[Issue #23]',
-  metadata: '[claude/metadata]',
+  metadata: JSON.stringify({
+    activity: 'working',
+    prompt:
+      'Trace branch state and expose it consistently for dashboard state.',
+    recap:
+      'Reading branch metadata files and wiring the dashboard projection.',
+    title: 'Trace branch metadata',
+  }),
   project: 'agent-orchestrator',
+  recap: 'Reading branch metadata files and wiring the dashboard projection.',
   state: 'working',
   terminalSupported: true,
   title: 'Trace branch metadata',
-  workerId: '[AO-1]',
-} satisfies WorkerSession;
+  updatedAt: '2026-06-07T10:12:00.000Z',
+  workerId: 'session-ao-1',
+} satisfies WorkerSessionRecord;
 
 const workingCodexSession = {
   ...workingClaudeSession,
   agent: 'codex',
+  description: 'Scanning README and package manifests for an overview.',
   id: 'session-ao-2',
-  metadata: '[codex/metadata]',
+  metadata: JSON.stringify({
+    activity: 'working',
+    prompt: 'Tell me about this project',
+    recap: 'Scanning README and package manifests for an overview.',
+    title: 'Tell me about this project',
+  }),
   selected: true,
-  workerId: '[AO-2]',
-} satisfies WorkerSession;
+  recap: 'Scanning README and package manifests for an overview.',
+  title: 'Tell me about this project',
+  workerId: 'session-ao-2',
+} satisfies WorkerSessionRecord;
 
 const orchestratorSession = {
   ...workingClaudeSession,
@@ -42,6 +58,7 @@ const orchestratorSession = {
   kind: 'orchestrator',
   metadata: '[codex/working]',
   project: 'agent-orchestrator',
+  recap: 'Coordinates workers for the active project.',
   title: 'Project orchestrator',
   workerId: '[ORCHESTRATOR]',
 } satisfies WorkerSession;
@@ -49,11 +66,19 @@ const orchestratorSession = {
 const promptCodexSession = {
   ...workingClaudeSession,
   agent: 'codex',
+  description: 'Waiting for your answer on the split strategy.',
   id: 'session-ao-3',
-  metadata: '[codex/metadata]',
+  metadata: JSON.stringify({
+    activity: 'waiting-for-input',
+    prompt: 'Should we split the PR before landing?',
+    recap: 'Waiting for your answer on the split strategy.',
+    title: 'Split PR decision',
+  }),
   state: 'prompt',
-  workerId: '[AO-3]',
-} satisfies WorkerSession;
+  recap: 'Waiting for your answer on the split strategy.',
+  title: 'Split PR decision',
+  workerId: 'session-ao-3',
+} satisfies WorkerSessionRecord;
 
 const promptClaudeSession = {
   ...workingClaudeSession,

@@ -1,17 +1,11 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Outlet, useNavigate, useParams } from '@tanstack/react-router';
 import {
   LayoutDashboardIcon,
   PanelRightIcon,
   SquareTerminalIcon,
 } from 'lucide-react';
-import {
-  startTransition,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 import {
@@ -31,6 +25,7 @@ const isMacPlatform =
 const MOD_KEY = isMacPlatform ? '⌘' : 'Ctrl';
 const SHIFT_KEY = isMacPlatform ? '⇧' : 'Shift';
 
+import { StopSessionConfirmDialog } from '@/features/home/components/molecules/stop-session-confirm-dialog';
 import type {
   CanvasTab,
   CanvasTargetSummary,
@@ -41,11 +36,12 @@ import type { WorkspacePanelState } from '@/features/home/components/organisms/w
 import { openProjectIdeMutationOptions } from '@/features/home/data/project-ide';
 import {
   fallbackHomeWorkspace,
+  homeWorkspaceQueryKey,
   homeWorkspaceQueryOptions,
+  renameSessionMutationOptions,
   stopSessionMutationOptions,
 } from '@/features/home/data/workspace';
 import {
-  defaultHomeWorkspacePreferences,
   type HomeWorkspaceCanvasLayout,
   type HomeWorkspacePreferences,
   readHomeWorkspacePreferences,
@@ -78,22 +74,30 @@ export function WorkspaceLayout() {
   const boardProjectIdParam = params.projectId;
   const isTerminalRoute = Boolean(selectedTerminalSessionKey);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [pendingSessionStop, setPendingSessionStop] = useState<{
+    label: string;
+    selectionKey: string;
+  } | null>(null);
 
-  const [hasRestoredPreferences, setHasRestoredPreferences] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(
-    defaultHomeWorkspacePreferences.sidebarOpen
+  const [homeWorkspacePreferences, setHomeWorkspacePreferences] = useState(
+    readHomeWorkspacePreferences
   );
-  const [sidebarWidth, setSidebarWidth] = useState<number | undefined>(
-    defaultHomeWorkspacePreferences.sidebarWidth
-  );
-  const [canvasOpen, setCanvasOpen] = useState(false);
+  const {
+    canvasLayout,
+    canvasOpen,
+    canvasPreviewUrl,
+    hiddenProjectIds,
+    hiddenTerminalSessionKeys,
+    openProjectIds,
+    openWorkerSessionGroupIds,
+    pinnedProjectIds,
+    pinnedTerminalSessionKeys,
+    projectNameOverrides,
+    sidebarOpen,
+    sidebarWidth,
+    skipStopSessionConfirmation,
+  } = homeWorkspacePreferences;
   const [canvasResizing, setCanvasResizing] = useState(false);
-  const [canvasLayout, setCanvasLayout] = useState<
-    HomeWorkspaceCanvasLayout | undefined
-  >(defaultHomeWorkspacePreferences.canvasLayout);
-  const [canvasPreviewUrl, setCanvasPreviewUrl] = useState<string | undefined>(
-    defaultHomeWorkspacePreferences.canvasPreviewUrl
-  );
   const [canvasTab, setCanvasTab] = useState<CanvasTab>('files');
   const workspaceQuery = useQuery(homeWorkspaceQueryOptions());
   const { mutate: openProjectIde } = useMutation(
@@ -102,83 +106,44 @@ export function WorkspaceLayout() {
   const { mutateAsync: stopSession } = useMutation(
     stopSessionMutationOptions()
   );
+  const queryClient = useQueryClient();
+  const { mutateAsync: renameSession } = useMutation(
+    renameSessionMutationOptions()
+  );
 
   const workspace = workspaceQuery.data ?? fallbackHomeWorkspace;
-  const [openProjectIds, setOpenProjectIds] = useState<string[] | undefined>(
-    defaultHomeWorkspacePreferences.openProjectIds
-  );
-  const [pinnedProjectIds, setPinnedProjectIds] = useState<
-    string[] | undefined
-  >(defaultHomeWorkspacePreferences.pinnedProjectIds);
-  const [pinnedTerminalSessionKeys, setPinnedTerminalSessionKeys] = useState<
-    string[] | undefined
-  >(defaultHomeWorkspacePreferences.pinnedTerminalSessionKeys);
-  const [hiddenProjectIds, setHiddenProjectIds] = useState<
-    string[] | undefined
-  >(defaultHomeWorkspacePreferences.hiddenProjectIds);
-  const [hiddenTerminalSessionKeys, setHiddenTerminalSessionKeys] = useState<
-    string[] | undefined
-  >(defaultHomeWorkspacePreferences.hiddenTerminalSessionKeys);
-  const [projectNameOverrides, setProjectNameOverrides] = useState<
-    Record<string, string> | undefined
-  >(defaultHomeWorkspacePreferences.projectNameOverrides);
-  const [sessionLabelOverrides, setSessionLabelOverrides] = useState<
-    Record<string, string> | undefined
-  >(defaultHomeWorkspacePreferences.sessionLabelOverrides);
-  const [openWorkerSessionGroupIds, setOpenWorkerSessionGroupIds] = useState<
-    WorkerSessionState[] | undefined
-  >(defaultHomeWorkspacePreferences.openWorkerSessionGroupIds);
+  const hiddenProjectIdSet = new Set(hiddenProjectIds ?? []);
+  const projects: typeof workspace.projects = [];
 
-  const projects = useMemo(
-    () =>
-      workspace.projects
-        .filter((project) => !hiddenProjectIds?.includes(project.id))
-        .map((project) => ({
-          ...project,
-          name: projectNameOverrides?.[project.id] ?? project.name,
-        })),
-    [hiddenProjectIds, projectNameOverrides, workspace.projects]
+  for (const project of workspace.projects) {
+    if (hiddenProjectIdSet.has(project.id)) {
+      continue;
+    }
+
+    projects.push({
+      ...project,
+      name: projectNameOverrides?.[project.id] ?? project.name,
+    });
+  }
+
+  const projectIds = new Set(projects.map((project) => project.id));
+  const hiddenTerminalSessionKeySet = new Set(hiddenTerminalSessionKeys ?? []);
+  const workspaceSessions = workspace.sessions.filter(
+    (session) =>
+      projectIds.has(session.project) &&
+      !hiddenTerminalSessionKeySet.has(getWorkerSessionSelectionKey(session))
   );
-  const projectIds = useMemo(
-    () => new Set(projects.map((project) => project.id)),
-    [projects]
+  const workspaceOrchestrators = (workspace.orchestrators ?? []).filter(
+    (session) =>
+      projectIds.has(session.project) &&
+      !hiddenTerminalSessionKeySet.has(getWorkerSessionSelectionKey(session))
   );
-  const hiddenTerminalSessionKeySet = useMemo(
-    () => new Set(hiddenTerminalSessionKeys ?? []),
-    [hiddenTerminalSessionKeys]
-  );
-  const workspaceSessions = useMemo(
-    () =>
-      workspace.sessions.filter(
-        (session) =>
-          projectIds.has(session.project) &&
-          !hiddenTerminalSessionKeySet.has(
-            getWorkerSessionSelectionKey(session)
-          )
-      ),
-    [hiddenTerminalSessionKeySet, projectIds, workspace.sessions]
-  );
-  const workspaceOrchestrators = useMemo(
-    () =>
-      (workspace.orchestrators ?? []).filter(
-        (session) =>
-          projectIds.has(session.project) &&
-          !hiddenTerminalSessionKeySet.has(
-            getWorkerSessionSelectionKey(session)
-          )
-      ),
-    [hiddenTerminalSessionKeySet, projectIds, workspace.orchestrators]
-  );
-  const sessions = useMemo(
-    () =>
-      withSelectedWorkerSession(workspaceSessions, selectedTerminalSessionKey),
-    [selectedTerminalSessionKey, workspaceSessions]
+  const sessions = withSelectedWorkerSession(
+    workspaceSessions,
+    selectedTerminalSessionKey
   );
   const selectedWorkerSession = getSelectedWorkerSession(sessions);
-  const terminalSessions = useMemo(
-    () => [...workspaceOrchestrators, ...sessions],
-    [sessions, workspaceOrchestrators]
-  );
+  const terminalSessions = [...workspaceOrchestrators, ...sessions];
   const selectedTerminalSession = isTerminalRoute
     ? (getTerminalSession(terminalSessions, selectedTerminalSessionKey) ??
       selectedWorkerSession)
@@ -192,38 +157,25 @@ export function WorkspaceLayout() {
   const selectedProject = projects.find(
     (project) => project.id === selectedProjectId
   );
-  const canvasTarget = useMemo<CanvasTargetSummary>(
-    () =>
-      selectedTerminalSession
-        ? {
-            cwd: selectedTerminalSession.cwd,
-            projectId: selectedTerminalSession.project,
-            sessionId: selectedTerminalSession.id,
-          }
-        : {
-            cwd: selectedProject?.cwd,
-          },
-    [selectedProject?.cwd, selectedTerminalSession]
+  const canvasTarget: CanvasTargetSummary = selectedTerminalSession
+    ? {
+        cwd: selectedTerminalSession.cwd,
+        projectId: selectedTerminalSession.project,
+        sessionId: selectedTerminalSession.id,
+      }
+    : {
+        cwd: selectedProject?.cwd,
+      };
+  const defaultOpenProjectIds: string[] =
+    selectedProjectId &&
+    projects.some((project) => project.id === selectedProjectId)
+      ? [selectedProjectId]
+      : [];
+  const boardSessions = sessions.filter(
+    (session) => session.project === selectedProjectId
   );
-  const defaultOpenProjectIds = useMemo(
-    () =>
-      projects.some((project) => project.id === selectedProjectId)
-        ? [selectedProjectId]
-        : [],
-    [projects, selectedProjectId]
-  );
-  const boardSessions = useMemo(
-    () => sessions.filter((session) => session.project === selectedProjectId),
-    [sessions, selectedProjectId]
-  );
-  const kanbanColumns = useMemo(
-    () => getKanbanColumns(boardSessions),
-    [boardSessions]
-  );
-  const workerSessionGroups = useMemo(
-    () => getWorkerSessionGroups(sessions),
-    [sessions]
-  );
+  const kanbanColumns = getKanbanColumns(boardSessions);
+  const workerSessionGroups = getWorkerSessionGroups(sessions);
   const workspaceState: WorkspacePanelState = workspaceQuery.isPending
     ? 'loading'
     : workspaceQuery.isError
@@ -231,62 +183,6 @@ export function WorkspaceLayout() {
       : terminalSessions.length === 0
         ? 'empty'
         : 'ready';
-
-  useEffect(() => {
-    const preferences = readHomeWorkspacePreferences();
-
-    setSidebarOpen(preferences.sidebarOpen);
-    setSidebarWidth(preferences.sidebarWidth);
-    setCanvasOpen(preferences.canvasOpen);
-    setCanvasLayout(preferences.canvasLayout);
-    setCanvasPreviewUrl(preferences.canvasPreviewUrl);
-    setOpenProjectIds(preferences.openProjectIds);
-    setOpenWorkerSessionGroupIds(preferences.openWorkerSessionGroupIds);
-    setPinnedProjectIds(preferences.pinnedProjectIds);
-    setPinnedTerminalSessionKeys(preferences.pinnedTerminalSessionKeys);
-    setHiddenProjectIds(preferences.hiddenProjectIds);
-    setHiddenTerminalSessionKeys(preferences.hiddenTerminalSessionKeys);
-    setProjectNameOverrides(preferences.projectNameOverrides);
-    setSessionLabelOverrides(preferences.sessionLabelOverrides);
-    setHasRestoredPreferences(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hasRestoredPreferences) {
-      return;
-    }
-
-    writeHomeWorkspacePreferences({
-      canvasLayout,
-      canvasOpen,
-      canvasPreviewUrl,
-      hiddenProjectIds,
-      hiddenTerminalSessionKeys,
-      openProjectIds,
-      openWorkerSessionGroupIds,
-      pinnedProjectIds,
-      pinnedTerminalSessionKeys,
-      projectNameOverrides,
-      sessionLabelOverrides,
-      sidebarOpen,
-      sidebarWidth,
-    });
-  }, [
-    hasRestoredPreferences,
-    canvasLayout,
-    canvasOpen,
-    canvasPreviewUrl,
-    hiddenProjectIds,
-    hiddenTerminalSessionKeys,
-    openProjectIds,
-    openWorkerSessionGroupIds,
-    pinnedProjectIds,
-    pinnedTerminalSessionKeys,
-    projectNameOverrides,
-    sessionLabelOverrides,
-    sidebarOpen,
-    sidebarWidth,
-  ]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -305,407 +201,302 @@ export function WorkspaceLayout() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const persistHomeWorkspacePreferences = useCallback(
-    (preferences: Partial<HomeWorkspacePreferences>) => {
-      writeHomeWorkspacePreferences({
-        canvasLayout,
-        canvasOpen,
-        canvasPreviewUrl,
-        hiddenProjectIds,
-        hiddenTerminalSessionKeys,
-        openProjectIds,
-        openWorkerSessionGroupIds,
-        pinnedProjectIds,
-        pinnedTerminalSessionKeys,
-        projectNameOverrides,
-        sessionLabelOverrides,
-        sidebarOpen,
-        sidebarWidth,
-        ...preferences,
-      });
-    },
-    [
-      hiddenProjectIds,
-      canvasLayout,
-      canvasOpen,
-      canvasPreviewUrl,
-      hiddenTerminalSessionKeys,
-      openProjectIds,
-      openWorkerSessionGroupIds,
-      pinnedProjectIds,
-      pinnedTerminalSessionKeys,
-      projectNameOverrides,
-      sessionLabelOverrides,
-      sidebarOpen,
-      sidebarWidth,
-    ]
-  );
+  const updateHomeWorkspacePreferences = (
+    preferences: Partial<HomeWorkspacePreferences>
+  ) => {
+    const nextPreferences = {
+      ...homeWorkspacePreferences,
+      ...preferences,
+    };
 
-  const handleSidebarOpenChange = useCallback(
-    (open: boolean) => {
-      persistHomeWorkspacePreferences({ sidebarOpen: open });
-      setSidebarOpen(open);
-    },
-    [persistHomeWorkspacePreferences]
-  );
+    writeHomeWorkspacePreferences(nextPreferences);
+    setHomeWorkspacePreferences(nextPreferences);
+  };
 
-  const handleSidebarWidthChange = useCallback((width: number) => {
-    setSidebarWidth(width);
-  }, []);
+  const handleSidebarOpenChange = (open: boolean) => {
+    updateHomeWorkspacePreferences({ sidebarOpen: open });
+  };
 
-  const handleCanvasOpenChange = useCallback(
-    (open: boolean) => {
-      persistHomeWorkspacePreferences({ canvasOpen: open });
-      setCanvasOpen(open);
-    },
-    [persistHomeWorkspacePreferences]
-  );
+  const handleSidebarWidthChange = (width: number) => {
+    updateHomeWorkspacePreferences({ sidebarWidth: width });
+  };
 
-  const handleCanvasLayoutChange = useCallback(
-    (layout: HomeWorkspaceCanvasLayout) => {
-      persistHomeWorkspacePreferences({ canvasLayout: layout });
-      setCanvasLayout(layout);
-    },
-    [persistHomeWorkspacePreferences]
-  );
+  const handleCanvasOpenChange = (open: boolean) => {
+    updateHomeWorkspacePreferences({ canvasOpen: open });
+  };
 
-  const handleCanvasPreviewUrlChange = useCallback(
-    (url: string) => {
-      const nextCanvasPreviewUrl = url.trim() || undefined;
+  const handleCanvasLayoutChange = (layout: HomeWorkspaceCanvasLayout) => {
+    updateHomeWorkspacePreferences({ canvasLayout: layout });
+  };
 
-      persistHomeWorkspacePreferences({
-        canvasPreviewUrl: nextCanvasPreviewUrl,
-      });
-      setCanvasPreviewUrl(nextCanvasPreviewUrl);
-    },
-    [persistHomeWorkspacePreferences]
-  );
+  const handleCanvasPreviewUrlChange = (url: string) => {
+    updateHomeWorkspacePreferences({
+      canvasPreviewUrl: url.trim() || undefined,
+    });
+  };
 
-  const handleProjectOpenChange = useCallback(
-    (projectId: string, open: boolean) => {
-      const nextOpenProjectIds = updateOpenIds(
+  const handleProjectOpenChange = (projectId: string, open: boolean) => {
+    updateHomeWorkspacePreferences({
+      openProjectIds: updateOpenIds(
         openProjectIds,
         projectId,
         open,
         defaultOpenProjectIds
-      );
+      ),
+    });
+  };
 
-      persistHomeWorkspacePreferences({ openProjectIds: nextOpenProjectIds });
-      setOpenProjectIds(nextOpenProjectIds);
-    },
-    [defaultOpenProjectIds, openProjectIds, persistHomeWorkspacePreferences]
-  );
-
-  const handleWorkerSessionGroupOpenChange = useCallback(
-    (groupId: WorkerSessionState, open: boolean) => {
-      const nextOpenWorkerSessionGroupIds = updateOpenIds(
+  const handleWorkerSessionGroupOpenChange = (
+    groupId: WorkerSessionState,
+    open: boolean
+  ) => {
+    updateHomeWorkspacePreferences({
+      openWorkerSessionGroupIds: updateOpenIds(
         openWorkerSessionGroupIds,
         groupId,
         open,
         workerSessionStates
-      );
+      ),
+    });
+  };
 
-      persistHomeWorkspacePreferences({
-        openWorkerSessionGroupIds: nextOpenWorkerSessionGroupIds,
-      });
-      setOpenWorkerSessionGroupIds(nextOpenWorkerSessionGroupIds);
-    },
-    [openWorkerSessionGroupIds, persistHomeWorkspacePreferences]
-  );
+  const handleProjectPinToggle = (projectId: string) => {
+    updateHomeWorkspacePreferences({
+      pinnedProjectIds: toggleId(pinnedProjectIds, projectId),
+    });
+  };
 
-  const handleProjectPinToggle = useCallback(
-    (projectId: string) => {
-      const nextPinnedProjectIds = toggleId(pinnedProjectIds, projectId);
-
-      persistHomeWorkspacePreferences({
-        pinnedProjectIds: nextPinnedProjectIds,
-      });
-      setPinnedProjectIds(nextPinnedProjectIds);
-    },
-    [pinnedProjectIds, persistHomeWorkspacePreferences]
-  );
-
-  const handleProjectIdeOpen = useCallback(
-    (project: ProjectOrchestrator) => {
-      openProjectIde(project, {
-        onError: (error) => {
-          toast.error('Could not open project', {
-            description:
-              error instanceof Error
-                ? error.message
-                : 'The local IDE could not be opened.',
-          });
-        },
-        onSuccess: (result) => {
-          toast.success('Opened project', {
-            description: result.cwd,
-          });
-        },
-      });
-    },
-    [openProjectIde]
-  );
-
-  const handleTerminalSessionPinToggle = useCallback(
-    (selectionKey: string) => {
-      const nextPinnedTerminalSessionKeys = toggleId(
-        pinnedTerminalSessionKeys,
-        selectionKey
-      );
-
-      persistHomeWorkspacePreferences({
-        pinnedTerminalSessionKeys: nextPinnedTerminalSessionKeys,
-      });
-      setPinnedTerminalSessionKeys(nextPinnedTerminalSessionKeys);
-    },
-    [pinnedTerminalSessionKeys, persistHomeWorkspacePreferences]
-  );
-
-  const handleTerminalSessionRename = useCallback(
-    (selectionKey: string, currentLabel: string) => {
-      if (typeof window === 'undefined') {
-        return;
-      }
-
-      const nextLabel = window.prompt('Rename session', currentLabel);
-      const normalizedLabel = nextLabel?.trim();
-
-      if (!normalizedLabel || normalizedLabel === currentLabel) {
-        return;
-      }
-
-      const nextSessionLabelOverrides = {
-        ...sessionLabelOverrides,
-        [selectionKey]: normalizedLabel,
-      };
-
-      persistHomeWorkspacePreferences({
-        sessionLabelOverrides: nextSessionLabelOverrides,
-      });
-      setSessionLabelOverrides(nextSessionLabelOverrides);
-    },
-    [persistHomeWorkspacePreferences, sessionLabelOverrides]
-  );
-
-  const handleTerminalSessionDelete = useCallback(
-    (selectionKey: string, currentLabel: string) => {
-      if (typeof window === 'undefined') {
-        return;
-      }
-
-      if (
-        !window.confirm(
-          `Stop ${currentLabel}? This will terminate the agent process and remove its worktree.`
-        )
-      ) {
-        return;
-      }
-
-      const sessionId = getSessionIdFromSelectionKey(selectionKey);
-      if (!sessionId) {
-        return;
-      }
-
-      stopSession(sessionId).catch((error: unknown) => {
-        toast.error('Could not stop session', {
+  const handleProjectIdeOpen = (project: ProjectOrchestrator) => {
+    openProjectIde(project, {
+      onError: (error) => {
+        toast.error('Could not open project', {
           description:
             error instanceof Error
               ? error.message
-              : 'The session could not be terminated.',
+              : 'The local IDE could not be opened.',
+        });
+      },
+      onSuccess: (result) => {
+        toast.success('Opened project', {
+          description: result.cwd,
+        });
+      },
+    });
+  };
+
+  const handleTerminalSessionPinToggle = (selectionKey: string) => {
+    updateHomeWorkspacePreferences({
+      pinnedTerminalSessionKeys: toggleId(
+        pinnedTerminalSessionKeys,
+        selectionKey
+      ),
+    });
+  };
+
+  const handleTerminalSessionRename = (
+    selectionKey: string,
+    currentLabel: string
+  ) => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const sessionId = getSessionIdFromSelectionKey(selectionKey);
+    if (!sessionId) {
+      return;
+    }
+
+    const nextLabel = window.prompt('Rename session', currentLabel);
+    if (nextLabel === null) {
+      return;
+    }
+
+    // The backend is the source of truth: it trims/truncates, persists the
+    // displayName, and emits a session.updated SSE event so every client
+    // converges. An empty value clears the override back to the auto-derived
+    // title, so we send the trimmed string straight through.
+    const normalizedLabel = nextLabel.trim();
+    if (normalizedLabel === currentLabel) {
+      return;
+    }
+
+    renameSession({ sessionId, displayName: normalizedLabel })
+      .then(() => {
+        void queryClient.invalidateQueries({
+          queryKey: homeWorkspaceQueryKey,
+        });
+      })
+      .catch((error: unknown) => {
+        toast.error('Could not rename session', {
+          description:
+            error instanceof Error
+              ? error.message
+              : 'The session could not be renamed.',
         });
       });
+  };
 
-      if (selectedTerminalSessionKey === selectionKey) {
-        void navigate({ to: '/' });
-      }
-    },
-    [navigate, selectedTerminalSessionKey, stopSession]
-  );
+  const executeTerminalSessionStop = (selectionKey: string) => {
+    const sessionId = getSessionIdFromSelectionKey(selectionKey);
+    if (!sessionId) {
+      return;
+    }
 
-  const handleTerminalSessionHide = useCallback(
-    (selectionKey: string, currentLabel: string) => {
-      if (typeof window === 'undefined') {
-        return;
-      }
-
-      if (!window.confirm(`Hide ${currentLabel} from sidebar?`)) {
-        return;
-      }
-
-      const nextHiddenTerminalSessionKeys = addId(
-        hiddenTerminalSessionKeys,
-        selectionKey
-      );
-      const nextPinnedTerminalSessionKeys = (
-        pinnedTerminalSessionKeys ?? []
-      ).filter((key) => key !== selectionKey);
-
-      persistHomeWorkspacePreferences({
-        hiddenTerminalSessionKeys: nextHiddenTerminalSessionKeys,
-        pinnedTerminalSessionKeys: nextPinnedTerminalSessionKeys,
+    stopSession(sessionId).catch((error: unknown) => {
+      toast.error('Could not stop session', {
+        description:
+          error instanceof Error
+            ? error.message
+            : `The session could not be terminated.`,
       });
-      startTransition(() => {
-        setHiddenTerminalSessionKeys(nextHiddenTerminalSessionKeys);
-        setPinnedTerminalSessionKeys(nextPinnedTerminalSessionKeys);
+    });
+
+    if (selectedTerminalSessionKey === selectionKey) {
+      void navigate({ to: '/' });
+    }
+  };
+
+  const handleTerminalSessionDelete = (
+    selectionKey: string,
+    currentLabel: string
+  ) => {
+    if (skipStopSessionConfirmation) {
+      executeTerminalSessionStop(selectionKey);
+      return;
+    }
+
+    setPendingSessionStop({ selectionKey, label: currentLabel });
+  };
+
+  const handleConfirmSessionStop = (dontShowAgain: boolean) => {
+    if (!pendingSessionStop) {
+      return;
+    }
+
+    if (dontShowAgain) {
+      updateHomeWorkspacePreferences({
+        skipStopSessionConfirmation: true,
       });
+    }
 
-      if (selectedTerminalSessionKey === selectionKey) {
-        void navigate({ to: '/' });
-      }
-    },
-    [
-      hiddenTerminalSessionKeys,
-      navigate,
-      persistHomeWorkspacePreferences,
-      pinnedTerminalSessionKeys,
-      selectedTerminalSessionKey,
-    ]
-  );
+    executeTerminalSessionStop(pendingSessionStop.selectionKey);
+    setPendingSessionStop(null);
+  };
 
-  const handleProjectRename = useCallback(
-    (projectId: string) => {
-      if (typeof window === 'undefined') {
-        return;
-      }
+  const handleTerminalSessionHide = (
+    selectionKey: string,
+    currentLabel: string
+  ) => {
+    if (typeof window === 'undefined') {
+      return;
+    }
 
-      const project = projects.find((project) => project.id === projectId);
-      if (!project) {
-        return;
-      }
+    if (!window.confirm(`Hide ${currentLabel} from sidebar?`)) {
+      return;
+    }
 
-      const nextProjectName = window.prompt('Rename project', project.name);
-      const normalizedProjectName = nextProjectName?.trim();
+    updateHomeWorkspacePreferences({
+      hiddenTerminalSessionKeys: addId(hiddenTerminalSessionKeys, selectionKey),
+      pinnedTerminalSessionKeys: (pinnedTerminalSessionKeys ?? []).filter(
+        (key) => key !== selectionKey
+      ),
+    });
 
-      if (!normalizedProjectName || normalizedProjectName === project.name) {
-        return;
-      }
+    if (selectedTerminalSessionKey === selectionKey) {
+      void navigate({ to: '/' });
+    }
+  };
 
-      const nextProjectNameOverrides = {
+  const handleProjectRename = (projectId: string) => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const project = projects.find((project) => project.id === projectId);
+    if (!project) {
+      return;
+    }
+
+    const nextProjectName = window.prompt('Rename project', project.name);
+    const normalizedProjectName = nextProjectName?.trim();
+
+    if (!normalizedProjectName || normalizedProjectName === project.name) {
+      return;
+    }
+
+    updateHomeWorkspacePreferences({
+      projectNameOverrides: {
         ...projectNameOverrides,
         [projectId]: normalizedProjectName,
-      };
+      },
+    });
+  };
 
-      persistHomeWorkspacePreferences({
-        projectNameOverrides: nextProjectNameOverrides,
-      });
-      setProjectNameOverrides(nextProjectNameOverrides);
-    },
-    [persistHomeWorkspacePreferences, projectNameOverrides, projects]
-  );
+  const handleProjectDelete = (projectId: string) => {
+    if (typeof window === 'undefined') {
+      return;
+    }
 
-  const handleProjectDelete = useCallback(
-    (projectId: string) => {
-      if (typeof window === 'undefined') {
-        return;
-      }
+    const project = projects.find((project) => project.id === projectId);
+    if (!project || !window.confirm(`Delete ${project.name} from sidebar?`)) {
+      return;
+    }
 
-      const project = projects.find((project) => project.id === projectId);
-      if (!project || !window.confirm(`Delete ${project.name} from sidebar?`)) {
-        return;
-      }
+    const projectSelectionKeyPrefix = `${encodeURIComponent(projectId)}:`;
 
-      const nextHiddenProjectIds = addId(hiddenProjectIds, projectId);
-      const nextOpenProjectIds = (
-        openProjectIds ?? defaultOpenProjectIds
-      ).filter((openProjectId) => openProjectId !== projectId);
-      const nextPinnedProjectIds = (pinnedProjectIds ?? []).filter(
+    updateHomeWorkspacePreferences({
+      hiddenProjectIds: addId(hiddenProjectIds, projectId),
+      openProjectIds: (openProjectIds ?? defaultOpenProjectIds).filter(
+        (openProjectId) => openProjectId !== projectId
+      ),
+      pinnedProjectIds: (pinnedProjectIds ?? []).filter(
         (pinnedProjectId) => pinnedProjectId !== projectId
-      );
-      const projectSelectionKeyPrefix = `${encodeURIComponent(projectId)}:`;
-      const nextPinnedTerminalSessionKeys = (
-        pinnedTerminalSessionKeys ?? []
-      ).filter(
+      ),
+      pinnedTerminalSessionKeys: (pinnedTerminalSessionKeys ?? []).filter(
         (selectionKey) => !selectionKey.startsWith(projectSelectionKeyPrefix)
-      );
+      ),
+    });
 
-      persistHomeWorkspacePreferences({
-        hiddenProjectIds: nextHiddenProjectIds,
-        openProjectIds: nextOpenProjectIds,
-        pinnedProjectIds: nextPinnedProjectIds,
-        pinnedTerminalSessionKeys: nextPinnedTerminalSessionKeys,
-      });
-      startTransition(() => {
-        setHiddenProjectIds(nextHiddenProjectIds);
-        setOpenProjectIds(nextOpenProjectIds);
-        setPinnedProjectIds(nextPinnedProjectIds);
-        setPinnedTerminalSessionKeys(nextPinnedTerminalSessionKeys);
-      });
+    if (selectedTerminalSessionKey?.startsWith(projectSelectionKeyPrefix)) {
+      void navigate({ to: '/' });
+    }
+  };
 
-      if (selectedTerminalSessionKey?.startsWith(projectSelectionKeyPrefix)) {
-        void navigate({ to: '/' });
-      }
-    },
-    [
-      defaultOpenProjectIds,
-      hiddenProjectIds,
-      navigate,
-      openProjectIds,
-      persistHomeWorkspacePreferences,
-      pinnedProjectIds,
-      pinnedTerminalSessionKeys,
-      projects,
-      selectedTerminalSessionKey,
-    ]
-  );
-
-  const handleProjectBoardSelect = useCallback(
-    (projectId: string) => {
-      const nextOpenProjectIds = updateOpenIds(
+  const handleProjectBoardSelect = (projectId: string) => {
+    updateHomeWorkspacePreferences({
+      openProjectIds: updateOpenIds(
         openProjectIds,
         projectId,
         true,
         defaultOpenProjectIds
-      );
+      ),
+    });
 
-      if (nextOpenProjectIds !== openProjectIds) {
-        persistHomeWorkspacePreferences({ openProjectIds: nextOpenProjectIds });
-        setOpenProjectIds(nextOpenProjectIds);
-      }
+    void navigate({
+      to: '/board/$projectId',
+      params: { projectId },
+    });
+  };
 
-      void navigate({
-        to: '/board/$projectId',
-        params: { projectId },
+  const handleTerminalSessionOpen = (selectionKey: string) => {
+    const targetProjectId = getProjectIdFromSelectionKey(selectionKey);
+
+    if (targetProjectId) {
+      updateHomeWorkspacePreferences({
+        openProjectIds: updateOpenIds(
+          openProjectIds,
+          targetProjectId,
+          true,
+          defaultOpenProjectIds
+        ),
       });
-    },
-    [
-      defaultOpenProjectIds,
-      navigate,
-      openProjectIds,
-      persistHomeWorkspacePreferences,
-    ]
-  );
+    }
 
-  const handleTerminalSessionOpen = useCallback(
-    (selectionKey: string) => {
-      const targetProjectId = getProjectIdFromSelectionKey(selectionKey);
-      const nextOpenProjectIds = targetProjectId
-        ? updateOpenIds(
-            openProjectIds,
-            targetProjectId,
-            true,
-            defaultOpenProjectIds
-          )
-        : openProjectIds;
-
-      if (nextOpenProjectIds !== openProjectIds) {
-        persistHomeWorkspacePreferences({
-          openProjectIds: nextOpenProjectIds,
-        });
-        setOpenProjectIds(nextOpenProjectIds);
-      }
-
-      void navigate({
-        to: '/terminal/$sessionId',
-        params: { sessionId: selectionKey },
-      });
-    },
-    [
-      defaultOpenProjectIds,
-      navigate,
-      openProjectIds,
-      persistHomeWorkspacePreferences,
-    ]
-  );
+    void navigate({
+      to: '/terminal/$sessionId',
+      params: { sessionId: selectionKey },
+    });
+  };
 
   const workspaceContextValue: WorkspaceContextValue = {
     canvasAvailable: isTerminalRoute,
@@ -764,12 +555,21 @@ export function WorkspaceLayout() {
             openWorkerSessionGroupIds={openWorkerSessionGroupIds}
             onWorkerSessionSelect={handleTerminalSessionOpen}
             orchestrators={workspaceOrchestrators}
-            sessionLabelOverrides={sessionLabelOverrides}
             workerSessionGroups={workerSessionGroups}
           />
         }
         topbar={<MainTopbar />}
         main={<Outlet />}
+      />
+      <StopSessionConfirmDialog
+        open={pendingSessionStop !== null}
+        sessionLabel={pendingSessionStop?.label ?? 'session'}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingSessionStop(null);
+          }
+        }}
+        onConfirm={handleConfirmSessionStop}
       />
       <CommandDialog
         open={commandPaletteOpen}
@@ -800,11 +600,9 @@ export function WorkspaceLayout() {
                 projects.find((project) => project.id === session.project)
                   ?.name ?? session.project;
               const sessionSuffix =
-                sessionLabelOverrides?.[selectionKey] ??
-                (session.kind === 'orchestrator'
+                session.kind === 'orchestrator'
                   ? 'orchestrator'
-                  : session.title.trim() ||
-                    session.workerId.replace(/^\[(.*)\]$/, '$1'));
+                  : session.title.trim() || `new agent: ${session.id}`;
               const label = `${projectName} / ${sessionSuffix}`;
 
               return (
@@ -918,9 +716,13 @@ function getSessionIdFromSelectionKey(selectionKey: string) {
   if (parts.length < 2) {
     return undefined;
   }
+  const encodedSessionId = parts[1];
+  if (!encodedSessionId) {
+    return undefined;
+  }
 
   try {
-    return decodeURIComponent(parts[1]);
+    return decodeURIComponent(encodedSessionId);
   } catch {
     return undefined;
   }

@@ -11,7 +11,10 @@ export const workerSessionStates = [
 export const workerSessionStateSchema = z.enum(workerSessionStates);
 export type WorkerSessionState = z.infer<typeof workerSessionStateSchema>;
 
-export const terminalSessionKinds = ['orchestrator', 'worker'] as const;
+export const terminalSessionKinds = [
+  'orchestrator',
+  'worker',
+] as const;
 export const terminalSessionKindSchema = z.enum(terminalSessionKinds);
 export type TerminalSessionKind = z.infer<typeof terminalSessionKindSchema>;
 
@@ -32,6 +35,7 @@ export const workerSessionSchema = z.object({
   kind: terminalSessionKindSchema.optional(),
   metadata: z.string(),
   project: z.string(),
+  recap: z.string(),
   selected: z.boolean().optional(),
   state: workerSessionStateSchema,
   terminalSupported: z.boolean().optional(),

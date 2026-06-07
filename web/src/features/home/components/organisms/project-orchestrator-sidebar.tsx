@@ -1,7 +1,6 @@
 import {
   CheckIcon,
   ChevronDownIcon,
-  ChevronRightIcon,
   EllipsisIcon,
   EyeOffIcon,
   FolderIcon,
@@ -14,6 +13,7 @@ import {
   PinOffIcon,
   PlusIcon,
   Settings2Icon,
+  SquareKanbanIcon,
   SquareTerminalIcon,
   SunIcon,
   SunMoonIcon,
@@ -73,6 +73,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
+import { HistoryNavigationButtons } from '@/features/home/components/molecules/history-navigation-buttons';
 import {
   getWorkerSessionSelectionKey,
   type ProjectOrchestrator,
@@ -82,7 +83,6 @@ import {
   type WorkerSessionState,
 } from '@/features/home/domain/session-workspace';
 
-const bracketedWorkerIdPattern = /^\[(.*)\]$/;
 const themeOptions = [
   { icon: SunMoonIcon, label: 'System', value: 'system' },
   { icon: SunIcon, label: 'Light', value: 'light' },
@@ -90,6 +90,8 @@ const themeOptions = [
 ] as const;
 
 interface PinnedTerminalSessionItem {
+  elapsedLabel?: string;
+  isPinned?: boolean;
   kind?: TerminalSessionKind;
   label: string;
   selectionKey: string;
@@ -123,7 +125,6 @@ export function ProjectOrchestratorSidebar(props: {
   projects: ProjectOrchestrator[];
   selectedProjectId: string;
   selectedTerminalSessionKey?: string;
-  sessionLabelOverrides?: Record<string, string>;
   tooltipDevtoolActionsVisible?: boolean;
   workerSessionGroups: WorkerSessionGroupData[];
 }) {
@@ -136,15 +137,12 @@ export function ProjectOrchestratorSidebar(props: {
     orchestrators: props.orchestrators,
     pinnedTerminalSessionKeys,
     projects: props.projects,
-    sessionLabelOverrides: props.sessionLabelOverrides,
     workerSessionGroups: props.workerSessionGroups,
   });
 
   return (
     <Sidebar collapsible="offcanvas">
-      <SidebarHeader className="h-15 shrink-0 items-start justify-center gap-0 border-b border-sidebar-border p-0 pr-3">
-        <SidebarToggleButton />
-      </SidebarHeader>
+      <SidebarHeaderToolbar />
 
       <SidebarContent className="gap-3 overflow-hidden p-3">
         <SidebarGroup
@@ -207,10 +205,21 @@ export function ProjectOrchestratorSidebar(props: {
                 };
 
                 return (
-                  <SidebarMenuItem key={session.selectionKey}>
+                  <SidebarMenuItem
+                    key={session.selectionKey}
+                    className="group/session-row"
+                  >
                     <SessionContextMenu
-                      label={session.label}
+                      isPinned={session.isPinned}
                       onOpen={openSession}
+                      onPinToggle={
+                        props.onTerminalSessionPinToggle
+                          ? () =>
+                              props.onTerminalSessionPinToggle?.(
+                                session.selectionKey
+                              )
+                          : undefined
+                      }
                       onRename={
                         props.onTerminalSessionRename
                           ? () =>
@@ -248,23 +257,37 @@ export function ProjectOrchestratorSidebar(props: {
                               session.selectionKey ===
                               props.selectedTerminalSessionKey
                             }
-                            className="h-7 rounded-sm pr-3 text-sm leading-5 font-normal text-foreground hover:text-foreground active:text-foreground data-[active=true]:text-foreground"
+                            className="h-7 rounded-sm pe-3! text-sm leading-5 font-normal text-foreground hover:text-foreground active:text-foreground data-[active=true]:text-foreground [&>span:last-child]:pe-0!"
                             onClick={openSession}
                           />
                         }
                       >
-                        <span>{session.label}</span>
+                        <WorkerSessionNavLabel
+                          elapsedLabel={session.elapsedLabel}
+                          hasRowActions={true}
+                          label={session.label}
+                          rowActionsAlwaysVisible={
+                            props.tooltipDevtoolActionsVisible
+                          }
+                        />
                       </ActionTooltip>
-                      <PinToggleAction
+                      <WorkerSessionRowActions
+                        alwaysVisible={props.tooltipDevtoolActionsVisible}
                         isPinned={true}
-                        label={`Unpin ${session.label}`}
-                        onToggle={() =>
+                        label={session.label}
+                        onDelete={
+                          props.onTerminalSessionDelete
+                            ? () =>
+                                props.onTerminalSessionDelete?.(
+                                  session.selectionKey,
+                                  session.label
+                                )
+                            : undefined
+                        }
+                        onPinToggle={() =>
                           props.onTerminalSessionPinToggle?.(
                             session.selectionKey
                           )
-                        }
-                        tooltipDevtoolActionsVisible={
-                          props.tooltipDevtoolActionsVisible
                         }
                       />
                     </SessionContextMenu>
@@ -280,22 +303,24 @@ export function ProjectOrchestratorSidebar(props: {
           className="gap-1 px-0"
           aria-label="Projects"
         >
-          <SidebarGroupLabel className="h-5 px-1 text-xs leading-4 font-medium opacity-60">
-            Projects
-          </SidebarGroupLabel>
-          <ActionTooltip
-            label="Add project"
-            trigger={
-              <SidebarGroupAction
-                render={<button type="button" />}
-                aria-label="Add project"
-                className="top-0 right-0 rounded-sm"
-                onClick={props.onAddProject}
-              />
-            }
-          >
-            <PlusIcon aria-hidden="true" />
-          </ActionTooltip>
+          <div className="flex h-5 items-center justify-between px-1">
+            <SidebarGroupLabel className="h-auto px-0 text-xs leading-4 font-medium opacity-60">
+              Projects
+            </SidebarGroupLabel>
+            <ActionTooltip
+              label="Add project"
+              trigger={
+                <SidebarGroupAction
+                  render={<button type="button" />}
+                  aria-label="Add project"
+                  className="static top-auto right-auto size-5 shrink-0 rounded-sm"
+                  onClick={props.onAddProject}
+                />
+              }
+            >
+              <PlusIcon aria-hidden="true" />
+            </ActionTooltip>
+          </div>
           <SidebarGroupContent>
             <SidebarMenu className="min-w-0">
               {props.projects.map((project) => (
@@ -332,7 +357,6 @@ export function ProjectOrchestratorSidebar(props: {
                     props.onWorkerSessionGroupOpenChange
                   }
                   onWorkerSessionSelect={props.onWorkerSessionSelect}
-                  sessionLabelOverrides={props.sessionLabelOverrides}
                   tooltipDevtoolActionsVisible={
                     props.tooltipDevtoolActionsVisible
                   }
@@ -371,7 +395,7 @@ function SettingsMenu(props: { onSettingsOpen?: () => void }) {
         render={
           <SidebarMenuButton
             render={<button type="button" />}
-            className="h-9 rounded-sm border border-sidebar-border bg-sidebar text-sm leading-5 shadow-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            className="h-9 rounded-sm border border-sidebar-border bg-sidebar text-sm leading-5 text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-sidebar-foreground"
             onClick={props.onSettingsOpen}
           />
         }
@@ -426,6 +450,29 @@ function SettingsMenu(props: { onSettingsOpen?: () => void }) {
   );
 }
 
+function SidebarHeaderToolbar() {
+  const { isMobile, openMobile, state } = useSidebar();
+  const isExpanded = isMobile ? openMobile : state === 'expanded';
+  const showCollapsedToggle = !isMobile && !isExpanded;
+
+  const toolbar = (
+    <div className="flex w-full min-w-0 items-center justify-between gap-2">
+      <SidebarToggleButton />
+      <HistoryNavigationButtons />
+    </div>
+  );
+
+  return showCollapsedToggle ? (
+    <div className="fixed top-0 left-0 z-30 flex h-15 w-15 items-center justify-center border-b border-sidebar-border bg-sidebar">
+      <SidebarToggleButton />
+    </div>
+  ) : (
+    <SidebarHeader className="flex h-15 shrink-0 flex-row items-center border-b border-sidebar-border p-0 px-3">
+      {toolbar}
+    </SidebarHeader>
+  );
+}
+
 function SidebarToggleButton() {
   const { isMobile, openMobile, state } = useSidebar();
   const isOpen = isMobile ? openMobile : state === 'expanded';
@@ -439,7 +486,7 @@ function SidebarToggleButton() {
           <SidebarTrigger
             variant="secondary"
             size="icon"
-            className="fixed top-3 left-3 z-30 size-9 rounded-sm shadow-none"
+            className="size-9 rounded-sm border-sidebar-border bg-sidebar shadow-none"
             icon={<SidebarToggleIcon />}
             aria-label={label}
           />
@@ -531,54 +578,56 @@ function ProjectNavItem(props: {
   pinnedTerminalSessionKeys: string[];
   project: ProjectOrchestrator;
   selectedTerminalSessionKey?: string;
-  sessionLabelOverrides?: Record<string, string>;
   tooltipDevtoolActionsVisible?: boolean;
   workerSessionGroups: WorkerSessionGroupData[];
 }) {
+  const FolderToggleIcon = props.open ? FolderOpenIcon : FolderIcon;
+
   return (
     <SidebarMenuItem>
       <Collapsible open={props.open} onOpenChange={props.onOpenChange}>
-        <ActionTooltip
-          label={
-            props.open
-              ? `Collapse ${props.project.name} workers`
-              : `Expand ${props.project.name} workers`
-          }
-          trigger={
-            <CollapsibleTrigger
-              render={<button type="button" />}
-              className="absolute top-1 left-0 z-10 flex size-7 items-center justify-center rounded-sm text-muted-foreground outline-hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring [&>svg]:size-4"
-            />
-          }
-        >
-          <ChevronRightIcon
-            aria-hidden="true"
-            className={props.open ? 'rotate-90' : undefined}
+        <div className="relative flex min-w-0 items-center">
+          <ActionTooltip
+            label={
+              props.open
+                ? `Collapse ${props.project.name} workers`
+                : `Expand ${props.project.name} workers`
+            }
+            trigger={
+              <CollapsibleTrigger
+                render={<button type="button" />}
+                className="flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring [&>svg]:size-4 [&>svg]:opacity-60"
+              />
+            }
+          >
+            <FolderToggleIcon aria-hidden="true" />
+          </ActionTooltip>
+          <ActionTooltip
+            label={`Open ${props.project.name} board`}
+            trigger={
+              <SidebarMenuButton
+                render={<button type="button" />}
+                isActive={props.isBoardActive}
+                size="sm"
+                className="h-7 min-w-0 flex-1 rounded-sm ps-2 pe-8 text-sm leading-5 font-normal [&>span:last-child]:pe-0!"
+                onClick={() => props.onProjectBoardSelect(props.project.id)}
+              />
+            }
+          >
+            <span>{props.project.name}</span>
+          </ActionTooltip>
+          <ProjectActionsMenu
+            isPinned={props.isProjectPinned}
+            onDelete={() => props.onProjectDelete?.(props.project.id)}
+            onOpenKanban={() => props.onProjectBoardSelect(props.project.id)}
+            onOpenProject={() => props.onProjectIdeOpen?.(props.project)}
+            onPinToggle={() => props.onProjectPinToggle?.(props.project.id)}
+            onRename={() => props.onProjectRename?.(props.project.id)}
+            projectCwd={props.project.cwd}
+            projectName={props.project.name}
+            tooltipDevtoolActionsVisible={props.tooltipDevtoolActionsVisible}
           />
-        </ActionTooltip>
-        <ActionTooltip
-          label={`Open ${props.project.name} board`}
-          trigger={
-            <SidebarMenuButton
-              render={<button type="button" />}
-              isActive={props.isBoardActive}
-              className="h-9 rounded-sm ps-8 pe-3 text-sm leading-5 font-normal"
-              onClick={() => props.onProjectBoardSelect(props.project.id)}
-            />
-          }
-        >
-          <span>{props.project.name}</span>
-        </ActionTooltip>
-        <ProjectActionsMenu
-          isPinned={props.isProjectPinned}
-          onDelete={() => props.onProjectDelete?.(props.project.id)}
-          onOpenProject={() => props.onProjectIdeOpen?.(props.project)}
-          onPinToggle={() => props.onProjectPinToggle?.(props.project.id)}
-          onRename={() => props.onProjectRename?.(props.project.id)}
-          projectCwd={props.project.cwd}
-          projectName={props.project.name}
-          tooltipDevtoolActionsVisible={props.tooltipDevtoolActionsVisible}
-        />
+        </div>
         <CollapsibleContent className="pt-1">
           <ProjectWorkerSessionTree
             groups={props.workerSessionGroups}
@@ -596,7 +645,6 @@ function ProjectNavItem(props: {
             onTerminalSessionPinToggle={props.onTerminalSessionPinToggle}
             onTerminalSessionRename={props.onTerminalSessionRename}
             onWorkerSessionSelect={props.onWorkerSessionSelect}
-            sessionLabelOverrides={props.sessionLabelOverrides}
             tooltipDevtoolActionsVisible={props.tooltipDevtoolActionsVisible}
           />
         </CollapsibleContent>
@@ -622,7 +670,6 @@ function ProjectWorkerSessionTree(props: {
   pinnedTerminalSessionKeys: string[];
   projectId: string;
   selectedTerminalSessionKey?: string;
-  sessionLabelOverrides?: Record<string, string>;
   tooltipDevtoolActionsVisible?: boolean;
 }) {
   const projectOrchestrators = props.orchestrators.filter(
@@ -663,14 +710,18 @@ function ProjectWorkerSessionTree(props: {
     <ul className="flex w-full min-w-0 flex-col gap-1">
       {projectOrchestrators.map((orchestrator) => {
         const selectionKey = getWorkerSessionSelectionKey(orchestrator);
-        const orchestratorLabel =
-          props.sessionLabelOverrides?.[selectionKey] ?? 'Orchestrator';
+        const orchestratorLabel = 'Orchestrator';
 
         return (
-          <SidebarMenuItem key={selectionKey}>
+          <SidebarMenuItem key={selectionKey} className="group/session-row">
             <SessionContextMenu
-              label={orchestratorLabel}
+              isPinned={props.pinnedTerminalSessionKeys.includes(selectionKey)}
               onOpen={() => props.onOrchestratorSessionSelect(selectionKey)}
+              onPinToggle={
+                props.onTerminalSessionPinToggle
+                  ? () => props.onTerminalSessionPinToggle?.(selectionKey)
+                  : undefined
+              }
               onRename={
                 props.onTerminalSessionRename
                   ? () =>
@@ -706,29 +757,36 @@ function ProjectWorkerSessionTree(props: {
                     render={<button type="button" />}
                     isActive={selectionKey === props.selectedTerminalSessionKey}
                     size="sm"
-                    className="h-7 w-full ps-10 pr-3 font-normal text-foreground hover:text-foreground active:text-foreground data-[active=true]:text-foreground"
+                    className="h-7 w-full ps-10 pe-3! font-normal text-foreground hover:text-foreground active:text-foreground data-[active=true]:text-foreground [&>span:last-child]:pe-0!"
                     onClick={() =>
                       props.onOrchestratorSessionSelect(selectionKey)
                     }
                   />
                 }
               >
-                <span>{orchestratorLabel}</span>
+                <WorkerSessionNavLabel
+                  hasRowActions={true}
+                  label={orchestratorLabel}
+                  rowActionsAlwaysVisible={props.tooltipDevtoolActionsVisible}
+                />
               </ActionTooltip>
-              <PinToggleAction
+              <WorkerSessionRowActions
+                alwaysVisible={props.tooltipDevtoolActionsVisible}
                 isPinned={props.pinnedTerminalSessionKeys.includes(
                   selectionKey
                 )}
-                label={
-                  props.pinnedTerminalSessionKeys.includes(selectionKey)
-                    ? `Unpin ${orchestratorLabel}`
-                    : `Pin ${orchestratorLabel}`
+                label={orchestratorLabel}
+                onDelete={
+                  props.onTerminalSessionDelete
+                    ? () =>
+                        props.onTerminalSessionDelete?.(
+                          selectionKey,
+                          orchestratorLabel
+                        )
+                    : undefined
                 }
-                onToggle={() =>
+                onPinToggle={() =>
                   props.onTerminalSessionPinToggle?.(selectionKey)
-                }
-                tooltipDevtoolActionsVisible={
-                  props.tooltipDevtoolActionsVisible
                 }
               />
             </SessionContextMenu>
@@ -754,7 +812,6 @@ function ProjectWorkerSessionTree(props: {
           pinnedTerminalSessionKeys={props.pinnedTerminalSessionKeys}
           selectedTerminalSessionKey={props.selectedTerminalSessionKey}
           onWorkerSessionSelect={props.onWorkerSessionSelect}
-          sessionLabelOverrides={props.sessionLabelOverrides}
           tooltipDevtoolActionsVisible={props.tooltipDevtoolActionsVisible}
         />
       ))}
@@ -773,7 +830,6 @@ function ProjectWorkerSessionGroup(props: {
   open: boolean;
   pinnedTerminalSessionKeys: string[];
   selectedTerminalSessionKey?: string;
-  sessionLabelOverrides?: Record<string, string>;
   tooltipDevtoolActionsVisible?: boolean;
 }) {
   return (
@@ -807,16 +863,27 @@ function ProjectWorkerSessionGroup(props: {
         <CollapsibleContent className="pt-1">
           <ul className="flex w-full min-w-0 flex-col gap-1 py-0.5">
             {props.group.sessions.map((session) => {
-              const sessionLabel =
-                props.sessionLabelOverrides?.[session.selectionKey] ??
-                getWorkerSessionLabel(session.workerId);
+              const sessionLabel = session.label;
 
               return (
-                <SidebarMenuItem key={session.selectionKey}>
+                <SidebarMenuItem
+                  key={session.selectionKey}
+                  className="group/session-row"
+                >
                   <SessionContextMenu
-                    label={sessionLabel}
+                    isPinned={props.pinnedTerminalSessionKeys.includes(
+                      session.selectionKey
+                    )}
                     onOpen={() =>
                       props.onWorkerSessionSelect(session.selectionKey)
+                    }
+                    onPinToggle={
+                      props.onTerminalSessionPinToggle
+                        ? () =>
+                            props.onTerminalSessionPinToggle?.(
+                              session.selectionKey
+                            )
+                        : undefined
                     }
                     onRename={
                       props.onTerminalSessionRename
@@ -856,31 +923,41 @@ function ProjectWorkerSessionGroup(props: {
                             props.selectedTerminalSessionKey
                           }
                           size="sm"
-                          className="h-6 w-full ps-16 pr-3 font-normal text-foreground hover:text-foreground active:text-foreground data-[active=true]:text-foreground"
+                          className="h-6 w-full ps-16 pe-3! font-normal text-foreground hover:text-foreground active:text-foreground data-[active=true]:text-foreground [&>span:last-child]:pe-0!"
                           onClick={() =>
                             props.onWorkerSessionSelect(session.selectionKey)
                           }
                         />
                       }
                     >
-                      <span>{sessionLabel}</span>
+                      <WorkerSessionNavLabel
+                        elapsedLabel={session.elapsedLabel}
+                        hasRowActions={true}
+                        label={sessionLabel}
+                        rowActionsAlwaysVisible={
+                          props.tooltipDevtoolActionsVisible
+                        }
+                      />
                     </ActionTooltip>
-                    <PinToggleAction
+                    <WorkerSessionRowActions
+                      alwaysVisible={props.tooltipDevtoolActionsVisible}
                       isPinned={props.pinnedTerminalSessionKeys.includes(
                         session.selectionKey
                       )}
-                      label={
-                        props.pinnedTerminalSessionKeys.includes(
+                      label={sessionLabel}
+                      onDelete={
+                        props.onTerminalSessionDelete
+                          ? () =>
+                              props.onTerminalSessionDelete?.(
+                                session.selectionKey,
+                                sessionLabel
+                              )
+                          : undefined
+                      }
+                      onPinToggle={() =>
+                        props.onTerminalSessionPinToggle?.(
                           session.selectionKey
                         )
-                          ? `Unpin ${sessionLabel}`
-                          : `Pin ${sessionLabel}`
-                      }
-                      onToggle={() =>
-                        props.onTerminalSessionPinToggle?.(session.selectionKey)
-                      }
-                      tooltipDevtoolActionsVisible={
-                        props.tooltipDevtoolActionsVisible
                       }
                     />
                   </SessionContextMenu>
@@ -897,6 +974,7 @@ function ProjectWorkerSessionGroup(props: {
 function ProjectActionsMenu(props: {
   isPinned: boolean;
   onDelete: () => void;
+  onOpenKanban: () => void;
   onOpenProject: () => void;
   onPinToggle: () => void;
   onRename: () => void;
@@ -935,6 +1013,10 @@ function ProjectActionsMenu(props: {
             <FolderOpenIcon aria-hidden="true" />
             <span>Open project</span>
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={props.onOpenKanban}>
+            <SquareKanbanIcon aria-hidden="true" />
+            <span>Open Kanban</span>
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={props.onPinToggle}>
             {props.isPinned ? (
               <PinOffIcon aria-hidden="true" />
@@ -960,10 +1042,11 @@ function ProjectActionsMenu(props: {
 
 function SessionContextMenu(props: {
   children: ReactNode;
-  label: string;
+  isPinned?: boolean;
   onDelete?: () => void;
   onHide?: () => void;
   onOpen: () => void;
+  onPinToggle?: () => void;
   onRename?: () => void;
 }) {
   return (
@@ -972,13 +1055,24 @@ function SessionContextMenu(props: {
         {props.children}
       </ContextMenuTrigger>
       <ContextMenuContent align="start" side="right" className="min-w-44">
+        <ContextMenuItem
+          disabled={!props.onPinToggle}
+          onClick={props.onPinToggle}
+        >
+          {props.isPinned ? (
+            <PinOffIcon aria-hidden="true" />
+          ) : (
+            <PinIcon aria-hidden="true" />
+          )}
+          <span>{props.isPinned ? 'Unpin' : 'Pin'}</span>
+        </ContextMenuItem>
         <ContextMenuItem onClick={props.onOpen}>
           <SquareTerminalIcon aria-hidden="true" />
-          <span>Open {props.label}</span>
+          <span>Open terminal</span>
         </ContextMenuItem>
         <ContextMenuItem disabled={!props.onRename} onClick={props.onRename}>
           <PencilIcon aria-hidden="true" />
-          <span>Rename {props.label}</span>
+          <span>Rename</span>
         </ContextMenuItem>
         <ContextMenuItem disabled={!props.onHide} onClick={props.onHide}>
           <EyeOffIcon aria-hidden="true" />
@@ -991,7 +1085,7 @@ function SessionContextMenu(props: {
           onClick={props.onDelete}
         >
           <Trash2Icon aria-hidden="true" />
-          <span>Stop {props.label}</span>
+          <span>Stop session</span>
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
@@ -1054,12 +1148,115 @@ const rowScopedActionClassName =
   'md:opacity-0 peer-hover/menu-button:opacity-100 hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100';
 const rowScopedActionDevtoolClassName = 'opacity-100';
 const projectMenuActionClassName =
-  'top-2 peer-data-[size=default]/menu-button:top-2';
+  'right-1! top-1/2 -translate-y-1/2 peer-data-[size=sm]/menu-button:top-1/2 peer-data-[size=sm]/menu-button:-translate-y-1/2';
 const pinActionColorClassName =
   'bg-transparent text-sidebar-foreground/60 peer-hover/menu-button:text-sidebar-foreground/60 hover:bg-transparent hover:text-sidebar-foreground/80 active:bg-transparent focus-visible:bg-transparent focus-visible:text-sidebar-foreground/80 data-[state=open]:bg-transparent data-[state=open]:text-sidebar-foreground/80';
 
-function getWorkerSessionLabel(workerId: string) {
-  return workerId.replace(bracketedWorkerIdPattern, '$1');
+function WorkerSessionNavLabel(props: {
+  elapsedLabel?: string;
+  hasRowActions?: boolean;
+  label: string;
+  rowActionsAlwaysVisible?: boolean;
+}) {
+  const elapsedHiddenClass = props.hasRowActions
+    ? props.rowActionsAlwaysVisible
+      ? 'hidden'
+      : 'group-hover/session-row:hidden group-focus-within/session-row:hidden'
+    : undefined;
+
+  return (
+    <span className="flex w-full min-w-0 flex-1 items-center gap-2">
+      <span
+        className={cn(
+          'min-w-0 flex-1 truncate',
+          props.elapsedLabel && 'pr-12',
+          props.hasRowActions &&
+            (props.rowActionsAlwaysVisible
+              ? 'pr-12'
+              : 'group-focus-within/session-row:pr-12 group-hover/session-row:pr-12')
+        )}
+      >
+        {props.label}
+      </span>
+      {props.elapsedLabel ? (
+        <span
+          className={cn(
+            'pointer-events-none absolute top-1/2 right-3 min-w-8 -translate-y-1/2 text-right tabular-nums text-xs leading-4 text-muted-foreground',
+            elapsedHiddenClass
+          )}
+        >
+          {props.elapsedLabel}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function WorkerSessionRowActions(props: {
+  alwaysVisible?: boolean;
+  isPinned?: boolean;
+  label: string;
+  onDelete?: () => void;
+  onPinToggle?: () => void;
+}) {
+  if (!props.onPinToggle && !props.onDelete) {
+    return null;
+  }
+
+  return (
+    <div
+      className={cn(
+        'pointer-events-none absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5',
+        props.alwaysVisible
+          ? 'pointer-events-auto'
+          : 'opacity-0 transition-opacity group-focus-within/session-row:pointer-events-auto group-focus-within/session-row:opacity-100 group-hover/session-row:pointer-events-auto group-hover/session-row:opacity-100'
+      )}
+    >
+      {props.onPinToggle ? (
+        <WorkerSessionRowIconButton
+          aria-label={
+            props.isPinned ? `Unpin ${props.label}` : `Pin ${props.label}`
+          }
+          onClick={props.onPinToggle}
+        >
+          {props.isPinned ? (
+            <PinOffIcon aria-hidden="true" />
+          ) : (
+            <PinIcon aria-hidden="true" />
+          )}
+        </WorkerSessionRowIconButton>
+      ) : null}
+      {props.onDelete ? (
+        <WorkerSessionRowIconButton
+          aria-label={`Stop ${props.label}`}
+          onClick={props.onDelete}
+        >
+          <Trash2Icon aria-hidden="true" />
+        </WorkerSessionRowIconButton>
+      ) : null}
+    </div>
+  );
+}
+
+function WorkerSessionRowIconButton(props: {
+  'aria-label': string;
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={props['aria-label']}
+      className="flex size-5 items-center justify-center rounded-sm text-sidebar-foreground/60 outline-hidden hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring [&>svg]:size-3.5"
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        props.onClick();
+      }}
+    >
+      {props.children}
+    </button>
+  );
 }
 
 function getRowScopedActionClassName(forceVisible?: boolean) {
@@ -1082,24 +1279,19 @@ function getPinnedTerminalSessions(props: {
   orchestrators: WorkerSession[];
   pinnedTerminalSessionKeys: string[];
   projects: ProjectOrchestrator[];
-  sessionLabelOverrides?: Record<string, string>;
   workerSessionGroups: WorkerSessionGroupData[];
 }) {
   const terminalSessionsByKey = new Map<string, PinnedTerminalSessionItem>();
   const projectNames = new Map(
     props.projects.map((project) => [project.id, project.name])
   );
-  const labelOverride = (selectionKey: string, fallback: string) =>
-    props.sessionLabelOverrides?.[selectionKey] ?? fallback;
 
   for (const orchestrator of props.orchestrators) {
     const selectionKey = getWorkerSessionSelectionKey(orchestrator);
     terminalSessionsByKey.set(selectionKey, {
+      isPinned: props.pinnedTerminalSessionKeys.includes(selectionKey),
       kind: 'orchestrator',
-      label: labelOverride(
-        selectionKey,
-        projectNames.get(orchestrator.project) ?? 'Orchestrator'
-      ),
+      label: projectNames.get(orchestrator.project) ?? 'Orchestrator',
       selectionKey,
     });
   }
@@ -1107,11 +1299,10 @@ function getPinnedTerminalSessions(props: {
   for (const group of props.workerSessionGroups) {
     for (const session of group.sessions) {
       terminalSessionsByKey.set(session.selectionKey, {
+        elapsedLabel: session.elapsedLabel,
+        isPinned: props.pinnedTerminalSessionKeys.includes(session.selectionKey),
         kind: session.kind ?? 'worker',
-        label: labelOverride(
-          session.selectionKey,
-          getWorkerSessionLabel(session.workerId)
-        ),
+        label: session.label,
         selectionKey: session.selectionKey,
       });
     }

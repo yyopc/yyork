@@ -28,9 +28,10 @@ export const Codex: Story = {
     card: sampleKanbanCards.codex,
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('[codex/metadata]')).toBeVisible();
+    await expect(canvas.getByRole('img', { name: 'Codex' })).toBeVisible();
+    await expect(canvas.getByText('Split PR decision')).toBeVisible();
     await expect(
-      canvas.getByRole('heading', { name: 'Trace branch metadata' })
+      canvas.getByText('Waiting for your answer on the split strategy.')
     ).toBeVisible();
   },
 };
@@ -40,7 +41,10 @@ export const Claude: Story = {
     card: sampleKanbanCards.claude,
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('[claude/metadata]')).toBeVisible();
+    await expect(
+      canvas.getByRole('img', { name: 'Claude Code' })
+    ).toBeVisible();
+    await expect(canvas.getByText('Trace branch metadata')).toBeVisible();
   },
 };
 
@@ -49,6 +53,27 @@ export const Selected: Story = {
     card: sampleKanbanCards.selectedCodex,
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('[AO-2]')).toBeVisible();
+    await expect(canvas.getByText('Tell me about this project')).toBeVisible();
+    await expect(
+      canvas.getByText('Scanning README and package manifests for an overview.')
+    ).toBeVisible();
+    await expect(canvas.getByText('n-ao-2')).toBeVisible();
+  },
+};
+
+export const WithoutRecap: Story = {
+  args: {
+    card: {
+      ...sampleKanbanCards.selectedCodex,
+      currentLine: '',
+      description: '',
+      recap: '',
+    },
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText('Tell me about this project')).toBeVisible();
+    await expect(
+      canvas.queryByText('Scanning README and package manifests for an overview.')
+    ).toBeNull();
   },
 };

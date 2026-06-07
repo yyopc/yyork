@@ -18,9 +18,9 @@ export interface HomeWorkspacePreferences {
   pinnedProjectIds?: string[];
   pinnedTerminalSessionKeys?: string[];
   projectNameOverrides?: Record<string, string>;
-  sessionLabelOverrides?: Record<string, string>;
   sidebarOpen: boolean;
   sidebarWidth?: number;
+  skipStopSessionConfirmation?: boolean;
 }
 
 export interface HomeWorkspaceCanvasLayout {
@@ -106,9 +106,10 @@ function normalizeHomeWorkspacePreferences(
     projectNameOverrides: normalizeStringRecord(
       preferences.projectNameOverrides
     ),
-    sessionLabelOverrides: normalizeStringRecord(
-      preferences.sessionLabelOverrides
-    ),
+    skipStopSessionConfirmation:
+      typeof preferences.skipStopSessionConfirmation === 'boolean'
+        ? preferences.skipStopSessionConfirmation
+        : undefined,
     sidebarOpen:
       typeof preferences.sidebarOpen === 'boolean'
         ? preferences.sidebarOpen
