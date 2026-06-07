@@ -2,7 +2,7 @@
   "name": "yyork",
   "version": "0.0.1",
   "private": true,
-  "description": "Orchestrate parallel AI coding agents across Zellij-backed workspaces, repos, and issue trackers",
+  "description": "Agent routing platform with an interface to the agent router.",
   "homepage": "https://github.com/yyovil/yyork#readme",
   "bugs": {
     "url": "https://github.com/yyovil/yyork/issues"

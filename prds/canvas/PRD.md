@@ -146,7 +146,7 @@ Adapter boundary:
 
 ```text
 CanvasFileTree
-  -> accepts BetterAOFileTreeSnapshot
+  -> accepts yyorkFileTreeSnapshot
   -> maps to @pierre/trees model
   -> exposes only app-level callbacks
 ```
@@ -175,7 +175,7 @@ Adapter boundary:
 
 ```text
 CanvasDiffView
-  -> accepts BetterAODiffSnapshot
+  -> accepts yyorkDiffSnapshot
   -> chooses PatchDiff or parsed FileDiff path
   -> owns Pierre theme/style mapping
 ```

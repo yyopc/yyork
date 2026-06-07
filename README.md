@@ -64,7 +64,7 @@ Flags:
 
 - `--prompt <text>` — the prompt the orchestrator passes to the worker agent (required)
 - `--system-prompt-file <path>` — a file containing the agent's system prompt
-- `--permissions <mode>` — `default` | `auto-review` | `full-access`
+- `--permissions <mode>` — `default` | `accept-edits` | `auto` | `bypass-permissions`
 
 ### 3. Watch it work
 
