@@ -1,0 +1,18 @@
+---
+description: Require agents to share the existing dev server terminal
+alwaysApply: true
+---
+
+# Shared Dev Server
+
+Only one terminal instance should run the project dev servers at a time.
+
+Before starting any frontend, backend, watcher, or combined dev server:
+
+- Check the existing IDE terminals for an already-running dev server.
+- Reuse the existing dev server terminal when it is healthy.
+- Do not start a duplicate dev server in a new terminal just because this agent is working in parallel with other agents.
+- If the existing dev server is unhealthy or needs a restart, stop or restart that same terminal process instead of creating a second long-running instance.
+- If a separate server is truly required, explain why before starting it.
+
+This applies to both the backend server and the frontend dev server.

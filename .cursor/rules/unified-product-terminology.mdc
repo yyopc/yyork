@@ -1,0 +1,12 @@
+---
+description: Keep product terminology unified across backend and frontend
+alwaysApply: true
+---
+
+# Unified Product Terminology
+
+Use the same product term across backend storage, API DTOs, frontend domain models, UI labels, tests, fixtures, and docs.
+
+If a concept is renamed, update new writes and public surfaces to the new term. Keep old terms only as explicit legacy compatibility shims or migrations, and label them as such in comments/tests.
+
+For example, the session card text is a `recap`, not a `summary` or `description`.

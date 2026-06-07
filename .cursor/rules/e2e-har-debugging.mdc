@@ -1,0 +1,15 @@
+---
+description: Require end-to-end browser validation and real HAR evidence for web debugging
+alwaysApply: true
+---
+
+# E2E + HAR Debugging
+
+For web UI features and browser-reproduced bugs, validate the feature end to end yourself before reporting success.
+
+- Prefer a real browser replay with Playwright or the available browser automation tools over code-only reasoning.
+- When diagnosing network behavior, capture an actual HAR artifact using browser tooling such as Playwright `recordHar`; do not substitute a hand-written request summary for HAR evidence.
+- Sanitize secrets before sharing HAR-derived details: redact cookies, auth headers, tokens, API keys, secrets, passwords, and private machine paths.
+- Use the HAR to close the loop: reproduce the bug, inspect the exact request/response status, method, URL, content type, and payload shape, patch the root cause, then replay until the feature works after reload.
+- If a local dev server is needed, follow the shared-dev-server rule: reuse or restart the existing server instead of launching duplicates.
+- If a recommended CLI/tool is not already installed, ask before installing it.
