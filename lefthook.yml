@@ -1,5 +1,11 @@
 pre-commit:
   commands:
+    secret-scan:
+      run: |
+        if git diff --cached --unified=0 --diff-filter=ACM | grep -qE '^\+.*(api_key[[:space:]]*:[[:space:]]*"sk-[A-Za-z0-9_-]+|sk-[A-Za-z0-9_-]{16,})'; then
+          echo "Potential API key detected in staged changes."
+          exit 1
+        fi
     check:
       glob: '*.{js,ts,cjs,mjs,jsx,tsx,json,jsonc,css,scss}'
       run: web/node_modules/.bin/oxfmt --config web/.oxfmtrc.json {staged_files}

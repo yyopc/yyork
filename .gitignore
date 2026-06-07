@@ -90,5 +90,7 @@ app.config.timestamp_*.js
 .entire/
 .antigravitycli/
 .playwright-cli/
+.crush/
+crush.local.json
 
 .claude
