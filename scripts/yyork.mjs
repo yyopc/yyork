@@ -88,9 +88,9 @@ function startBackend(host, port) {
   const backendArgs = [
     'run',
     './cmd/yyork',
-    '-addr',
+    '--addr',
     `${host}:${port}`,
-    '-open=false',
+    '--open=false',
   ];
 
   if (hasCommand('go', ['version'])) {

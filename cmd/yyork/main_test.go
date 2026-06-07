@@ -10,60 +10,74 @@ import (
 	"github.com/yyovil/yyork/internal/app"
 )
 
-func TestRunCLIHelpPrintsImplementedAndPlannedSurface(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	called := false
-
-	code := runCLI(context.Background(), []string{"--help"}, &stdout, &stderr, func(context.Context, app.Config) error {
-		called = true
-		return nil
-	})
-
-	if code != 0 {
-		t.Fatalf("unexpected exit code: %d", code)
-	}
-	if called {
-		t.Fatal("help should not start the app")
-	}
-	output := stdout.String()
-	for _, want := range []string{
-		"yyork [options]",
-		"yyork spawn",
-		"yyork session list",
-		"yyork stop",
-		"PLANNED",
-		"status",
-	} {
-		if !strings.Contains(output, want) {
-			t.Fatalf("help output missing %q:\n%s", want, output)
-		}
-	}
-	for _, unwanted := range []string{
-		"yyork start ",
-		"yyork dashboard",
-	} {
-		if strings.Contains(output, unwanted) {
-			t.Fatalf("help output should not mention removed verb %q:\n%s", unwanted, output)
-		}
-	}
-	if stderr.Len() != 0 {
-		t.Fatalf("unexpected stderr: %s", stderr.String())
-	}
+// execCLI builds the cobra command tree (the same tree main() hands to fang)
+// and runs it with the given args, capturing stdout and stderr into one
+// buffer. Tests target the cobra layer directly; fang is a presentation
+// wrapper applied only in main(), so asserting on cobra's plain output keeps
+// these tests deterministic.
+func execCLI(t *testing.T, runApp appRunner, args ...string) (string, error) {
+	t.Helper()
+	root := newRootCmd(runApp)
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+	root.SetErr(&buf)
+	// A nil slice makes cobra fall back to os.Args; force an explicit empty
+	// slice so "no args" really means no args.
+	root.SetArgs(append([]string{}, args...))
+	err := root.ExecuteContext(context.Background())
+	return buf.String(), err
 }
 
-func TestRunCLINoArgsStartsServerWithDefaults(t *testing.T) {
-	var stdout, stderr bytes.Buffer
+// noopApp returns an app runner that records whether it was invoked and never
+// starts a real server.
+func noopApp() (appRunner, *bool) {
+	called := false
+	return func(context.Context, app.Config) error {
+		called = true
+		return nil
+	}, &called
+}
+
+func TestRootHelpListsImplementedAndPlannedSurface(t *testing.T) {
+	runApp, called := noopApp()
+
+	out, err := execCLI(t, runApp, "--help")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if *called {
+		t.Fatal("help should not start the server")
+	}
+	for _, want := range []string{
+		"spawn", "session", "stop", "send", // implemented verbs
+		"Planned",          // planned group title
+		"status",           // a planned verb
+		"--addr", "--open", // server flags
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("help output missing %q:\n%s", want, out)
+		}
+	}
+	// hooks is a hidden machine-facing command and should not appear in help.
+	if strings.Contains(out, "hooks") {
+		t.Fatalf("help output should not list the hidden hooks command:\n%s", out)
+	}
+	// Absence of the removed start/dashboard verbs is covered by
+	// TestRemovedVerbsAreUnknown; the words also appear in the root's prose
+	// description, so a substring check here would be misleading.
+}
+
+func TestRootNoArgsStartsServerWithDefaults(t *testing.T) {
 	var got app.Config
 	called := false
-
-	code := runCLI(context.Background(), nil, &stdout, &stderr, func(_ context.Context, cfg app.Config) error {
+	runApp := func(_ context.Context, cfg app.Config) error {
 		called = true
 		got = cfg
 		return nil
-	})
+	}
 
-	if code != 0 {
-		t.Fatalf("unexpected exit code: %d, stderr: %s", code, stderr.String())
+	if _, err := execCLI(t, runApp); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if !called {
 		t.Fatal("no-args invocation did not start the server")
@@ -75,8 +89,8 @@ func TestRunCLINoArgsStartsServerWithDefaults(t *testing.T) {
 		t.Fatal("expected server to open the browser by default")
 	}
 	// In single-binary mode the server is wired to the embedded FS, not a
-	// WebDir path. The embed lives under cmd/yyork/dashboard/ and is
-	// passed via WebFS.
+	// WebDir path. The embed lives under cmd/yyork/dashboard/ and is passed via
+	// WebFS.
 	if got.WebDir != "" {
 		t.Fatalf("expected WebDir to be empty (embed mode), got: %s", got.WebDir)
 	}
@@ -85,150 +99,125 @@ func TestRunCLINoArgsStartsServerWithDefaults(t *testing.T) {
 	}
 }
 
-func TestRunCLILeadingFlagsStartServer(t *testing.T) {
-	var stdout, stderr bytes.Buffer
+func TestRootLeadingFlagsStartServer(t *testing.T) {
 	var got app.Config
-
-	code := runCLI(context.Background(), []string{"-addr", "127.0.0.1:7555", "-open=false"}, &stdout, &stderr, func(_ context.Context, cfg app.Config) error {
+	runApp := func(_ context.Context, cfg app.Config) error {
 		got = cfg
 		return nil
-	})
+	}
 
-	if code != 0 {
-		t.Fatalf("unexpected exit code: %d, stderr: %s", code, stderr.String())
+	if _, err := execCLI(t, runApp, "--addr", "127.0.0.1:7555", "--open=false"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if got.Addr != "127.0.0.1:7555" {
 		t.Fatalf("unexpected addr: %s", got.Addr)
 	}
 	if got.OpenBrowser {
-		t.Fatal("expected -open=false to disable browser open")
+		t.Fatal("expected --open=false to disable browser open")
 	}
 }
 
-func TestRunCLIRemovedVerbsAreUnknown(t *testing.T) {
+func TestRemovedVerbsAreUnknown(t *testing.T) {
 	for _, verb := range []string{"start", "dashboard"} {
 		t.Run(verb, func(t *testing.T) {
-			var stdout, stderr bytes.Buffer
-			called := false
+			runApp, called := noopApp()
 
-			code := runCLI(context.Background(), []string{verb}, &stdout, &stderr, func(context.Context, app.Config) error {
-				called = true
-				return nil
-			})
-
-			if code != 1 {
-				t.Fatalf("unexpected exit code: %d", code)
+			_, err := execCLI(t, runApp, verb)
+			if err == nil {
+				t.Fatalf("expected an error for removed verb %q", verb)
 			}
-			if called {
-				t.Fatalf("%s was routed to the app despite being removed", verb)
+			if *called {
+				t.Fatalf("%s was routed to the server despite being removed", verb)
 			}
-			if !strings.Contains(stderr.String(), "Unknown command: "+verb) {
-				t.Fatalf("unexpected stderr: %s", stderr.String())
+			if !strings.Contains(err.Error(), "unknown command") || !strings.Contains(err.Error(), verb) {
+				t.Fatalf("unexpected error: %v", err)
 			}
 		})
 	}
 }
 
-func TestRunCLIPlannedCommandPrintsPlannedNotice(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	called := false
+func TestPlannedCommandReportsNotImplemented(t *testing.T) {
+	runApp, called := noopApp()
 
 	// `status` is still a planned (unimplemented) command in v1.
-	code := runCLI(context.Background(), []string{"status"}, &stdout, &stderr, func(context.Context, app.Config) error {
-		called = true
-		return nil
-	})
-
-	if code != 1 {
-		t.Fatalf("unexpected exit code: %d", code)
+	_, err := execCLI(t, runApp, "status")
+	if err == nil {
+		t.Fatal("expected an error for a planned command")
 	}
-	if called {
-		t.Fatal("planned command should not run the app")
+	if *called {
+		t.Fatal("planned command should not start the server")
 	}
-	if !strings.Contains(stderr.String(), "not implemented in yyork yet") {
-		t.Fatalf("unexpected stderr: %s", stderr.String())
+	if !strings.Contains(err.Error(), "not implemented in yyork yet") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
-func TestRunCLISpawnRequiresPrompt(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	called := false
+func TestSpawnRequiresPrompt(t *testing.T) {
+	runApp, called := noopApp()
 
-	code := runCLI(context.Background(), []string{"spawn"}, &stdout, &stderr, func(context.Context, app.Config) error {
-		called = true
-		return nil
-	})
-
-	if code != 1 {
-		t.Fatalf("unexpected exit code: %d, stderr: %s", code, stderr.String())
+	_, err := execCLI(t, runApp, "spawn")
+	if err == nil {
+		t.Fatal("expected an error when --prompt is missing")
 	}
-	if called {
+	if *called {
 		t.Fatal("spawn should not start the server")
 	}
-	if !strings.Contains(stderr.String(), "--prompt is required") {
-		t.Fatalf("unexpected stderr: %s", stderr.String())
+	if !strings.Contains(err.Error(), "prompt") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
-func TestRunCLIStopRequiresSessionID(t *testing.T) {
-	var stdout, stderr bytes.Buffer
+func TestStopRequiresSessionID(t *testing.T) {
+	runApp, _ := noopApp()
 
-	code := runCLI(context.Background(), []string{"stop"}, &stdout, &stderr, func(context.Context, app.Config) error {
-		return nil
-	})
-
-	if code != 1 {
-		t.Fatalf("unexpected exit code: %d", code)
+	_, err := execCLI(t, runApp, "stop")
+	if err == nil {
+		t.Fatal("expected an error when <sessionID> is missing")
 	}
-	if !strings.Contains(stderr.String(), "exactly one <sessionID>") {
-		t.Fatalf("unexpected stderr: %s", stderr.String())
+	if !strings.Contains(err.Error(), "arg") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
-func TestRunCLISessionListSubcommandHelp(t *testing.T) {
-	var stdout, stderr bytes.Buffer
+func TestBareSessionPrintsHelp(t *testing.T) {
+	runApp, _ := noopApp()
 
-	code := runCLI(context.Background(), []string{"session"}, &stdout, &stderr, func(context.Context, app.Config) error {
-		return nil
-	})
-
-	// Bare `session` with no subcommand prints help and exits non-zero so
-	// scripts can rely on it not silently succeeding.
-	if code != 1 {
-		t.Fatalf("unexpected exit code: %d", code)
+	// Bare `session` with no subcommand prints help (cobra's idiom for a
+	// command group with no action of its own).
+	out, err := execCLI(t, runApp, "session")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(stdout.String(), "yyork session") {
-		t.Fatalf("expected help output, got:\n%s", stdout.String())
+	if !strings.Contains(out, "list") {
+		t.Fatalf("expected session help to mention the list subcommand:\n%s", out)
 	}
 }
 
-func TestRunCLIVersion(t *testing.T) {
-	var stdout, stderr bytes.Buffer
+func TestVersionFlagPrintsVersion(t *testing.T) {
+	runApp, called := noopApp()
 
-	code := runCLI(context.Background(), []string{"-V"}, &stdout, &stderr, func(context.Context, app.Config) error {
-		t.Fatal("version should not run the app")
-		return nil
-	})
-
-	if code != 0 {
-		t.Fatalf("unexpected exit code: %d", code)
+	out, err := execCLI(t, runApp, "--version")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if strings.TrimSpace(stdout.String()) != version {
-		t.Fatalf("unexpected version output: %q", stdout.String())
+	if *called {
+		t.Fatal("version should not start the server")
 	}
-	if stderr.Len() != 0 {
-		t.Fatalf("unexpected stderr: %s", stderr.String())
+	if !strings.Contains(out, version) {
+		t.Fatalf("version output missing %q:\n%s", version, out)
 	}
 }
 
-func TestRunCLIServerErrorReturnsFailure(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-
-	code := runCLI(context.Background(), nil, &stdout, &stderr, func(context.Context, app.Config) error {
+func TestServerErrorPropagates(t *testing.T) {
+	runApp := func(context.Context, app.Config) error {
 		return errors.New("boom")
-	})
+	}
 
-	if code != 1 {
-		t.Fatalf("unexpected exit code: %d", code)
+	_, err := execCLI(t, runApp)
+	if err == nil {
+		t.Fatal("expected the server error to propagate")
+	}
+	if !strings.Contains(err.Error(), "boom") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
