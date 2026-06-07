@@ -1,9 +1,12 @@
 // Package claudecode implements the Claude Code agent plugin.
 //
-// Like the codex plugin, this is a pure command builder in v1: it produces
-// the argv to launch `claude` as an interactive session inside a session's
-// worktree. SessionInfo, GetRestoreCommand, and GetAgentHooks are no-ops —
-// resume and hook capture are deferred to a later slice.
+// It builds the argv to launch `claude` as an interactive session inside a
+// session's worktree, installs worktree-local hooks that report normalized
+// session metadata (native id, title, recap) back into yyork's store,
+// and supports resume: GetLaunchCommand pins a stable `--session-id` so
+// GetRestoreCommand can rebuild `claude --resume <uuid>`. SessionInfo reads the
+// hook-captured metadata from the store — it does not parse transcripts.
+// GetConfigSpec remains a no-op (no agent-specific config keys yet).
 //
 // Claude Code starts an interactive session by default (no -p/--print), which
 // is exactly what yyork wants: a live agent the user can attach to in the
@@ -24,6 +27,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/yyovil/yyork/internal/plugin"
 	"github.com/yyovil/yyork/internal/plugin/agent"
 	"github.com/yyovil/yyork/internal/utils"
@@ -34,11 +38,22 @@ const (
 	// `yyork spawn --agent`.
 	pluginID = "claude-code"
 
-	// claudeSessionUUIDMetadataKey is where we'd persist Claude Code's
-	// native session UUID for resume. Unused in v1 (no capture, no
-	// resume); defined so the future hook slice adopts a stable name.
-	claudeSessionUUIDMetadataKey = "claudeSessionUuid"
+	// Normalized session-metadata keys the Claude Code hooks persist into the
+	// yyork session store and SessionInfo reads back. Shared vocabulary
+	// with the Codex plugin so the dashboard treats every agent uniformly.
+	// agentSessionId is also the preferred restore id.
+	claudeAgentSessionIDMetadataKey = "agentSessionId"
+	claudeTitleMetadataKey          = "title"
+	claudeRecapMetadataKey          = "recap"
+	claudeLegacySummaryMetadataKey  = "summary"
 )
+
+// claudeSessionNamespace seeds the UUIDv5 derivation that maps a yyork
+// session id onto a stable Claude Code `--session-id`. A fixed namespace makes
+// the mapping deterministic, so GetLaunchCommand (which pins --session-id at
+// launch) and GetRestoreCommand (which recomputes it as a fallback for
+// pre-hook sessions) agree without persisting anything.
+var claudeSessionNamespace = uuid.MustParse("a1f0c3d2-7b54-4e96-8a2b-0d9e1f2a3b4c")
 
 type Plugin struct {
 	binaryMu       sync.Mutex
@@ -74,9 +89,15 @@ func (p *Plugin) GetConfigSpec(ctx context.Context) (agent.ConfigSpec, error) {
 // GetLaunchCommand builds the argv to start an interactive Claude Code
 // session. Shape:
 //
-//	claude [--permission-mode <mode>] \
+//	claude [--session-id <uuid>] \
+//	       [--permission-mode <mode>] \
 //	       [--append-system-prompt <system prompt>] \
 //	       [-- <prompt>]
+//
+// --session-id pins Claude's native session UUID to a value derived from the
+// yyork session id, so the session is resumable later (see
+// GetRestoreCommand) and its transcript is locatable (see SessionInfo) without
+// a separate capture step.
 //
 // <mode> is acceptEdits, auto, or bypassPermissions. yyork's "default"
 // mode emits no --permission-mode flag, so Claude's TUI resolves the starting
@@ -91,6 +112,9 @@ func (p *Plugin) GetLaunchCommand(ctx context.Context, cfg agent.LaunchConfig) (
 	}
 
 	cmd = []string{binary}
+	if cfg.SessionID != "" {
+		cmd = append(cmd, "--session-id", claudeSessionUUID(cfg.SessionID))
+	}
 	appendPermissionFlags(&cmd, cfg.Permissions)
 
 	systemPrompt, err := resolveSystemPrompt(cfg)
@@ -142,29 +166,75 @@ func (p *Plugin) PreLaunch(ctx context.Context, cfg agent.LaunchConfig) error {
 	return ensureWorkspaceTrusted(cfgPath, cfg.WorkspacePath)
 }
 
-// GetAgentHooks is a no-op in v1 (hook infrastructure is dormant; the engine
-// never calls this). When hooks land, this installs Claude Code's
-// workspace-local hooks under .claude/.
-func (p *Plugin) GetAgentHooks(ctx context.Context, cfg agent.WorkspaceHookConfig) error {
-	return ctx.Err()
-}
-
-// GetRestoreCommand is a no-op in v1. When resume lands, this returns
-// `claude --resume <uuid>` built from cfg.Session.Metadata.
+// GetRestoreCommand rebuilds the argv that continues an existing Claude Code
+// session: `claude [--permission-mode <mode>] --resume <agentSessionId>`. It
+// prefers the hook-captured native session id from
+// cfg.Session.Metadata["agentSessionId"]; for sessions created before hooks
+// captured it, it falls back to the deterministic UUID yyork pins via
+// --session-id at launch. ok is false only when neither is available, so the
+// caller fresh-spawns. The command re-applies the permission mode (resume
+// otherwise reverts to the configured default) but not the prompt/system
+// prompt, which the session already carries.
 func (p *Plugin) GetRestoreCommand(ctx context.Context, cfg agent.RestoreConfig) (cmd []string, ok bool, err error) {
 	if err := ctx.Err(); err != nil {
 		return nil, false, err
 	}
-	return nil, false, nil
+
+	sessionID := strings.TrimSpace(cfg.Session.Metadata[claudeAgentSessionIDMetadataKey])
+	if sessionID == "" && cfg.Session.ID != "" {
+		// Explicit fallback for pre-hook sessions: the id yyork
+		// deterministically pinned via --session-id at launch.
+		sessionID = claudeSessionUUID(cfg.Session.ID)
+	}
+	if sessionID == "" {
+		return nil, false, nil
+	}
+
+	binary, err := p.claudeBinary(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	cmd = []string{binary}
+	appendPermissionFlags(&cmd, cfg.Permissions)
+	cmd = append(cmd, "--resume", sessionID)
+	return cmd, true, nil
 }
 
-// SessionInfo is a no-op in v1. Claude Code's native session UUID and
-// transcript are not surfaced through yyork yet.
+// SessionInfo surfaces the normalized session metadata that the Claude Code
+// hooks persisted into yyork's store: the native session id, the title (the
+// first user prompt), and the recap (the latest assistant message). It reads
+// only from session.Metadata — never from transcript files — and returns
+// ok=false when none of those fields are present. Metadata is intentionally nil:
+// there is no Claude-specific field callers need beyond the normalized ones.
 func (p *Plugin) SessionInfo(ctx context.Context, session agent.SessionRef) (agent.SessionInfo, bool, error) {
 	if err := ctx.Err(); err != nil {
 		return agent.SessionInfo{}, false, err
 	}
-	return agent.SessionInfo{}, false, nil
+	info := agent.SessionInfo{
+		AgentSessionID: session.Metadata[claudeAgentSessionIDMetadataKey],
+		Title:          session.Metadata[claudeTitleMetadataKey],
+		Recap:          metadataValue(session.Metadata, claudeRecapMetadataKey, claudeLegacySummaryMetadataKey),
+	}
+	if info.AgentSessionID == "" && info.Title == "" && info.Recap == "" {
+		return agent.SessionInfo{}, false, nil
+	}
+	return info, true, nil
+}
+
+func metadataValue(metadata map[string]string, keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(metadata[key]); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+// claudeSessionUUID maps a yyork session id onto a stable Claude Code
+// session UUID via UUIDv5 over a fixed namespace, so the same yyork session
+// always resolves to the same Claude session.
+func claudeSessionUUID(yyorkSessionID string) string {
+	return uuid.NewSHA1(claudeSessionNamespace, []byte(yyorkSessionID)).String()
 }
 
 // resolveSystemPrompt returns the system prompt text to append, preferring
@@ -212,11 +282,6 @@ func normalizePermissionMode(mode agent.PermissionMode) agent.PermissionMode {
 		agent.PermissionModeAuto,
 		agent.PermissionModeBypassPermissions:
 		return mode
-	// Back-compat aliases for the pre-redesign vocabulary.
-	case agent.PermissionModeAutoReview:
-		return agent.PermissionModeAcceptEdits
-	case agent.PermissionModeFullAccess, "skip", "yolo", "permissionless", "full":
-		return agent.PermissionModeBypassPermissions
 	default:
 		// Empty or unrecognized: defer to settings.json (no flag).
 		return agent.PermissionModeDefault

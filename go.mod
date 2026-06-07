@@ -9,6 +9,7 @@ require (
 	github.com/charmbracelet/ultraviolet v0.0.0-20260303162955-0b88c25f3fff
 	github.com/charmbracelet/x/vt v0.0.0-20260527151214-009e6338d40d
 	github.com/coder/websocket v1.8.14
+	github.com/google/uuid v1.6.0
 	github.com/ncruces/go-sqlite3 v0.34.3
 	github.com/pressly/goose/v3 v3.27.1
 	github.com/spf13/viper v1.21.0

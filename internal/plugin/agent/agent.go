@@ -28,7 +28,7 @@ type Agent interface {
 	GetRestoreCommand(ctx context.Context, cfg RestoreConfig) (cmd []string, ok bool, err error)
 
 	// SessionInfo reads agent-owned session metadata such as native session id,
-	// transcript path, or summary. ok=false means no info is available.
+	// display title, or recap. ok=false means no info is available.
 	SessionInfo(ctx context.Context, session SessionRef) (info SessionInfo, ok bool, err error)
 }
 
@@ -99,18 +99,16 @@ type SessionRef struct {
 
 // SessionInfo contains agent-owned session metadata.
 type SessionInfo struct {
-	AgentSessionID    string
-	Metadata          map[string]string
-	Summary           string
-	SummaryIsFallback bool
-	TranscriptPath    string
+	AgentSessionID string
+	Metadata       map[string]string
+	Title          string
+	Recap          string
 }
 
 // PermissionMode controls how much review an agent requires before acting.
 type PermissionMode string
 
 const (
-	// Canonical modes, mirroring Claude Code's --permission-mode vocabulary.
 	// "default" is special: plugins emit no flag for it so the agent resolves
 	// its starting mode from the user's own config (e.g. Claude's TUI reading
 	// ~/.claude/settings.json defaultMode).
@@ -118,11 +116,6 @@ const (
 	PermissionModeAcceptEdits       PermissionMode = "accept-edits"
 	PermissionModeAuto              PermissionMode = "auto"
 	PermissionModeBypassPermissions PermissionMode = "bypass-permissions"
-
-	// Legacy aliases retained until the Codex plugin migrates to the
-	// vocabulary above. Do not use in new code.
-	PermissionModeAutoReview PermissionMode = "auto-review"
-	PermissionModeFullAccess PermissionMode = "full-access"
 )
 
 // PromptDeliveryStrategy describes how yyork should deliver the initial prompt.

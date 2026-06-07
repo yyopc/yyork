@@ -57,6 +57,8 @@ func runCLI(ctx context.Context, args []string, stdout io.Writer, stderr io.Writ
 		return runStop(ctx, commandArgs, stdout, stderr)
 	case "send":
 		return runSend(ctx, commandArgs, stdout, stderr)
+	case "hooks":
+		return runHooks(ctx, commandArgs, stdout, stderr)
 	default:
 		if _, ok := plannedCommands[command]; ok {
 			fmt.Fprintf(stderr, "Command %q is part of the Agent Orchestrator parity surface, but is not implemented in yyork yet.\n", command)

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,16 +9,22 @@ import { resolveDevConfig, UsageError } from './yyork-config.mjs';
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const cliArgs = process.argv.slice(2);
-if (cliArgs.includes('--help') || cliArgs.includes('-h')) {
+if (cliArgs.length === 1 && (cliArgs[0] === '--help' || cliArgs[0] === '-h')) {
   printHelp();
   process.exit(0);
 }
-if (cliArgs.includes('--version') || cliArgs.includes('-v')) {
+if (
+  cliArgs.length === 1 &&
+  (cliArgs[0] === '--version' || cliArgs[0] === '-v')
+) {
   printVersion();
   process.exit(0);
 }
 if (cliArgs.length > 0) {
-  exitWithUsageError(`Unknown option: ${cliArgs[0]}`);
+  if (cliArgs[0].startsWith('-')) {
+    exitWithUsageError(`Unknown option: ${cliArgs[0]}`);
+  }
+  runBackendCLI(cliArgs);
 }
 
 const webDir = resolve(rootDir, 'web');
@@ -104,6 +110,44 @@ function startBackend(host, port) {
 
   console.error(
     'Unable to start the backend: install Go or run from a Nix dev shell.'
+  );
+  process.exit(1);
+}
+
+function runBackendCLI(args) {
+  const backendArgs = ['run', './cmd/yyork', ...args];
+  if (hasCommand('go', ['version'])) {
+    const result = spawnSync('go', backendArgs, {
+      cwd: rootDir,
+      shell: process.platform === 'win32',
+      stdio: 'inherit',
+    });
+    process.exit(result.status ?? 1);
+  }
+
+  const builtBackend = resolve(rootDir, 'yyork');
+  if (existsSync(builtBackend)) {
+    const result = spawnSync(builtBackend, args, {
+      cwd: rootDir,
+      stdio: 'inherit',
+    });
+    process.exit(result.status ?? 1);
+  }
+
+  if (process.platform !== 'win32' && hasCommand('nix', ['--version'])) {
+    const result = spawnSync(
+      'nix',
+      ['develop', '--command', 'go', ...backendArgs],
+      {
+        cwd: rootDir,
+        stdio: 'inherit',
+      }
+    );
+    process.exit(result.status ?? 1);
+  }
+
+  console.error(
+    'Unable to run the CLI: install Go or run from a Nix dev shell.'
   );
   process.exit(1);
 }

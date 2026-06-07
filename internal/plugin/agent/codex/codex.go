@@ -1,13 +1,9 @@
-// Package codex implements the Codex agent plugin: launching new sessions
-// and (eventually) resuming existing ones.
+// Package codex implements the Codex agent plugin: launching new sessions,
+// resuming hook-tracked sessions, installing workspace-local hooks, and reading
+// hook-derived session info.
 //
-// In v1, this plugin is a pure command builder. SessionInfo and
-// GetRestoreCommand are no-ops; resume is deferred to a future slice.
-// The ~300 lines of code that previously scanned ~/.codex/sessions/ to
-// discover Codex's native thread id have been removed — they existed only
-// to support restore, which isn't wired today. When the resume slice lands,
-// thread-id discovery will return via a `ListResumableThreads()` method
-// rather than the implicit file-scan-on-restore pattern.
+// yyork-managed sessions derive native session identity and display
+// metadata from Codex hooks instead of transcript/cache scans.
 package codex
 
 import (
@@ -16,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/yyovil/yyork/internal/plugin"
@@ -24,11 +21,10 @@ import (
 )
 
 const (
-	// codexThreadIDMetadataKey is the key under which we'd persist Codex's
-	// native thread id in a session's metadata blob. Unused in v1 (no
-	// capture, no resume) but kept defined so the future hook slice can
-	// adopt it without choosing a new name.
-	codexThreadIDMetadataKey = "codexThreadId"
+	codexAgentSessionIDMetadataKey = "agentSessionId"
+	codexTitleMetadataKey          = "title"
+	codexRecapMetadataKey          = "recap"
+	codexLegacySummaryMetadataKey  = "summary"
 )
 
 type Plugin struct {
@@ -92,33 +88,55 @@ func (p *Plugin) GetPromptDeliveryStrategy(ctx context.Context, cfg agent.Launch
 	return agent.PromptDeliveryInCommand, nil
 }
 
-// GetAgentHooks is a no-op in v1. Hook infrastructure is dormant — the
-// engine doesn't call this method during spawn. When hooks land in a
-// future slice, this is where Codex would install its workspace-local
-// hook config.
-func (p *Plugin) GetAgentHooks(ctx context.Context, cfg agent.WorkspaceHookConfig) error {
-	return ctx.Err()
-}
-
-// GetRestoreCommand is a no-op in v1. Resume is out of scope; the engine
-// never calls this. When the resume slice lands, this returns the argv to
-// continue an existing Codex thread referenced by cfg.Session.Metadata.
+// GetRestoreCommand rebuilds the argv that continues an existing Codex
+// session: `codex resume <agentSessionId>`. ok is false when the hook-derived
+// native session id has not landed yet, so callers can fall back to fresh
+// launch behavior.
 func (p *Plugin) GetRestoreCommand(ctx context.Context, cfg agent.RestoreConfig) (cmd []string, ok bool, err error) {
 	if err := ctx.Err(); err != nil {
 		return nil, false, err
 	}
-	return nil, false, nil
+	agentSessionID := strings.TrimSpace(cfg.Session.Metadata[codexAgentSessionIDMetadataKey])
+	if agentSessionID == "" {
+		return nil, false, nil
+	}
+
+	binary, err := p.codexBinary(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+
+	cmd = []string{binary, "resume"}
+	appendNoUpdateCheckFlag(&cmd)
+	appendApprovalFlags(&cmd, cfg.Permissions)
+	cmd = append(cmd, agentSessionID)
+	return cmd, true, nil
 }
 
-// SessionInfo is a no-op in v1. Codex's native thread id, transcript path,
-// and summary are not surfaced through yyork yet. The future hook
-// slice will populate session metadata with the thread id directly,
-// removing any need to discover it via file scanning.
+// SessionInfo surfaces Codex hook-derived metadata. Metadata is intentionally
+// nil for Codex: callers get the normalized fields directly.
 func (p *Plugin) SessionInfo(ctx context.Context, session agent.SessionRef) (agent.SessionInfo, bool, error) {
 	if err := ctx.Err(); err != nil {
 		return agent.SessionInfo{}, false, err
 	}
-	return agent.SessionInfo{}, false, nil
+	info := agent.SessionInfo{
+		AgentSessionID: session.Metadata[codexAgentSessionIDMetadataKey],
+		Title:          session.Metadata[codexTitleMetadataKey],
+		Recap:          metadataValue(session.Metadata, codexRecapMetadataKey, codexLegacySummaryMetadataKey),
+	}
+	if info.AgentSessionID == "" && info.Title == "" && info.Recap == "" {
+		return agent.SessionInfo{}, false, nil
+	}
+	return info, true, nil
+}
+
+func metadataValue(metadata map[string]string, keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(metadata[key]); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 // ResolveCodexBinary returns the path to the codex binary on this machine,
@@ -213,25 +231,24 @@ func appendNoUpdateCheckFlag(cmd *[]string) {
 func appendApprovalFlags(cmd *[]string, permissions agent.PermissionMode) {
 	switch normalizePermissionMode(permissions) {
 	case agent.PermissionModeDefault:
+		// No flag: defer to the user's Codex config/default behavior.
+	case agent.PermissionModeAcceptEdits:
 		*cmd = append(*cmd, "--ask-for-approval", "on-request")
-	case agent.PermissionModeAutoReview:
+	case agent.PermissionModeAuto:
 		*cmd = append(*cmd, "--ask-for-approval", "on-request", "-c", `approvals_reviewer="auto_review"`)
-	case agent.PermissionModeFullAccess:
-		*cmd = append(*cmd, "--ask-for-approval", "never")
+	case agent.PermissionModeBypassPermissions:
+		*cmd = append(*cmd, "--dangerously-bypass-approvals-and-sandbox")
 	}
 }
 
 func normalizePermissionMode(mode agent.PermissionMode) agent.PermissionMode {
 	switch mode {
-	case "":
-		return ""
-	case "auto":
-		return agent.PermissionModeDefault
-	case "skip", "yolo", "permissionless", "full":
-		return agent.PermissionModeFullAccess
-	case agent.PermissionModeDefault, agent.PermissionModeAutoReview, agent.PermissionModeFullAccess:
+	case agent.PermissionModeDefault,
+		agent.PermissionModeAcceptEdits,
+		agent.PermissionModeAuto,
+		agent.PermissionModeBypassPermissions:
 		return mode
 	default:
-		return ""
+		return agent.PermissionModeDefault
 	}
 }

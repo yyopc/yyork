@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The yyork hooks command — yyork</title>
+<style>
+  :root{
+    --bg:#0b0d10; --bg2:#0e1116; --panel:#14181f; --panel2:#181d26;
+    --border:#262d38; --border2:#323b49;
+    --text:#dce3ec; --muted:#8b95a5; --faint:#5c6675;
+    --accent:#ff6a5a; --accent-d:#c9483a;
+    --teal:#3ad8a4; --amber:#f6c453; --violet:#a78bfa; --blue:#5db4ff;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(91,180,255,.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 10%, rgba(255,106,90,.06), transparent 55%),
+      var(--bg);
+    color:var(--text); font-family:var(--sans);
+    font-size:17px; line-height:1.65; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:860px; margin:0 auto; padding:0 22px 120px}
+
+  /* ---- hero ---- */
+  header.hero{padding:72px 0 40px; border-bottom:1px solid var(--border)}
+  .kicker{display:inline-flex; align-items:center; gap:8px; font-family:var(--mono);
+    font-size:12.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted);
+    border:1px solid var(--border2); border-radius:999px; padding:5px 12px; background:var(--panel)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--blue);box-shadow:0 0 10px var(--blue)}
+  h1{font-size:46px; line-height:1.05; letter-spacing:-.02em; margin:22px 0 10px; font-weight:800}
+  h1 .grad{background:linear-gradient(90deg,#fff,var(--blue)); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .sub{font-size:19px; color:var(--muted); max-width:64ch; margin:0}
+  .meta{display:flex; flex-wrap:wrap; gap:10px 22px; margin-top:26px; font-family:var(--mono); font-size:13px; color:var(--faint)}
+  .meta b{color:var(--muted); font-weight:500}
+
+  /* ---- type ---- */
+  h2{font-size:13px; font-family:var(--mono); letter-spacing:.14em; text-transform:uppercase;
+    color:var(--blue); margin:64px 0 4px; font-weight:600}
+  h2 .n{color:var(--faint); margin-right:10px}
+  h3{font-size:26px; letter-spacing:-.01em; margin:6px 0 14px; font-weight:700}
+  p{margin:14px 0}
+  a{color:var(--blue); text-decoration:none}
+  a:hover{text-decoration:underline}
+  strong{color:#fff}
+  em{color:var(--text)}
+  code{font-family:var(--mono); font-size:.86em; background:var(--panel2); border:1px solid var(--border);
+    padding:1.5px 6px; border-radius:6px; color:#e7c9a0}
+  .file{color:var(--blue); background:rgba(91,180,255,.08); border-color:rgba(91,180,255,.25)}
+  ul.lede{margin:14px 0; padding-left:20px}
+  ul.lede li{margin:7px 0}
+
+  /* ---- TL;DR ---- */
+  .tldr{margin-top:34px; background:linear-gradient(180deg,var(--panel),var(--bg2));
+    border:1px solid var(--border2); border-radius:16px; padding:24px 26px; position:relative; overflow:hidden}
+  .tldr::before{content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:linear-gradient(var(--blue),#2a6fb0)}
+  .tldr h4{margin:0 0 8px; font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--blue)}
+  .tldr p{margin:8px 0; font-size:16px; color:var(--text)}
+
+  /* ---- callouts ---- */
+  .call{border:1px solid var(--border); border-radius:14px; padding:18px 20px; margin:22px 0; background:var(--panel)}
+  .call .tag{font-family:var(--mono); font-size:11.5px; letter-spacing:.12em; text-transform:uppercase; font-weight:600; display:inline-flex; align-items:center; gap:8px; margin-bottom:6px}
+  .call p{margin:6px 0; font-size:15.5px}
+  .call.finding{border-color:rgba(58,216,164,.3); background:linear-gradient(180deg,rgba(58,216,164,.07),transparent)}
+  .call.finding .tag{color:var(--teal)}
+  .call.warn{border-color:rgba(246,196,83,.3); background:linear-gradient(180deg,rgba(246,196,83,.06),transparent)}
+  .call.warn .tag{color:var(--amber)}
+  .call.sec{border-color:rgba(167,139,250,.35); background:linear-gradient(180deg,rgba(167,139,250,.08),transparent)}
+  .call.sec .tag{color:var(--violet)}
+  .call.cause{border-color:rgba(255,106,90,.4); background:linear-gradient(180deg,rgba(255,106,90,.09),transparent)}
+  .call.cause .tag{color:var(--accent)}
+
+  /* ---- terminal / code ---- */
+  .term{margin:20px 0; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#0a0c10; box-shadow:0 18px 40px -24px rgba(0,0,0,.8)}
+  .term .bar{display:flex; align-items:center; gap:8px; padding:10px 14px; background:var(--panel2); border-bottom:1px solid var(--border)}
+  .term .bar .lights{display:flex; gap:7px}
+  .term .bar .lights i{width:11px;height:11px;border-radius:50%;display:block}
+  .l1{background:#ff5f57}.l2{background:#febc2e}.l3{background:#28c840}
+  .term .bar .ttl{font-family:var(--mono); font-size:12px; color:var(--faint); margin-left:6px}
+  .term pre{margin:0; padding:16px 18px; overflow-x:auto; font-family:var(--mono); font-size:13px; line-height:1.62; color:#cdd6e2}
+  pre .pr{color:var(--teal)} /* prompt */
+  pre .cm{color:var(--faint)} /* comment */
+  pre .ok{color:var(--teal)}
+  pre .bad{color:var(--accent)}
+  pre .hl{color:var(--amber)}
+  pre .di{color:var(--blue)}
+  pre .kw{color:var(--violet)}
+  pre .st{color:#e7c9a0}
+
+  /* ---- diagrams ---- */
+  .diagram{margin:26px 0; border:1px solid var(--border); border-radius:14px; background:linear-gradient(180deg,var(--panel),var(--bg2)); padding:24px}
+  .diagram .cap{font-family:var(--mono); font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); margin-bottom:18px; text-align:center}
+  .lane{display:flex; align-items:stretch; gap:0; margin:14px 0}
+  .node{flex:1; border:1px solid var(--border2); border-radius:10px; padding:13px 15px; background:var(--panel2); min-width:0}
+  .node .nh{font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin-bottom:5px}
+  .node .nb{font-size:14px; color:var(--text)}
+  .node .nb code{font-size:.84em}
+  .node.src{border-color:rgba(91,180,255,.3)}
+  .node.good{border-color:rgba(58,216,164,.35); background:linear-gradient(180deg,rgba(58,216,164,.06),var(--panel2))}
+  .node.proc{border-color:rgba(167,139,250,.35); background:linear-gradient(180deg,rgba(167,139,250,.06),var(--panel2))}
+  .node.fail{border-color:rgba(255,106,90,.4); background:linear-gradient(180deg,rgba(255,106,90,.08),var(--panel2))}
+  .arrow{display:flex; flex-direction:column; justify-content:center; align-items:center; min-width:128px; padding:0 6px; color:var(--faint)}
+  .arrow .lab{font-family:var(--mono); font-size:10.5px; color:var(--muted); text-align:center; margin-bottom:3px; line-height:1.3}
+  .arrow .ln{font-size:20px; color:var(--border2)}
+  .arrow.good .ln{color:var(--teal)}
+  .arrow.fail .ln{color:var(--accent)}
+  @media(max-width:680px){
+    .lane{flex-direction:column; gap:8px}
+    .arrow{min-width:0; padding:2px 0; flex-direction:row; gap:8px}
+    .arrow .ln{transform:rotate(90deg)}
+  }
+
+  /* ---- flow (vertical numbered steps) ---- */
+  .flow{margin:24px 0; display:grid; gap:0}
+  .step{display:grid; grid-template-columns:42px 1fr; gap:16px; position:relative; padding-bottom:22px}
+  .step:not(:last-child)::before{content:""; position:absolute; left:20px; top:40px; bottom:-2px; width:2px; background:linear-gradient(var(--border2),transparent)}
+  .step .bub{width:40px;height:40px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:15px; font-weight:700; color:var(--blue); border:1px solid rgba(91,180,255,.3); background:rgba(91,180,255,.07); z-index:1}
+  .step .body h4{margin:7px 0 3px; font-size:16px}
+  .step .body p{margin:3px 0; font-size:14.5px; color:var(--muted)}
+  .step .body .where{font-family:var(--mono); font-size:12px; color:var(--faint)}
+
+  /* ---- two-col split ---- */
+  .split{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0}
+  .split .col{border:1px solid var(--border2); border-radius:12px; padding:17px 18px; background:var(--panel2)}
+  .split .col h6{margin:0 0 4px; font-size:15px; color:#fff; display:flex; align-items:center; gap:8px}
+  .split .col .path{font-family:var(--mono); font-size:11.5px; color:var(--blue); word-break:break-all; display:block; margin-bottom:10px}
+  .split .col ul{margin:0; padding-left:18px; font-size:13.5px; color:var(--muted)}
+  .split .col ul li{margin:5px 0}
+  .badge{font-family:var(--mono); font-size:10px; letter-spacing:.06em; text-transform:uppercase; padding:2px 7px; border-radius:999px; font-weight:600}
+  .badge.in{color:var(--teal); background:rgba(58,216,164,.12); border:1px solid rgba(58,216,164,.3)}
+  .badge.out{color:var(--violet); background:rgba(167,139,250,.12); border:1px solid rgba(167,139,250,.3)}
+  .badge.now{color:var(--teal); background:rgba(58,216,164,.12); border:1px solid rgba(58,216,164,.3)}
+  .badge.next{color:var(--amber); background:rgba(246,196,83,.12); border:1px solid rgba(246,196,83,.3)}
+  @media(max-width:600px){.split{grid-template-columns:1fr}}
+
+  /* ---- state pills ---- */
+  .pill{font-family:var(--mono); font-size:11.5px; padding:3px 10px; border-radius:999px; border:1px solid; display:inline-block; white-space:nowrap}
+  .pill.work{color:var(--teal); border-color:rgba(58,216,164,.4); background:rgba(58,216,164,.1)}
+  .pill.wait{color:var(--amber); border-color:rgba(246,196,83,.4); background:rgba(246,196,83,.1)}
+  .pill.idle{color:var(--muted); border-color:var(--border2); background:var(--panel2)}
+  .pill.err{color:var(--accent); border-color:rgba(255,106,90,.4); background:rgba(255,106,90,.1)}
+  .pill.done{color:var(--blue); border-color:rgba(91,180,255,.4); background:rgba(91,180,255,.1)}
+
+  /* ---- table ---- */
+  .tbl{width:100%; border-collapse:collapse; margin:20px 0; font-size:14.5px; border:1px solid var(--border); border-radius:12px; overflow:hidden}
+  .tbl th{background:var(--panel2); text-align:left; padding:11px 14px; font-family:var(--mono); font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border)}
+  .tbl td{padding:11px 14px; border-bottom:1px solid var(--border); color:var(--text); vertical-align:top}
+  .tbl tr:last-child td{border-bottom:0}
+  .tbl td.k{font-family:var(--mono); color:#e7c9a0; white-space:nowrap}
+
+  hr.soft{border:0; border-top:1px solid var(--border); margin:50px 0}
+  footer{color:var(--faint); font-size:13px; font-family:var(--mono); padding-top:24px; border-top:1px solid var(--border); display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px}
+  .status{display:inline-flex;align-items:center;gap:8px;color:var(--blue)}
+  ::selection{background:rgba(91,180,255,.3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="kicker"><span class="dot"></span> yyork · design doc</span>
+    <h1>The <span class="grad">yyork hooks</span> command</h1>
+    <p class="sub">A hidden CLI verb the native coding agent calls back into — turning the things a detached worker does in its worktree into live <strong>SessionInfo</strong> and (soon) <strong>agent activity</strong> on a dashboard the worker can't see.</p>
+    <div class="meta">
+      <span><b>surface</b> &nbsp;<code>yyork hooks &lt;agent&gt; &lt;event&gt;</code></span>
+      <span><b>status</b> &nbsp;codex shipped · activity planned</span>
+      <span><b>branch</b> main</span>
+      <span><b>date</b> 2026-06-01</span>
+    </div>
+  </header>
+
+  <div class="tldr">
+    <h4>TL;DR</h4>
+    <p>yyork spawns each worker as a <strong>detached agent process</strong> inside a throwaway worktree under Zellij. The server never shares memory with it, so it cannot see what the agent is doing. The bridge is a hook: at spawn time the agent plugin writes a native hook config into the worktree, and every fired hook shells out to <code>yyork hooks &lt;agent-plugin&gt; &lt;event&gt;</code>.</p>
+    <p>That callback reads the native payload from <strong>stdin</strong>, reads the yyork session id from <code>YYORK_SESSION_ID</code>, opens <code>~/.yyork/state.db</code>, <strong>merges normalized metadata</strong> into the matching row, and publishes <code>session.updated</code> so an open board re-queries and re-renders. It prints <code>{}</code> and exits <code>0</code> on every path — a hook must never break the user's agent.</p>
+    <p><strong>Today</strong> the Codex plugin reports SessionInfo this way: native session id, title, summary. <strong>Next</strong> the same pipe carries <em>activity</em> — <span class="pill work">working</span> <span class="pill wait">waiting-for-input</span> <span class="pill idle">idle</span> — to replace the <code>State: StateWorking</code> placeholder the dashboard hardcodes today.</p>
+  </div>
+
+  <!-- 1 -->
+  <h2><span class="n">01</span> The problem</h2>
+  <h3>The orchestrator is blind to its own workers</h3>
+  <p>A <code>yyork spawn</code> forks a git worktree, asks the agent plugin for a launch command, and hands that argv to the durability provider (Zellij). The agent then runs <strong>headless and detached</strong>: the user attaches to its pane in the browser terminal when they want to, but the yyork server is not in the loop on a keystroke-by-keystroke basis. It owns a SQLite row and nothing more.</p>
+  <p>The dashboard needs two things the server cannot observe directly:</p>
+  <ul class="lede">
+    <li><strong>Identity — “what is this session?”</strong> The native agent's own session id (for resume and cross-referencing), a human title, a one-line summary. We call this <em>SessionInfo</em>.</li>
+    <li><strong>Activity — “what is it doing right now?”</strong> Is the agent grinding on a task, blocked waiting for the user to approve a command, or idle between turns? This is the field that turns a static list of cards into a live operations board.</li>
+  </ul>
+
+  <div class="call cause">
+    <div class="tag">▣ the gap this doc closes</div>
+    <p>SessionInfo already flows for Codex through hooks. <strong>Activity does not flow at all.</strong> The store-to-UI adapter stamps every card with the same value:</p>
+    <p style="font-family:var(--mono);font-size:13.5px;color:var(--amber)">internal/session/workspace_source.go:102 — <code style="color:var(--amber)">State: StateWorking, // v1: no activity-state capture yet.</code></p>
+    <p>Every worker looks busy forever, even one parked on an approval prompt for ten minutes. The <code>yyork hooks</code> command is the channel through which real activity will arrive.</p>
+  </div>
+
+  <p>Why a hook and not a poll or a transcript scan? A poll can't tell <em>working</em> from <em>blocked</em> — both look like a quiet process. Scraping agent transcript/cache files was the old approach and the Agent Plugin PRD explicitly retired it: <em>“SessionInfo must not infer display info by reading agent transcript/cache files.”</em> A hook is the agent <strong>telling us</strong>, at the exact moment a meaningful thing happens, in a payload the agent vendor designed for this.</p>
+
+  <!-- 2 -->
+  <h2><span class="n">02</span> The command surface</h2>
+  <h3>A hidden verb, dispatched per agent and per event</h3>
+  <p>The hooks verb is internal — it is not in the help table or the planned-command roadmap. It exists to be invoked <em>by an agent</em>, not by a human. Dispatch is two positional arguments: the agent plugin, then the native event name.</p>
+
+  <div class="term">
+    <div class="bar"><div class="lights"><i class="l1"></i><i class="l2"></i><i class="l3"></i></div><span class="ttl">cmd/yyork/main.go — runCLI dispatch · cmd/yyork/hooks.go — runHooks</span></div>
+<pre><span class="cm">// main.go:60</span>
+<span class="kw">case</span> <span class="st">"hooks"</span>:
+    <span class="kw">return</span> runHooks(ctx, commandArgs, stdout, stderr)
+
+<span class="cm">// hooks.go — only Codex is wired today; the shape generalizes per agent.</span>
+<span class="kw">func</span> runHooks(ctx context.Context, args []string, ...) int {
+    <span class="kw">if</span> len(args) != <span class="hl">2</span> || args[<span class="hl">0</span>] != <span class="st">"codex"</span> {
+        fmt.Fprintln(stderr, <span class="st">"hooks: expected `yyork hooks codex "</span>+
+            <span class="st">"&lt;session-start|user-prompt-submit|stop&gt;`"</span>)
+        <span class="kw">return</span> <span class="hl">1</span>
+    }
+    <span class="kw">return</span> runCodexHook(ctx, args[<span class="hl">1</span>], os.Stdin, stdout, stderr)
+}</pre>
+  </div>
+
+  <h3 style="margin-top:34px">How the hook gets there: installed at spawn, into the worktree</h3>
+  <p>An agent only knows to call back because the plugin <em>installs</em> a hook config when the session is created. The engine calls <code>GetAgentHooks</code> after the worktree exists but before the agent launches, so the very first startup hook can already find a row to update.</p>
+
+  <div class="split">
+    <div class="col">
+      <h6><span class="badge now">shipped</span> Codex</h6>
+      <span class="path">internal/plugin/agent/codex/codex.go · .codex/hooks.json</span>
+      <ul>
+        <li><code>GetAgentHooks</code> merges an embedded template into the worktree's <code>.codex/hooks.json</code>.</li>
+        <li>Preserves user hooks; de-dupes yyork commands by command string.</li>
+        <li>Wires <code>SessionStart</code>, <code>UserPromptSubmit</code>, <code>Stop</code>.</li>
+        <li><code>SessionInfo</code> reads the normalized metadata the hooks persisted.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h6><span class="badge next">laggard</span> Claude Code</h6>
+      <span class="path">internal/plugin/agent/claudecode/claudecode.go</span>
+      <ul>
+        <li><code>GetAgentHooks</code> is a <strong>no-op</strong> today.</li>
+        <li><code>SessionInfo</code> still derives title from the transcript (<code>ai-title</code> → <code>last-prompt</code>).</li>
+        <li>So Claude Code does <em>not</em> use the hooks command yet.</li>
+        <li>Bringing it onto hooks is part of the planned work (§05).</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="bar"><div class="lights"><i class="l1"></i><i class="l2"></i><i class="l3"></i></div><span class="ttl">internal/plugin/agent/codex/.codex/hooks.json — the embedded template (abridged)</span></div>
+<pre>{
+  <span class="di">"hooks"</span>: {
+    <span class="di">"SessionStart"</span>:     [{ <span class="di">"hooks"</span>: [{ <span class="di">"command"</span>: <span class="st">"yyork hooks codex session-start"</span>,      <span class="di">"timeout"</span>: <span class="hl">30</span> }] }],
+    <span class="di">"UserPromptSubmit"</span>: [{ <span class="di">"hooks"</span>: [{ <span class="di">"command"</span>: <span class="st">"yyork hooks codex user-prompt-submit"</span>, <span class="di">"timeout"</span>: <span class="hl">30</span> }] }],
+    <span class="di">"Stop"</span>:             [{ <span class="di">"hooks"</span>: [{ <span class="di">"command"</span>: <span class="st">"yyork hooks codex stop"</span>,                <span class="di">"timeout"</span>: <span class="hl">30</span> }] }]
+  }
+}</pre>
+  </div>
+
+  <p>At launch the engine injects <code>YYORK_SESSION_ID=&lt;id&gt;</code> into the agent's environment (<code class="file">internal/session/engine.go:322</code>), and inserts the session row <em>before</em> the agent starts (<code class="file">engine.go:312</code>). Those two facts are the whole contract the callback relies on: an env var that identifies the row, and a row that already exists.</p>
+
+  <!-- 3 -->
+  <h2><span class="n">03</span> What a callback does</h2>
+  <h3>Read stdin, find the row, merge, publish, exit clean</h3>
+  <p>Every invocation runs the same six-beat path. The guiding rule is <strong>do no harm</strong>: an unknown session, a missing row, an empty payload, or a torn-down server all resolve to <code>print {} · exit 0</code>, because a non-zero exit or stray stderr would surface as an error inside the user's agent.</p>
+
+  <div class="flow">
+    <div class="step">
+      <div class="bub">1</div>
+      <div class="body">
+        <h4>Gate on YYORK_SESSION_ID</h4>
+        <p>If the env var is empty, this is a plain Codex session the user happens to have the hook installed in — not a yyork worker. Print <code>{}</code>, exit 0, touch nothing.</p>
+        <p class="where">hooks.go — <code>os.Getenv("YYORK_SESSION_ID")</code></p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="bub">2</div>
+      <div class="body">
+        <h4>Decode the native payload from stdin</h4>
+        <p>Read at most <strong>1&nbsp;MiB</strong> (<code>io.LimitReader(stdin, 1&lt;&lt;20)</code>) and JSON-decode it. An empty stdin (<code>io.EOF</code>) is fine; only a malformed body is an error.</p>
+        <p class="where">hooks.go — <code>codexHookPayload{ hook_event_name, prompt, last_assistant_message, session_id }</code></p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="bub">3</div>
+      <div class="body">
+        <h4>Open the shared store</h4>
+        <p>Open <code>~/.yyork/state.db</code> via <code>store.DefaultPath()</code>. Same database the server and every other CLI verb use — the durable source of truth.</p>
+        <p class="where">hooks.go — <code>store.Open(ctx, dbPath)</code></p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="bub">4</div>
+      <div class="body">
+        <h4>Compute the normalized fields for this event</h4>
+        <p>Map the native event to the yyork metadata keys (table below). If there's nothing to write, fall straight through to the response. A missing row (<code>ErrSessionNotFound</code>) is a graceful no-op.</p>
+        <p class="where">hooks.go — <code>codexHookMetadataFields(...)</code></p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="bub">5</div>
+      <div class="body">
+        <h4>Merge metadata into the row</h4>
+        <p><code>repo.MergeMetadata</code> overlays only the changed keys onto the row's JSON blob — it never clobbers the rest of the metadata (e.g. the launch <code>prompt</code>).</p>
+        <p class="where">hooks.go — <code>repo.MergeMetadata(ctx, aoSessionID, fields)</code></p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="bub">6</div>
+      <div class="body">
+        <h4>Publish session.updated, then print {}</h4>
+        <p>Only when something actually changed: build a <code>session.updated</code> event and hand it to a <code>ForwardingPublisher</code>, which relays it to a running server (best-effort). Then print <code>{}</code> and exit 0.</p>
+        <p class="where">hooks.go — <code>control.NewForwardingPublisher().Publish(events.NewSessionUpdated(id))</code></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="call warn">
+    <div class="tag">⚠ <code>Stop</code> is end-of-turn, not end-of-session</div>
+    <p>The Codex <code>Stop</code> hook fires when the agent finishes <em>a turn</em> and yields, not when the process dies. Session <strong>termination</strong> is a separate concern, detected by the reconciler when the Zellij session disappears (it emits <code>session.terminated</code>, not a hook). Conflating the two is the easiest mistake here: a worker that stops to await your next prompt is alive and idle, not gone.</p>
+  </div>
+
+  <!-- 4 -->
+  <h2><span class="n">04</span> SessionInfo today</h2>
+  <h3>Three events, three normalized keys</h3>
+  <p>The shipped mapping is deliberately small. Each Codex event contributes exactly one field, and the write rules encode the display semantics the dashboard wants.</p>
+
+  <table class="tbl">
+    <tr><th>Native event</th><th>Metadata key</th><th>Source &amp; rule</th></tr>
+    <tr>
+      <td class="k">session-start</td>
+      <td class="k">agentSessionId</td>
+      <td>The Codex-native <code>session_id</code> from the payload. Written verbatim when present — the link from a yyork row to the agent's own thread.</td>
+    </tr>
+    <tr>
+      <td class="k">user-prompt-submit</td>
+      <td class="k">title</td>
+      <td>The submitted <code>prompt</code>, whitespace-collapsed and capped at <strong>120</strong> chars. <strong>First write wins</strong> — set only if no title exists yet, so a later prompt never re-titles the session.</td>
+    </tr>
+    <tr>
+      <td class="k">stop</td>
+      <td class="k">summary</td>
+      <td>The <code>last_assistant_message</code>, collapsed and capped at <strong>500</strong> chars. <strong>Last write wins</strong> — each completed turn refreshes the summary to the most recent assistant reply.</td>
+    </tr>
+  </table>
+
+  <div class="term">
+    <div class="bar"><div class="lights"><i class="l1"></i><i class="l2"></i><i class="l3"></i></div><span class="ttl">hooks.go — codexHookMetadataFields, the title-once rule</span></div>
+<pre><span class="kw">case</span> <span class="st">"user-prompt-submit"</span>:
+    title := compactHookText(payload.Prompt, hookTitleMaxLen) <span class="cm">// collapse ws, cap 120, ellipsize</span>
+    <span class="kw">if</span> title == <span class="st">""</span> { <span class="kw">return</span> fields, nil }
+    row, err := repo.Get(ctx, aoSessionID)
+    <span class="kw">if</span> err != nil { <span class="kw">return</span> nil, err }
+    <span class="kw">if</span> stringMetadata(row.Metadata, hookMetadataTitle) == <span class="st">""</span> {
+        fields[hookMetadataTitle] = title <span class="cm">// ← only when unset: first prompt is the title</span>
+    }</pre>
+  </div>
+
+  <p>Downstream, the store-to-UI adapter prefers these keys in order, and falls back to the raw launch prompt only when a hook hasn't landed yet — so a freshly spawned worker still shows <em>something</em> before its first turn completes.</p>
+
+  <div class="term">
+    <div class="bar"><div class="lights"><i class="l1"></i><i class="l2"></i><i class="l3"></i></div><span class="ttl">internal/session/workspace_source.go — toLegacySession field precedence</span></div>
+<pre>title       := metadata.<span class="di">title</span>   ?: metadata.<span class="di">prompt</span> ?: row.ID   <span class="cm">// title → prompt → id</span>
+description := metadata.<span class="di">summary</span> ?: metadata.<span class="di">prompt</span>            <span class="cm">// summary → prompt</span>
+State       := <span class="bad">StateWorking</span>                                  <span class="cm">// ← hardcoded; §05 fixes this</span></pre>
+  </div>
+
+  <div class="call sec">
+    <div class="tag">◆ why the plugin owns the mapping</div>
+    <p>Codex emits its own field names; Claude Code emits different ones. The <code>agent.SessionInfo</code> contract (<code>AgentSessionID</code>, <code>Title</code>, <code>Summary</code>) is the normalized shape every plugin translates <em>into</em>. The hooks command is where a Codex payload becomes those neutral keys — so the dashboard never learns a single agent-specific field name.</p>
+  </div>
+
+  <!-- 5 -->
+  <h2><span class="n">05</span> Planned: agent activity</h2>
+  <h3>Carry “what is it doing?” down the same pipe</h3>
+  <p>SessionInfo answers <em>what</em> a session is. Activity answers <em>where it is right now</em>. The plan reuses every piece of the shipped pipeline — install-at-spawn, stdin payload, merge, <code>session.updated</code> — and adds (a) a normalized activity field, (b) more event mappings, and (c) Claude Code finally on hooks.</p>
+
+  <h3 style="margin-top:30px">The activity states</h3>
+  <p>A small, closed vocabulary the dashboard can render as a status dot. These map onto the session <code>State</code> enum the adapter currently hardcodes.</p>
+
+  <div style="display:flex;flex-wrap:wrap;gap:10px;margin:18px 0">
+    <span class="pill work">working</span>
+    <span class="pill wait">waiting-for-input</span>
+    <span class="pill idle">idle</span>
+    <span class="pill err">error</span>
+    <span class="pill done">done</span>
+  </div>
+
+  <table class="tbl">
+    <tr><th>State</th><th>Meaning</th><th>Entered when</th></tr>
+    <tr><td><span class="pill work">working</span></td><td>Agent is actively producing — thinking, calling tools, editing.</td><td>A prompt is submitted, or a tool starts running.</td></tr>
+    <tr><td><span class="pill wait">waiting-for-input</span></td><td>Blocked on the human — an approval prompt or a question.</td><td>The agent emits a notification/approval-request hook.</td></tr>
+    <tr><td><span class="pill idle">idle</span></td><td>A turn finished; the worker is alive but quiet.</td><td>The <code>Stop</code> / turn-end hook fires.</td></tr>
+    <tr><td><span class="pill err">error</span></td><td>The last turn failed (non-zero, crash, refusal).</td><td>An error hook fires, if the agent exposes one.</td></tr>
+    <tr><td><span class="pill done">done</span></td><td>Terminal — the session ended.</td><td><em>Not</em> a hook: the reconciler's <code>session.terminated</code> path owns this.</td></tr>
+  </table>
+
+  <h3 style="margin-top:30px">New normalized keys</h3>
+  <p>Following the PRD's “normalized metadata, plugin-specific stays nil” rule, activity rides in the same JSON blob the hooks already merge:</p>
+  <table class="tbl">
+    <tr><th>Key</th><th>Type</th><th>Notes</th></tr>
+    <tr><td class="k">activity</td><td>string</td><td>One of the states above. Read by <code>toLegacySession</code> to set <code>State</code> instead of the constant.</td></tr>
+    <tr><td class="k">lastActivityAt</td><td>RFC3339</td><td>Stamp of the most recent state change. Lets the board show “idle for 4m” and lets a UI dim stale cards.</td></tr>
+  </table>
+
+  <h3 style="margin-top:30px">Mapping native hooks to states</h3>
+  <p>Each plugin owns its own translation, exactly as it does for SessionInfo. The events below extend the install template; the callback adds an <code>activity</code> field for each.</p>
+
+  <table class="tbl">
+    <tr><th>yyork state</th><th>Codex hook</th><th>Claude Code hook</th></tr>
+    <tr><td><span class="pill work">working</span></td><td><code>SessionStart</code>, <code>UserPromptSubmit</code></td><td><code>UserPromptSubmit</code>, <code>PreToolUse</code></td></tr>
+    <tr><td><span class="pill wait">waiting-for-input</span></td><td>approval / notification hook</td><td><code>Notification</code></td></tr>
+    <tr><td><span class="pill idle">idle</span></td><td><code>Stop</code></td><td><code>Stop</code></td></tr>
+    <tr><td><span class="pill err">error</span></td><td>error hook (if exposed)</td><td><code>SubagentStop</code> / error signal</td></tr>
+  </table>
+
+  <div class="call finding">
+    <div class="tag">✓ the Claude Code upgrade comes for free</div>
+    <p>Wiring Claude Code's hooks for activity also moves its SessionInfo onto the hook pipe — replacing today's transcript scrape with hook-derived <code>title</code>/<code>summary</code>, which the Agent Plugin PRD wants. One install template, both payoffs. (The transcript path stays only where the PRD still allows it: <code>GetRestoreCommand</code>'s native-id derivation.)</p>
+  </div>
+
+  <h3 style="margin-top:30px">Event model: reuse vs. extend</h3>
+  <div class="split">
+    <div class="col">
+      <h6><span class="badge now">v1 — recommended</span> reuse session.updated</h6>
+      <ul>
+        <li>Zero changes to <code>internal/events</code> or the control type allowlist.</li>
+        <li>Board re-queries <code>/api/sessions</code>; the new <code>activity</code> field rides along.</li>
+        <li>Lossy-but-correct: a dropped event self-heals on the next state change or page load.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h6><span class="badge next">later</span> a session.activity event</h6>
+      <ul>
+        <li>Carry the new state in the event payload — no re-query round-trip.</li>
+        <li>Needs a new <code>events.Type</code> + an entry in <code>control.ToEvent</code>.</li>
+        <li>Justified only if activity churn makes re-query chatty.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 6 -->
+  <h2><span class="n">06</span> The full loop</h2>
+  <h3>From a tool call in the worktree to a status dot in the browser</h3>
+  <p>Activity rides the same cross-process rails as every other lifecycle event: the callback is a short-lived process whose own event bus has no subscribers, so it forwards over localhost to the running server, which republishes on its in-process bus and fans out over SSE. (See the <em>Cross-Process Event Publishing</em> brief for the runfile + token mechanics.)</p>
+
+  <div class="diagram">
+    <div class="cap">one hook firing, end to end</div>
+    <div class="lane">
+      <div class="node src"><div class="nh">agent in worktree</div><div class="nb">native hook fires → <code>yyork hooks codex &lt;event&gt;</code> with payload on stdin</div></div>
+      <div class="arrow good"><span class="lab">stdin payload<br>+ YYORK_SESSION_ID</span><span class="ln">→</span></div>
+      <div class="node proc"><div class="nh">hooks callback</div><div class="nb">merge metadata into <code>state.db</code> → <code>Publish(session.updated)</code></div></div>
+    </div>
+    <div class="lane">
+      <div class="node proc"><div class="nh">forwarder → server</div><div class="nb">POST <code>/api/events</code> + token → server republishes on its bus</div></div>
+      <div class="arrow good"><span class="lab">text/event-stream<br>GET /api/events</span><span class="ln">→</span></div>
+      <div class="node good"><div class="nh">browser board</div><div class="nb">EventSource fires → re-query <code>/api/sessions</code> → title / summary / status dot update</div></div>
+    </div>
+  </div>
+
+  <div class="call sec">
+    <div class="tag">◆ trust boundary</div>
+    <p>Two layers protect this. The callback only acts on sessions carrying <code>YYORK_SESSION_ID</code> — a hook installed in some unrelated Codex session does nothing. And the <code>session.updated</code> publish goes through the same <code>0600</code>-runfile + <code>X-yyork-Token</code> control endpoint as every CLI event, so a browser page can't forge an activity update onto an open board. The 1&nbsp;MiB stdin cap bounds a malformed or hostile payload.</p>
+  </div>
+
+  <!-- 7 -->
+  <h2><span class="n">07</span> Guarantees &amp; decisions</h2>
+  <table class="tbl">
+    <tr><th>Property</th><th>Behavior</th></tr>
+    <tr><td class="k">source of truth</td><td>The <strong>SQLite store</strong>. Hooks merge into it; events are just the live-update shortcut. A board that misses an event re-reads <code>/api/sessions</code> and is correct.</td></tr>
+    <tr><td class="k">never break the agent</td><td>Every path — no AO session, no row, empty/malformed-but-EOF payload, dead server — ends in <code>print {} · exit 0</code>. A hook failure must not leak into the user's agent run.</td></tr>
+    <tr><td class="k">additive merge</td><td><code>MergeMetadata</code> overlays only changed keys; the launch <code>prompt</code> and unrelated fields survive every callback.</td></tr>
+    <tr><td class="k">title once, summary latest</td><td>The first prompt becomes the durable title; each completed turn refreshes the summary. Activity (planned) is always last-writer-wins.</td></tr>
+    <tr><td class="k">plugin owns translation</td><td>The hooks command turns agent-specific payloads into the neutral <code>SessionInfo</code> keys. The dashboard never learns a vendor's field names.</td></tr>
+    <tr><td class="k">install before launch</td><td>Hooks are written into the worktree and the row is inserted <em>before</em> the agent starts, so the earliest <code>SessionStart</code> already finds a row to update.</td></tr>
+    <tr><td class="k">bounded &amp; best-effort</td><td>1&nbsp;MiB stdin cap; 30s hook timeout in the template; the forwarder swallows errors and never blocks the agent on a missing server.</td></tr>
+  </table>
+
+  <!-- 8 -->
+  <h2><span class="n">08</span> Open questions</h2>
+  <ul class="lede">
+    <li><strong>Activity granularity.</strong> Turn-level (<code>UserPromptSubmit</code>/<code>Stop</code>) is cheap and ships first. Tool-level (<code>PreToolUse</code>/<code>PostToolUse</code>) shows “running tests” vs “thinking” but multiplies hook traffic. Start coarse?</li>
+    <li><strong>Claude Code hook rollout.</strong> Flip <code>GetAgentHooks</code> from no-op to a real installer and move <code>SessionInfo</code> off the transcript — sequencing vs. the in-flight resume work that still relies on the transcript path.</li>
+    <li><strong>Stale activity.</strong> If a worker dies mid-turn, no <code>Stop</code> fires and the card is frozen <span class="pill work">working</span>. Should the reconciler clear <code>activity</code> on terminate, or should the UI age it out via <code>lastActivityAt</code>?</li>
+    <li><strong>Event shape.</strong> Reuse <code>session.updated</code> (v1) or add a dedicated <code>session.activity</code> that carries state in the payload — decide once we see real activity churn.</li>
+    <li><strong>Richer telemetry.</strong> The same pipe could carry token/cost counters or files-touched. Worth a separate metadata namespace, or scope creep?</li>
+  </ul>
+
+  <hr class="soft" />
+  <footer>
+    <span class="status"><span class="dot"></span> yyork · the hooks command</span>
+    <span>cmd/yyork/hooks · plugin/agent · session · events · control</span>
+  </footer>
+
+</div>
+</body>
+</html>

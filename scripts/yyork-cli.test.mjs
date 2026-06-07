@@ -41,6 +41,16 @@ test('yyork rejects unknown options before starting servers', () => {
   assertNoServerStart(result);
 });
 
+test('yyork forwards subcommands to the Go CLI', () => {
+  const result = runLauncher(['hooks', 'codex', 'stop'], {
+    YYORK_SESSION_ID: '',
+  });
+
+  assert.equal(result.status, 0);
+  assert.equal(result.stdout, '{}\n');
+  assertNoServerStart(result);
+});
+
 test('yyork rejects invalid backend port before starting servers', () => {
   const result = runLauncher([], {
     YYORK_BACKEND_PORT: 'bad',
