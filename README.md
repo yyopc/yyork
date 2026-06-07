@@ -1,60 +1,98 @@
-# yyork
+<p align="center">
+  <img src="web/public/favicon.svg" alt="yyork" width="84" />
+</p>
+<h1 align="center">yyork</h1>
+<p align="center">Run a fleet of AI coding agents in parallel — each in its own durable, isolated workspace.</p>
 
-Local-first orchestration for parallel AI coding agents.
 
-yyork spawns coding agents into isolated, durable workspaces and lets you
-supervise them from one dashboard. Each session runs in its own git worktree
-inside a [Zellij](https://zellij.dev) session, so agents work in parallel
-without colliding, survive a browser or server restart, and stay attachable
-from any terminal.
+---
+
+yyork spawns AI coding agents into isolated, durable workspaces and lets you
+supervise them from a single dashboard. Point it at a git repo, hand an agent a
+prompt, and it goes to work in its own worktree while you start the next one.
+
+- **Parallel** — every session gets its own `git worktree` and branch, so agents never step on each other.
+- **Durable** — sessions outlive your browser, a server restart, and even the agent process exiting; [Zellij](https://zellij.dev) keeps the pane alive so you can always read what happened.
+- **Local-first** — it all runs on your machine. State is one SQLite file at `~/.yyork/state.db` — no account, no cloud.
+- **Bring your own agent** — drives the [Claude Code](https://www.claude.com/product/claude-code) and [Codex](https://github.com/openai/codex) CLIs, unchanged.
 
 ## Requirements
 
-- **Go 1.25+** and **Node.js 22+ / pnpm** — server, CLI, and dashboard build
-- **[Zellij](https://zellij.dev)** — hosts the durable agent sessions
+- **Go 1.25+** and **Node.js 22+ / pnpm** — to build the server, CLI, and dashboard
+- **[Zellij](https://zellij.dev)** — hosts the durable sessions
 - **git** — sessions run in per-session worktrees
-- **An agent CLI on your `PATH`** — [Claude Code](https://www.claude.com/product/claude-code) (default) or [Codex](https://github.com/openai/codex)
+- **An agent CLI on your `PATH`** — Claude Code (default) or Codex
 - **Nix** with flakes — optional, for the dev shell
 
 ## Install
 
+yyork ships as a single binary that embeds the dashboard — build it once:
+
 ```bash
+git clone https://github.com/yyopc/yyork.git && cd yyork
 pnpm install
-pnpm backend:build   # builds + embeds the dashboard, compiles ./yyork
+pnpm backend:build      # build + embed the dashboard, compile ./yyork
 ```
 
-The resulting `./yyork` binary serves the dashboard from inside itself — no
-separate web server at runtime.
+Drop `./yyork` somewhere on your `PATH`, or run it in place.
 
-## Quickstart
+## Quick start
 
 ```bash
-./yyork                                  # serve dashboard + API on 127.0.0.1:7331, open browser
+# 1. Start the dashboard + API on 127.0.0.1:7331 (opens your browser)
+./yyork
 
-cd ~/Projects/my-app                     # any git repo
+# 2. From any git repo, hand an agent a task
+cd ~/Projects/my-app
 yyork spawn --prompt "add a health-check endpoint"
 
-zellij attach <sessionId>                # or just click the session in the dashboard
-yyork session list                       # show running sessions
-yyork stop <sessionId>                   # kill the session, remove its worktree + branch
+# 3. Watch it work — click the session in the dashboard, or attach from a shell
+zellij attach <sessionId>
+
+# 4. When you're done
+yyork session list          # what's running
+yyork stop <sessionId>      # kill the session, remove its worktree + branch
 ```
 
-Run `yyork` with no arguments to serve — there is no `start` subcommand (use
-`-addr` to change the bind address, `-open=false` to skip the browser). `spawn`
-creates a `yyork/<sessionId>` worktree off your default branch, launches the
-agent, and the dashboard updates live over server-sent events.
+`spawn` creates a `yyork/<sessionId>` worktree off your repo's default branch,
+launches the agent in a fresh Zellij session, and the session appears in the
+dashboard within milliseconds (live over SSE — no polling). From the dashboard
+you can open a live terminal, rename a session, jump into your IDE, and stop it.
 
-**`spawn` flags:** `--prompt` (required) · `--agent claude-code|codex` ·
-`--permissions default|accept-edits|auto|bypass-permissions` ·
-`--system-prompt-file <path>`
+> [!WARNING]
+> There's no in-app review or merge yet, and both `yyork stop` and a reboot
+> **delete the `yyork/<sessionId>` branch**. Push or merge before you stop — e.g.
+> have the agent run `git push -u origin yyork/<sessionId>` or `gh pr create`.
 
-State lives in `~/.yyork/` — `state.db` (running sessions) and
-`worktrees/<sessionId>/`.
+## Agents
 
-> **Capturing work:** there's no in-app review or merge yet, and both `stop` and
-> a reboot delete the `yyork/<sessionId>` branch. Push or merge before you stop —
-> have the agent run `git push -u origin yyork/<sessionId>` or `gh pr create`. (A
-> deleted branch is recoverable via `git reflog` for a while, but don't rely on it.)
+yyork drives real agent CLIs; choose one per session with `--agent`:
+
+- **claude-code** *(default)* — [Claude Code](https://www.claude.com/product/claude-code)
+- **codex** — [Codex](https://github.com/openai/codex)
+
+Other `spawn` flags:
+
+- `--prompt <text>` — the task for the agent *(required)*
+- `--permissions <mode>` — `default` | `accept-edits` | `auto` | `bypass-permissions`
+- `--system-prompt-file <path>` — a system prompt to launch the agent with
+
+## FAQ
+
+**How is this different from running Claude Code or Codex directly?**
+It's the layer around them. Those CLIs run one agent in your working tree; yyork
+runs many at once — each in an isolated worktree on its own branch — keeps them
+alive in Zellij, and gives you one dashboard to supervise the fleet. The agents
+themselves are unchanged.
+
+**Where does the work end up?**
+On the session's `yyork/<sessionId>` branch in your repo. Push or merge it before
+stopping the session (see the warning above).
+
+**Does anything leave my machine?**
+No. The server binds to `127.0.0.1` and all state is a SQLite file under
+`~/.yyork`. Your agent CLI talks to whatever model provider you've configured it
+with — yyork doesn't sit in the middle.
 
 ## Development
 
@@ -62,37 +100,14 @@ For dashboard work, run the dev stack instead of the binary — Vite serves with
 hot reload and proxies `/api` to the Go server:
 
 ```bash
-nix develop && pnpm install && yyork   # Vite dashboard on :3000 + Go API
+nix develop && pnpm install && yyork   # Vite on :3000 + Go API
 # or, without Nix:
 pnpm dev
 ```
 
-Set `VITE_PORT` in `web/.env` to change the dashboard port; if the backend port
-is taken, the launcher picks the next free one.
+Run `pnpm test` for the backend, CLI, and frontend tests, and `pnpm run` to list
+every script (including the `e2e:live-terminal` suite).
 
-## Project layout
+---
 
-- `cmd/yyork` — CLI entrypoint (`spawn`, `session list`, `stop`, bare server) + embedded dashboard
-- `internal/session` — the spawn engine: `Spawn` / `Stop` / `Reconcile`
-- `internal/server` — HTTP API, `/api/sessions`, the `/api/events` SSE stream
-- `internal/store` — SQLite store (`~/.yyork/state.db`) with goose migrations
-- `internal/durabilityprovider` — Zellij create / kill / attach
-- `internal/plugin/agent` — agent interface + the Claude Code and Codex plugins
-- `internal/worktree`, `internal/events` — per-session worktrees, in-process bus
-- `web` — React + Vite dashboard
-
-A session row exists in `state.db` exactly while the session is alive; liveness
-is derived by asking Zellij on read (plus a sweep at boot) — no polling.
-
-## Testing
-
-```bash
-pnpm test     # backend + CLI + frontend tests
-pnpm lint     # backend tests + frontend lint
-pnpm e2e      # Playwright e2e against the dashboard
-```
-
-`pnpm e2e:live-terminal` is a non-mutating, real-runtime terminal smoke test
-against a throwaway stack (it needs a live agent session with terminal support).
-Many variants exist — `:reuse`, `:reconnect`, `:soak`, `:switch`, `:watch`, and
-combinations — run `pnpm run` to list them.
+MIT © [yyopc](https://github.com/yyopc)
