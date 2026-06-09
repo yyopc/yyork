@@ -1,0 +1,5 @@
+Do you see the zellij statusline plugin is abnormally rendered?
+
+---
+
+run the rebuild and restart the server after rebuilding the server. Then you would have to spawn a new agent session using freshly built yyork as well. I just want to see the results.
