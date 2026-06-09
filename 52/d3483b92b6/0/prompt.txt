@@ -1,0 +1,10 @@
+I want you to work on the distribution part now.
+
+I want my users to be able to use following cmds to install yyork:
+
+- `nix profile add github:yyopc/yyork`
+- `npm i -g @yyopc/yyork`
+- `go install github.com/yyopc/yyork`
+for now.
+
+I'm not sure if the nix profill add cmd is correct though.
