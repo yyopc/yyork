@@ -19,15 +19,11 @@ coverage/
 dist/
 build/
 /yyork
+# Vite builds the dashboard into this dir for //go:embed; only .gitkeep is tracked.
+/cmd/yyork/dashboard/app/
 experiments/fang-cli/yyork-fang
 **/public/storybook/
 storybook-static
-
-# Embedded dashboard mirror (copied from web/dist/client/ by
-# scripts/copy-dashboard.mjs before `go build`). Only the .gitkeep is
-# committed; everything else is build output.
-cmd/yyork/dashboard/*
-!cmd/yyork/dashboard/.gitkeep
 
 # misc
 .DS_Store
@@ -91,6 +87,9 @@ app.config.timestamp_*.js
 .antigravitycli/
 .playwright-cli/
 .crush/
-crush.local.json
+crush.json
 
 .claude
+.codex
+opencode.json
+.cursor
