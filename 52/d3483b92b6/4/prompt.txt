@@ -1,0 +1,53 @@
+<codex_delegation>
+  <source_thread_id>019ea438-4636-7a71-a6de-5e31848db56e</source_thread_id>
+  <input>Design a fresh-context workflow for yyork that continuously tests the app in a loop, with the mindset of continuous penetration testing and continuous product QA. The user is worried about hidden landmines in the codebase and said token budget is unlimited, so be thorough and pragmatic.
+
+Goals:
+- Propose an end-to-end continuous verification system for yyork, not a one-off checklist.
+- Cover frontend, backend, WebSocket/terminal behavior, Portless/localhost routing, agent/session workflows, security/pentest-style probing, fuzz/property tests, browser automation, accessibility, performance, data/state durability, and regression detection.
+- Make it actionable for this repo: identify likely test layers, loop cadence, orchestration, artifacts, dashboards/reports, severity triage, and how agents should safely investigate failures.
+- Prefer root-cause surfacing and reproducible evidence over shallow pass/fail checks.
+- Think about how to avoid disrupting user worktrees/sessions while still testing aggressively.
+- Do not implement changes yet unless the user asks in that thread; first design the workflow and execution plan.
+
+Keep the design anchored to live repo inspection where useful, but preserve the fresh thread’s focus on architecture and workflow design.</input>
+</codex_delegation>
+
+---
+
+<codex_delegation>
+  <source_thread_id>019ea438-4636-7a71-a6de-5e31848db56e</source_thread_id>
+  <input>Additional user context for the continuous testing / continuous pentesting workflow design:
+
+The user clarified the target problem:
+- Agents introduce many inconsistencies into the codebase.
+- Some failures are just stale runtime artifacts: the server/browser is running an old binary or stale built asset; rebuild + restart fixes it. The workflow must detect stale-bin/stale-asset situations autonomously before humans waste time.
+- Other failures are real missed edge conditions: the implementing agent did not consider a path/state/host/worktree/session combination.
+- Other failures are architectural or product quality problems: poor design decisions, bad security assumptions, weak trust boundaries, confusing UI behavior, or unsafe defaults.
+- Today these are surfaced only after a human hits the problem in the app. The goal is autonomous discovery.
+
+Screenshot examples the user supplied:
+- Stop-session confirmation modal over a blurred running terminal/session UI. This implies workflows should test destructive-action modals, session termination semantics, confirmation copy, focus/keyboard behavior, and whether stale/running sessions are cleaned correctly.
+- Sidebar/settings area partially clipped/positioned near the viewport edge. This implies screenshot/layout checks for overflow, clipping, responsive viewport behavior, and visual consistency.
+- Zellij terminal running inside yyork with MCP startup errors, tips panel, status bars, and sidebar sessions. This implies terminal visual/state checks, startup error classification, MCP failure handling, and persistent session surface validation.
+
+Design the workflow around autonomous discovery of these categories, not just running existing tests. Think in terms of agents continuously generating hypotheses, exercising real app behavior, detecting stale runtime mismatches, reproducing with evidence, and filing actionable reports with severity and likely root cause. Do not implement yet; produce a pragmatic workflow architecture and rollout plan.</input>
+</codex_delegation>
+
+---
+
+<codex_delegation>
+  <source_thread_id>019ea438-4636-7a71-a6de-5e31848db56e</source_thread_id>
+  <input>Visual references for the continuous QA / autonomous landmine discovery workflow:
+
+Live captured yyork/Zellij session screenshot:
+![yyork Zellij session visual reference](/Users/tanishqpalandurkar/.codex/visual-refs/yyork/continuous-qa-zellij-session.png)
+
+Use this image as concrete visual evidence for terminal/session-state checks: MCP startup errors, Codex card rendering, sidebar session list, status bars, Zellij tip overlay, viewport sizing, and whether terminal canvas/panel UI is visually sane.
+
+The user also attached two earlier screenshots in the source thread that are not exposed to this thread tool as raw file blobs, so preserve them as visual test targets:
+1. Stop-session confirmation modal over a blurred running terminal/session UI. Target checks: destructive-action modal semantics, copy, keyboard/focus behavior, cancel vs stop behavior, worktree/session cleanup, background blur/overlay, and no accidental destructive action.
+2. Bottom-left settings/shortcuts/sidebar area clipped near the viewport edge. Target checks: layout overflow, viewport-edge clipping, sidebar footer positioning, responsive constraints, and whether controls remain reachable/readable.
+
+Treat these as visual-regression seeds. The workflow should learn from screenshots like these, turn them into reproducible checks, and then continuously search for similar failures autonomously.</input>
+</codex_delegation>
