@@ -4,6 +4,10 @@
 <h1 align="center">yyork</h1>
 <p align="center">Run a fleet of AI coding agents in parallel — each in its own durable, isolated workspace.</p>
 
+<p align="center">
+  <img src="yyork-light.png#gh-light-mode-only" alt="yyork dashboard showing parallel AI coding agents in isolated workspaces" width="100%" />
+  <img src="yyork-dark.png#gh-dark-mode-only" alt="yyork dashboard showing parallel AI coding agents in isolated workspaces" width="100%" />
+</p>
 
 ---
 
