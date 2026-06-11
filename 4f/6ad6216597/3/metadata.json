@@ -1,0 +1,41 @@
+{
+  "cli_version": "0.7.5",
+  "checkpoint_id": "4f6ad6216597",
+  "session_id": "019ea438-4636-7a71-a6de-5e31848db56e",
+  "strategy": "manual-commit",
+  "created_at": "2026-06-11T14:12:54.459555Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "pnpm-lock.yaml",
+    "web/package.json",
+    "web/src/features/home/components/molecules/canvas-web-preview.tsx",
+    "web/src/features/home/components/organisms/canvas-panel.tsx",
+    "web/src/features/home/components/organisms/main-topbar.tsx"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "d1ed6a8e3a39",
+  "token_usage": {
+    "input_tokens": 1711057,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 43593088,
+    "output_tokens": 133380,
+    "api_call_count": 305
+  },
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-06-11T14:12:54.248731Z",
+    "agent_lines": 2148,
+    "agent_removed": 364,
+    "human_added": 2290,
+    "human_modified": 5,
+    "human_removed": 0,
+    "total_committed": 4443,
+    "total_lines_changed": 4953,
+    "agent_percentage": 50.716737330910554,
+    "metric_version": 2
+  }
+}
