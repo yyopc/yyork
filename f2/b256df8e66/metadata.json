@@ -3,7 +3,7 @@
   "checkpoint_id": "f2b256df8e66",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 1,
+  "checkpoints_count": 2,
   "files_touched": [
     "api/generate-workspace-contract.go",
     "go.mod",
@@ -47,13 +47,19 @@
       "transcript": "/f2/b256df8e66/0/full.jsonl",
       "content_hash": "/f2/b256df8e66/0/content_hash.txt",
       "prompt": "/f2/b256df8e66/0/prompt.txt"
+    },
+    {
+      "metadata": "/f2/b256df8e66/1/metadata.json",
+      "transcript": "/f2/b256df8e66/1/full.jsonl",
+      "content_hash": "/f2/b256df8e66/1/content_hash.txt",
+      "prompt": "/f2/b256df8e66/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 358139,
+    "input_tokens": 2620958,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 19448832,
-    "output_tokens": 46990,
-    "api_call_count": 125
+    "cache_read_tokens": 81828352,
+    "output_tokens": 216538,
+    "api_call_count": 533
   }
 }

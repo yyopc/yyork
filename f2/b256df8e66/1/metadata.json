@@ -1,0 +1,61 @@
+{
+  "cli_version": "0.7.5",
+  "checkpoint_id": "f2b256df8e66",
+  "session_id": "019ea0c8-7da5-7ec0-a430-f257a9abd2bd",
+  "strategy": "manual-commit",
+  "created_at": "2026-06-11T13:19:21.673834Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "internal/plugin/agent/codex/codex_test.go",
+    "internal/plugin/agent/codex/hooks.go",
+    "internal/server/server.go"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "e7909791f66d",
+  "token_usage": {
+    "input_tokens": 2262819,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 62379520,
+    "output_tokens": 169548,
+    "api_call_count": 408
+  },
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 97,
+      "user_lines_removed": 44,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "internal/plugin/agent/codex/codex_test.go": 44,
+        "internal/plugin/agent/codex/hooks.go": 51,
+        "web/src/features/home/components/molecules/canvas-web-preview.tsx": 1,
+        "web/src/features/home/domain/session-workspace.ts": 1
+      },
+      "user_removed_per_file": {
+        "internal/plugin/agent/codex/hooks.go": 42,
+        "web/src/features/home/components/molecules/canvas-web-preview.tsx": 1,
+        "web/src/features/home/domain/session-workspace.ts": 1
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 73,
+      "user_lines_removed": 6,
+      "agent_lines_added": 3932,
+      "agent_lines_removed": 1428,
+      "user_added_per_file": {
+        "internal/durabilityprovider/zellij_lifecycle.go": 23,
+        "internal/durabilityprovider/zellij_lifecycle_env_test.go": 50
+      },
+      "user_removed_per_file": {
+        "internal/durabilityprovider/zellij_lifecycle.go": 6
+      }
+    }
+  ]
+}
