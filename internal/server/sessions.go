@@ -80,10 +80,9 @@ func metadataString(metadata map[string]any, key string) string {
 }
 
 // handleStopSession terminates the session identified by the {sessionID}
-// path parameter. It calls the engine's Stop method, which kills the
-// zellij session, removes the worktree, deletes the store row, and
-// publishes a session.terminated event — so the dashboard's SSE stream
-// automatically refreshes.
+// path parameter. The configured stopper owns the actual backend behavior;
+// in the app this is session.Engine, which kills Zellij, removes the worktree,
+// deletes the store row, and publishes session.terminated.
 func (s *Server) handleStopSession(w http.ResponseWriter, r *http.Request) {
 	if s.stopper == nil {
 		http.Error(w, "session stop not available", http.StatusNotImplemented)
@@ -116,10 +115,8 @@ type renameRequest struct {
 }
 
 // handleRenameSession sets (or clears) the user-facing display name for a
-// session by shallow-merging a `displayName` field into the store metadata
-// blob. The store is yyork-owned, so this write never races the orchestrator's
-// own session files. On success it publishes a session.updated event so every
-// open dashboard refreshes via SSE.
+// session by updating the SQLite metadata row. On success it publishes a
+// session.updated event so every open dashboard refreshes via SSE.
 func (s *Server) handleRenameSession(w http.ResponseWriter, r *http.Request) {
 	if s.sessions == nil {
 		http.Error(w, "session store unavailable", http.StatusServiceUnavailable)
@@ -141,12 +138,14 @@ func (s *Server) handleRenameSession(w http.ResponseWriter, r *http.Request) {
 	displayName := truncateRunes(strings.TrimSpace(payload.DisplayName), displayNameMaxLen)
 
 	ctx := r.Context()
-	if err := s.sessions.MergeMetadata(ctx, sessionID, map[string]any{
+	err := s.sessions.MergeMetadata(ctx, sessionID, map[string]any{
 		"displayName": displayName,
-	}); errors.Is(err, store.ErrSessionNotFound) {
+	})
+	if errors.Is(err, store.ErrSessionNotFound) {
 		http.Error(w, "session not found", http.StatusNotFound)
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -177,9 +176,9 @@ func truncateRunes(s string, max int) string {
 	return string(runes[:max])
 }
 
-// handleListSessions returns the running sessions tracked in SQLite. When
-// the optional `project` query param is set, results are filtered to that
-// project's absolute path.
+// handleListSessions returns the running sessions tracked in SQLite. The home
+// workspace uses /api/workspace for the richer project/orchestrator shape; this
+// endpoint remains for legacy callers and direct session-row reads.
 func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) {
 	if s.sessions == nil {
 		writeJSON(w, http.StatusOK, []sessionDTO{})

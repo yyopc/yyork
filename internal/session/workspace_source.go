@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"time"
 
 	"github.com/yyopc/yyork/internal/store"
+	"github.com/yyopc/yyork/internal/zellijconfig"
 )
 
 // StoreWorkspaceSource adapts the SQLite-backed session store into the
@@ -13,7 +16,11 @@ import (
 // still consumes. Every row in the store becomes one WorkerSession with
 // AttachCommand wired to `zellij attach <name>` so the browser terminal
 // can connect without any additional plumbing.
-//
+type projectMeta struct {
+	project Project
+	addedAt time.Time
+}
+
 // Unique project_path values across the row set become Projects. The
 // active project is the first one we see (the rows are ordered by
 // created_at DESC, so this is the most recent project).
@@ -33,8 +40,14 @@ func (s *StoreWorkspaceSource) Workspace(ctx context.Context) (Workspace, error)
 		return Workspace{}, fmt.Errorf("session: list rows: %w", err)
 	}
 
+	// configPath selects yyork's color theme on the attach invocation. Best-
+	// effort: an empty path just means the terminal attaches with the user's
+	// own zellij config instead of the yyork theme. Resolved once per build.
+	configPath, _ := zellijconfig.Ensure()
+
+	orchestrators := make([]Session, 0)
 	sessions := make([]Session, 0, len(rows))
-	projectIndex := map[string]Project{}
+	projectIndex := map[string]projectMeta{}
 	activeProjectID := ""
 
 	for _, row := range rows {
@@ -46,29 +59,50 @@ func (s *StoreWorkspaceSource) Workspace(ctx context.Context) (Workspace, error)
 		if project.Name == "" {
 			project.Name = basename(row.ProjectPath)
 		}
-		if _, seen := projectIndex[project.ID]; !seen {
-			projectIndex[project.ID] = project
+		existing, seen := projectIndex[project.ID]
+		if !seen || (!row.CreatedAt.IsZero() && (existing.addedAt.IsZero() || row.CreatedAt.Before(existing.addedAt))) {
+			projectIndex[project.ID] = projectMeta{
+				project: project,
+				addedAt: row.CreatedAt,
+			}
 			if activeProjectID == "" {
 				activeProjectID = project.ID
 			}
 		}
 
-		sessions = append(sessions, toLegacySession(row))
+		legacySession := toLegacySession(row, configPath)
+		if legacySession.Kind == KindOrchestrator {
+			orchestrators = append(orchestrators, legacySession)
+			continue
+		}
+		sessions = append(sessions, legacySession)
 	}
 
-	projects := make([]Project, 0, len(projectIndex))
+	projects := make([]projectMeta, 0, len(projectIndex))
 	for _, p := range projectIndex {
 		projects = append(projects, p)
+	}
+	sort.SliceStable(projects, func(i, j int) bool {
+		if !projects[i].addedAt.Equal(projects[j].addedAt) {
+			return projects[i].addedAt.Before(projects[j].addedAt)
+		}
+		return projects[i].project.Name < projects[j].project.Name
+	})
+
+	orderedProjects := make([]Project, 0, len(projects))
+	for _, project := range projects {
+		orderedProjects = append(orderedProjects, project.project)
 	}
 
 	return Workspace{
 		ActiveProjectID: activeProjectID,
-		Projects:        projects,
+		Orchestrators:   orchestrators,
+		Projects:        orderedProjects,
 		Sessions:        sessions,
 	}, nil
 }
 
-func toLegacySession(row store.Session) Session {
+func toLegacySession(row store.Session, configPath string) Session {
 	prompt := stringField(row.Metadata, "prompt")
 	title := stringField(row.Metadata, "title")
 	recap := stringField(row.Metadata, "recap")
@@ -97,15 +131,16 @@ func toLegacySession(row store.Session) Session {
 		resolvedTitle = "new agent: " + row.ID
 	}
 	title = resolvedTitle
+	kind := rowKind(row.Metadata)
 
 	return Session{
 		ID:                row.ID,
 		AgentPluginID:     row.AgentPlugin,
 		Agent:             row.AgentPlugin,
-		AttachCommand:     []string{"zellij", "attach", row.ZellijSession},
+		AttachCommand:     zellijAttachCommand(configPath, row.ZellijSession),
 		CWD:               row.WorkspacePath,
 		Description:       recap,
-		Kind:              KindWorker,
+		Kind:              kind,
 		Metadata:          metadataJSON,
 		Project:           row.ProjectPath,
 		Recap:             recap,
@@ -116,6 +151,30 @@ func toLegacySession(row store.Session) Session {
 		WorkerID:          row.ID,
 		ZellijSession:     row.ZellijSession,
 	}
+}
+
+func rowKind(metadata map[string]any) Kind {
+	for _, key := range []string{"kind", "role"} {
+		switch stringField(metadata, key) {
+		case string(KindOrchestrator):
+			return KindOrchestrator
+		case string(KindWorker):
+			return KindWorker
+		}
+	}
+	return KindWorker
+}
+
+// zellijAttachCommand builds the command the browser terminal runs to attach
+// to a session. When configPath is non-empty it is passed as `--config` so
+// the session renders with yyork's color theme; zellij applies a theme from
+// the attaching client's config, so this is the invocation that governs what
+// the user actually sees.
+func zellijAttachCommand(configPath, sessionName string) []string {
+	if configPath == "" {
+		return []string{"zellij", "attach", sessionName}
+	}
+	return []string{"zellij", "--config", configPath, "attach", sessionName}
 }
 
 func stringField(m map[string]any, key string) string {

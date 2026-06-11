@@ -23,9 +23,12 @@ import (
 	"github.com/yyopc/yyork/internal/worktree"
 )
 
+const defaultAgentPlugin = "claude-code"
+
 type Config struct {
 	Addr        string
 	OpenBrowser bool
+	ProjectPath string
 
 	// WebDir is a filesystem path the server serves the dashboard from.
 	// Used in development; takes priority over WebFS when set.
@@ -36,6 +39,16 @@ type Config struct {
 	// builds. If WebDir is empty and WebFS contains an index.html, the
 	// server serves the dashboard from the embed.
 	WebFS fs.FS
+
+	// OnListen, when set, is called once with the bound listener address
+	// immediately after the listener is created and before it begins
+	// serving. `yyork dev` passes Addr ":0" and uses this to learn the
+	// OS-assigned API port so it can point Vite's proxy at it.
+	OnListen func(net.Addr)
+
+	// SuppressBanner skips the server's startup banner. `yyork dev` sets
+	// this and prints its own combined web+backend banner instead.
+	SuppressBanner bool
 }
 
 func Run(ctx context.Context, cfg Config) error {
@@ -60,11 +73,12 @@ func Run(ctx context.Context, cfg Config) error {
 
 	bus := events.NewBus()
 	engine, err := session.NewEngine(session.EngineConfig{
-		Repo:     dataStore.Sessions(),
-		Worktree: worktree.New(),
-		Provider: durabilityprovider.NewZellijProvider(),
-		Plugins:  registry,
-		Bus:      bus,
+		Repo:         dataStore.Sessions(),
+		Worktree:     worktree.New(),
+		Provider:     durabilityprovider.NewZellijProvider(),
+		Plugins:      registry,
+		Bus:          bus,
+		DefaultAgent: defaultAgentPlugin,
 	})
 	if err != nil {
 		return err
@@ -78,9 +92,24 @@ func Run(ctx context.Context, cfg Config) error {
 		slog.Warn("session reconcile-all on boot failed", "error", err)
 	}
 
+	if cfg.ProjectPath != "" {
+		orchestrator, created, err := engine.EnsureOrchestrator(ctx, session.SpawnRequest{
+			ProjectPath: cfg.ProjectPath,
+		})
+		if err != nil {
+			return err
+		}
+		if created {
+			slog.Info("spawned project orchestrator", "project", cfg.ProjectPath, "session", orchestrator.ID)
+		}
+	}
+
 	listener, err := net.Listen("tcp", cfg.Addr)
 	if err != nil {
 		return err
+	}
+	if cfg.OnListen != nil {
+		cfg.OnListen(listener.Addr())
 	}
 
 	// Advertise this server in the runfile so out-of-process CLI commands
@@ -111,11 +140,8 @@ func Run(ctx context.Context, cfg Config) error {
 		Registry: registry,
 		WebDir:   cfg.WebDir,
 		WebFS:    cfg.WebFS,
-		// The workspace source the server's existing terminal-attach
-		// pipeline reads from is now backed by the SQLite store rather
-		// than the legacy ~/.agent-orchestrator/ reader. yyork spawns
-		// its own sessions; they appear in the dashboard via the same
-		// pipeline that already powers browser terminal attach.
+		// The dashboard reads yyork's own session store. Orchestrators and
+		// workers are both yyork-owned rows backed by Zellij sessions.
 		WorkspaceSource: session.NewStoreWorkspaceSource(dataStore.Sessions()),
 		Sessions:        dataStore.Sessions(),
 		Stopper:         engine,
@@ -148,10 +174,12 @@ func Run(ctx context.Context, cfg Config) error {
 	}()
 
 	url := "http://" + listener.Addr().String()
-	logging.Banner(os.Stderr, "yyork", [][2]string{
-		{"server", url},
-		{"store", dbPath},
-	})
+	if !cfg.SuppressBanner {
+		logging.Banner(os.Stderr, "yyork", [][2]string{
+			{"server", url},
+			{"store", dbPath},
+		})
+	}
 
 	if cfg.OpenBrowser {
 		if err := openURL(url); err != nil {

@@ -50,7 +50,7 @@ type Workspace struct {
 }
 
 func (w Workspace) Session(id string) (Session, bool) {
-	for _, session := range w.Sessions {
+	for _, session := range w.allTerminalSessions() {
 		if session.ID == id {
 			return session, true
 		}
@@ -60,11 +60,16 @@ func (w Workspace) Session(id string) (Session, bool) {
 }
 
 func (w Workspace) ProjectSession(projectID string, id string) (Session, bool) {
-	for _, session := range w.Sessions {
+	for _, session := range w.allTerminalSessions() {
 		if session.Project == projectID && session.ID == id {
 			return session, true
 		}
 	}
 
 	return Session{}, false
+}
+
+func (w Workspace) allTerminalSessions() []Session {
+	sessions := append([]Session{}, w.Sessions...)
+	return append(sessions, w.Orchestrators...)
 }

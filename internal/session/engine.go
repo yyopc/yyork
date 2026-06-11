@@ -196,6 +196,13 @@ type SpawnRequest struct {
 	// agent's `--`/positional argument in most plugins).
 	Prompt string
 
+	// Kind distinguishes worker sessions from project orchestrators. Empty
+	// defaults to worker.
+	Kind Kind
+
+	// SystemPrompt is inline system/developer instruction text. Optional.
+	SystemPrompt string
+
 	// SystemPromptFile is the path to a file containing the orchestrator
 	// agent's system prompt. Optional.
 	SystemPromptFile string
@@ -237,6 +244,19 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 	if permissions == "" {
 		permissions = e.defaultPermissions
 	}
+	kind := req.Kind
+	if kind == "" {
+		kind = KindWorker
+	}
+	systemPrompt := req.SystemPrompt
+	if strings.TrimSpace(systemPrompt) == "" && strings.TrimSpace(req.SystemPromptFile) == "" {
+		switch kind {
+		case KindOrchestrator:
+			systemPrompt = DefaultOrchestratorSystemPrompt()
+		case KindWorker:
+			systemPrompt = DefaultWorkerSystemPrompt()
+		}
+	}
 
 	baseRef, err := e.worktree.BaseRef(ctx, req.ProjectPath)
 	if err != nil {
@@ -258,6 +278,7 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 		Permissions:      permissions,
 		Prompt:           req.Prompt,
 		SessionID:        id,
+		SystemPrompt:     systemPrompt,
 		SystemPromptFile: req.SystemPromptFile,
 		WorkspacePath:    workspacePath,
 	}
@@ -298,6 +319,11 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 		// and keeps plugin-specific fields beside it.
 		metadata["prompt"] = req.Prompt
 	}
+	metadata["kind"] = string(kind)
+	metadata["role"] = string(kind)
+	if kind == KindOrchestrator {
+		metadata["title"] = "Orchestrator"
+	}
 	sess := store.Session{
 		ID:            id,
 		ProjectPath:   req.ProjectPath,
@@ -319,7 +345,11 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 		Name:      id,
 		LaunchCmd: launchCmd,
 		Cwd:       workspacePath,
-		Env:       map[string]string{"YYORK_SESSION_ID": id},
+		Env: map[string]string{
+			"YYORK_PROJECT_PATH": req.ProjectPath,
+			"YYORK_SESSION_ID":   id,
+			"YYORK_SESSION_KIND": string(kind),
+		},
 	}); err != nil {
 		_ = e.repo.Delete(ctx, id)
 		e.rollbackWorktree(ctx, req.ProjectPath, workspacePath, branchName)
@@ -328,6 +358,35 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 
 	e.bus.Publish(events.NewSessionCreated(id))
 	return sess, nil
+}
+
+// EnsureOrchestrator returns the existing live orchestrator for projectPath, or
+// spawns one when none is present. ReconcileAll should run before this method
+// so dead Zellij sessions have already been removed from the store.
+func (e *Engine) EnsureOrchestrator(ctx context.Context, req SpawnRequest) (store.Session, bool, error) {
+	if strings.TrimSpace(req.ProjectPath) == "" {
+		return store.Session{}, false, errors.New("session.EnsureOrchestrator: ProjectPath is required")
+	}
+	if !filepath.IsAbs(req.ProjectPath) {
+		return store.Session{}, false, fmt.Errorf("session.EnsureOrchestrator: ProjectPath must be absolute, got %q", req.ProjectPath)
+	}
+
+	rows, err := e.repo.ListByProject(ctx, req.ProjectPath)
+	if err != nil {
+		return store.Session{}, false, fmt.Errorf("session.EnsureOrchestrator: list project sessions: %w", err)
+	}
+	for _, row := range rows {
+		if rowKind(row.Metadata) == KindOrchestrator {
+			return row, false, nil
+		}
+	}
+
+	req.Kind = KindOrchestrator
+	sess, err := e.Spawn(ctx, req)
+	if err != nil {
+		return store.Session{}, false, err
+	}
+	return sess, true, nil
 }
 
 // Stop terminates the session with the given id: kills its zellij session,

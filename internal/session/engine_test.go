@@ -127,10 +127,11 @@ func (f *fakeProvider) ListSessionNames(_ context.Context) ([]string, error) {
 
 // fakeAgent is a minimal agent.Agent + plugin.Plugin used only for tests.
 type fakeAgent struct {
-	launchCmd []string
-	launchErr error
-	hooksErr  error
-	hookCalls []pluginagent.WorkspaceHookConfig
+	launchCmd   []string
+	launchErr   error
+	hooksErr    error
+	launchCalls []pluginagent.LaunchConfig
+	hookCalls   []pluginagent.WorkspaceHookConfig
 }
 
 func (f *fakeAgent) Manifest() plugin.Manifest {
@@ -139,7 +140,8 @@ func (f *fakeAgent) Manifest() plugin.Manifest {
 func (f *fakeAgent) GetConfigSpec(context.Context) (pluginagent.ConfigSpec, error) {
 	return pluginagent.ConfigSpec{}, nil
 }
-func (f *fakeAgent) GetLaunchCommand(_ context.Context, _ pluginagent.LaunchConfig) ([]string, error) {
+func (f *fakeAgent) GetLaunchCommand(_ context.Context, cfg pluginagent.LaunchConfig) ([]string, error) {
+	f.launchCalls = append(f.launchCalls, cfg)
 	if f.launchErr != nil {
 		return nil, f.launchErr
 	}
@@ -282,6 +284,9 @@ func TestSpawnHappyPath(t *testing.T) {
 	if got.ID != sess.ID {
 		t.Errorf("row ID = %q, want %q", got.ID, sess.ID)
 	}
+	if got.Metadata["kind"] != "worker" {
+		t.Errorf("row metadata kind = %v, want worker", got.Metadata["kind"])
+	}
 
 	// Provider was asked to create.
 	if len(h.provider.createCalls) != 1 {
@@ -297,6 +302,12 @@ func TestSpawnHappyPath(t *testing.T) {
 	}
 	if created.Env["YYORK_SESSION_ID"] != sess.ID {
 		t.Errorf("env[YYORK_SESSION_ID] = %q, want %q", created.Env["YYORK_SESSION_ID"], sess.ID)
+	}
+	if created.Env["YYORK_PROJECT_PATH"] != "/tmp/proj" {
+		t.Errorf("env[YYORK_PROJECT_PATH] = %q, want /tmp/proj", created.Env["YYORK_PROJECT_PATH"])
+	}
+	if created.Env["YYORK_SESSION_KIND"] != "worker" {
+		t.Errorf("env[YYORK_SESSION_KIND] = %q, want worker", created.Env["YYORK_SESSION_KIND"])
 	}
 
 	// Worktree was created at the expected path.
@@ -327,6 +338,128 @@ func TestSpawnHappyPath(t *testing.T) {
 	}
 	if events[0].Payload["id"] != sess.ID {
 		t.Errorf("event id = %q, want %q", events[0].Payload["id"], sess.ID)
+	}
+}
+
+func TestSpawnOrchestratorPersistsKindAndSystemPrompt(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	ctx := context.Background()
+
+	sess, err := h.engine.Spawn(ctx, session.SpawnRequest{
+		Kind:         session.KindOrchestrator,
+		ProjectPath:  "/tmp/proj",
+		Prompt:       "coordinate the work",
+		SystemPrompt: "orchestrate workers",
+	})
+	if err != nil {
+		t.Fatalf("Spawn: %v", err)
+	}
+
+	got, err := h.repo.Get(ctx, sess.ID)
+	if err != nil {
+		t.Fatalf("Get after spawn: %v", err)
+	}
+	if got.Metadata["kind"] != "orchestrator" {
+		t.Errorf("row metadata kind = %v, want orchestrator", got.Metadata["kind"])
+	}
+	if got.Metadata["role"] != "orchestrator" {
+		t.Errorf("row metadata role = %v, want orchestrator", got.Metadata["role"])
+	}
+	if got.Metadata["title"] != "Orchestrator" {
+		t.Errorf("row metadata title = %v, want Orchestrator", got.Metadata["title"])
+	}
+
+	if len(h.agent.launchCalls) != 1 {
+		t.Fatalf("launchCalls = %d, want 1", len(h.agent.launchCalls))
+	}
+	if h.agent.launchCalls[0].SystemPrompt != "orchestrate workers" {
+		t.Errorf("launch SystemPrompt = %q, want orchestrate workers", h.agent.launchCalls[0].SystemPrompt)
+	}
+	if len(h.provider.createCalls) != 1 {
+		t.Fatalf("createCalls = %d, want 1", len(h.provider.createCalls))
+	}
+	if h.provider.createCalls[0].Env["YYORK_SESSION_KIND"] != "orchestrator" {
+		t.Errorf("env[YYORK_SESSION_KIND] = %q, want orchestrator", h.provider.createCalls[0].Env["YYORK_SESSION_KIND"])
+	}
+}
+
+func TestSpawnOrchestratorUsesDefaultSystemPrompt(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	ctx := context.Background()
+
+	_, err := h.engine.Spawn(ctx, session.SpawnRequest{
+		Kind:        session.KindOrchestrator,
+		ProjectPath: "/tmp/proj",
+		Prompt:      "coordinate the work",
+	})
+	if err != nil {
+		t.Fatalf("Spawn: %v", err)
+	}
+
+	if len(h.agent.launchCalls) != 1 {
+		t.Fatalf("launchCalls = %d, want 1", len(h.agent.launchCalls))
+	}
+	if h.agent.launchCalls[0].SystemPrompt != session.DefaultOrchestratorSystemPrompt() {
+		t.Fatalf("launch SystemPrompt = %q, want default orchestrator prompt", h.agent.launchCalls[0].SystemPrompt)
+	}
+}
+
+func TestSpawnWorkerUsesDefaultSystemPrompt(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	ctx := context.Background()
+
+	_, err := h.engine.Spawn(ctx, session.SpawnRequest{
+		Kind:        session.KindWorker,
+		ProjectPath: "/tmp/proj",
+		Prompt:      "do the work",
+	})
+	if err != nil {
+		t.Fatalf("Spawn: %v", err)
+	}
+
+	if len(h.agent.launchCalls) != 1 {
+		t.Fatalf("launchCalls = %d, want 1", len(h.agent.launchCalls))
+	}
+	if h.agent.launchCalls[0].SystemPrompt != session.DefaultWorkerSystemPrompt() {
+		t.Fatalf("launch SystemPrompt = %q, want default worker prompt", h.agent.launchCalls[0].SystemPrompt)
+	}
+}
+
+func TestEnsureOrchestratorSpawnsOnlyWhenMissing(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	ctx := context.Background()
+
+	first, created, err := h.engine.EnsureOrchestrator(ctx, session.SpawnRequest{
+		ProjectPath: "/tmp/proj",
+	})
+	if err != nil {
+		t.Fatalf("first EnsureOrchestrator: %v", err)
+	}
+	if !created {
+		t.Fatal("first EnsureOrchestrator created = false, want true")
+	}
+	if len(h.provider.createCalls) != 1 {
+		t.Fatalf("createCalls after first ensure = %d, want 1", len(h.provider.createCalls))
+	}
+
+	second, created, err := h.engine.EnsureOrchestrator(ctx, session.SpawnRequest{
+		ProjectPath: "/tmp/proj",
+	})
+	if err != nil {
+		t.Fatalf("second EnsureOrchestrator: %v", err)
+	}
+	if created {
+		t.Fatal("second EnsureOrchestrator created = true, want false")
+	}
+	if second.ID != first.ID {
+		t.Fatalf("second EnsureOrchestrator ID = %q, want %q", second.ID, first.ID)
+	}
+	if len(h.provider.createCalls) != 1 {
+		t.Fatalf("createCalls after second ensure = %d, want still 1", len(h.provider.createCalls))
 	}
 }
 
