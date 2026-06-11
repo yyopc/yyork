@@ -144,6 +144,9 @@ func TestGetAgentHooksInstallsCodexHooks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if strings.Contains(string(data), "cmd/yyork") {
+		t.Fatalf("hook command still points at deleted cmd/yyork package: %s", data)
+	}
 	var config codexHookFile
 	if err := json.Unmarshal(data, &config); err != nil {
 		t.Fatal(err)
@@ -168,6 +171,53 @@ func TestGetAgentHooksInstallsCodexHooks(t *testing.T) {
 	}
 	if !strings.Contains(string(configData), codexHooksFeatureLine) {
 		t.Fatalf("config.toml missing hooks feature flag: %s", configData)
+	}
+}
+
+func TestGetAgentHooksReplacesStaleManagedCodexHooks(t *testing.T) {
+	plugin := &Plugin{resolvedBinary: "codex"}
+	workspace := t.TempDir()
+	hooksPath := filepath.Join(workspace, ".codex", "hooks.json")
+	if err := os.MkdirAll(filepath.Dir(hooksPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	existing := `{"hooks":{"SessionStart":[{"matcher":null,"hooks":[{"type":"command","command":"entire hooks codex session-start","timeout":30}]}],"Stop":[{"matcher":null,"hooks":[{"type":"command","command":"entire hooks codex stop","timeout":30},{"type":"command","command":"custom stop hook","timeout":3}]}],"UserPromptSubmit":[{"matcher":null,"hooks":[{"type":"command","command":"entire hooks codex user-prompt-submit","timeout":30}]}]}}`
+	if err := os.WriteFile(hooksPath, []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := agent.WorkspaceHookConfig{
+		DataDir:       t.TempDir(),
+		SessionID:     "sess-1",
+		WorkspacePath: workspace,
+	}
+	if err := plugin.GetAgentHooks(context.Background(), cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(hooksPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "entire hooks codex") {
+		t.Fatalf("stale managed hook command was preserved: %s", data)
+	}
+	if strings.Contains(string(data), "cmd/yyork") {
+		t.Fatalf("replacement hook command still points at deleted cmd/yyork package: %s", data)
+	}
+
+	var config codexHookFile
+	if err := json.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	for _, spec := range codexManagedHooks {
+		entries := config.Hooks[spec.Event]
+		if count := countCodexHookCommand(entries, spec.Command); count != 1 {
+			t.Fatalf("%s command count = %d, want 1 in %#v", spec.Event, count, entries)
+		}
+	}
+	if countCodexHookCommand(config.Hooks["Stop"], "custom stop hook") != 1 {
+		t.Fatalf("existing Stop hook was not preserved: %#v", config.Hooks["Stop"])
 	}
 }
 

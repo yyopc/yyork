@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/yyopc/yyork/internal/plugin/agent"
+	"github.com/yyopc/yyork/internal/plugin/agent/hookexec"
 )
 
 const (
@@ -83,11 +83,10 @@ func (p *Plugin) GetAgentHooks(ctx context.Context, cfg agent.WorkspaceHookConfi
 		if err := parseCodexHookType(rawHooks, event, &existingGroups); err != nil {
 			return fmt.Errorf("codex.GetAgentHooks: %w", err)
 		}
+		existingGroups = removeCodexManagedHooks(existingGroups)
 		for _, spec := range specs {
-			if !codexHookCommandExists(existingGroups, spec.Command) {
-				entry := codexHookEntry{Type: "command", Command: spec.Command, Timeout: codexHookTimeout}
-				existingGroups = addCodexHook(existingGroups, entry)
-			}
+			entry := codexHookEntry{Type: "command", Command: spec.Command, Timeout: codexHookTimeout}
+			existingGroups = addCodexHook(existingGroups, entry)
 		}
 		if err := marshalCodexHookType(rawHooks, event, existingGroups); err != nil {
 			return fmt.Errorf("codex.GetAgentHooks: %w", err)
@@ -270,25 +269,7 @@ func codexHookCommand(event string) string {
 }
 
 func yyorkHookExecutable() string {
-	executable, err := os.Executable()
-	if err != nil || strings.TrimSpace(executable) == "" {
-		return "yyork"
-	}
-	if strings.Contains(executable, "go-build") {
-		cwd, err := os.Getwd()
-		if err != nil || strings.TrimSpace(cwd) == "" {
-			return "go run ./cmd/yyork"
-		}
-		if direnv, err := exec.LookPath("direnv"); err == nil {
-			return shellQuote(direnv) + " exec " + shellQuote(cwd) + " go run ./cmd/yyork"
-		}
-		return "go run ./cmd/yyork"
-	}
-	return shellQuote(executable)
-}
-
-func shellQuote(value string) string {
-	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
+	return hookexec.Executable()
 }
 
 // removeCodexManagedHooks strips yyork hook entries from every group,
@@ -332,34 +313,6 @@ func marshalCodexHookType(rawHooks map[string]json.RawMessage, event string, gro
 	}
 	rawHooks[event] = data
 	return nil
-}
-
-func codexHookCommandExists(groups []codexMatcherGroup, command string) bool {
-	for _, group := range groups {
-		for _, hook := range group.Hooks {
-			if sameCodexHookCommand(hook.Command, command) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func sameCodexHookCommand(a, b string) bool {
-	if a == b {
-		return true
-	}
-	return codexHookCommandSuffix(a) != "" && codexHookCommandSuffix(a) == codexHookCommandSuffix(b)
-}
-
-func codexHookCommandSuffix(command string) string {
-	if strings.HasPrefix(command, codexLegacyHookCommandPrefix) {
-		return strings.TrimPrefix(command, "yyork ")
-	}
-	if idx := strings.Index(command, codexHookCommandInfix); idx >= 0 {
-		return strings.TrimSpace(command[idx+1:])
-	}
-	return ""
 }
 
 func addCodexHook(groups []codexMatcherGroup, hook codexHookEntry) []codexMatcherGroup {

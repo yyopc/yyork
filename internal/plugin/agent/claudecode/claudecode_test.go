@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -181,6 +182,9 @@ func TestGetAgentHooksInstallsClaudeHooks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if strings.Contains(string(data), "cmd/yyork") {
+		t.Fatalf("hook command still points at deleted cmd/yyork package: %s", data)
+	}
 	var config struct {
 		Hooks       map[string][]claudeMatcherGroup `json:"hooks"`
 		Permissions json.RawMessage                 `json:"permissions"`
@@ -212,6 +216,51 @@ func TestGetAgentHooksInstallsClaudeHooks(t *testing.T) {
 	}
 	if m := matcherForCommand(config.Hooks["UserPromptSubmit"], claudeHookCommand("user-prompt-submit")); m != nil {
 		t.Fatalf("UserPromptSubmit matcher = %v, want none", m)
+	}
+}
+
+func TestGetAgentHooksReplacesStaleManagedClaudeHooks(t *testing.T) {
+	p := &Plugin{resolvedBinary: "claude"}
+	workspace := t.TempDir()
+	settingsPath := filepath.Join(workspace, ".claude", "settings.local.json")
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	existing := `{"hooks":{"SessionStart":[{"matcher":"startup","hooks":[{"type":"command","command":"go run ./cmd/yyork hooks claude-code session-start","timeout":30}]}],"Stop":[{"hooks":[{"type":"command","command":"go run ./cmd/yyork hooks claude-code stop","timeout":30},{"type":"command","command":"my own stop hook","timeout":5}]}],"UserPromptSubmit":[{"hooks":[{"type":"command","command":"go run ./cmd/yyork hooks claude-code user-prompt-submit","timeout":30}]}]},"permissions":{"defaultMode":"plan"}}`
+	if err := os.WriteFile(settingsPath, []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := agent.WorkspaceHookConfig{DataDir: t.TempDir(), SessionID: "sess-1", WorkspacePath: workspace}
+	if err := p.GetAgentHooks(context.Background(), cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "cmd/yyork") {
+		t.Fatalf("stale managed hook command was preserved: %s", data)
+	}
+
+	var config struct {
+		Hooks       map[string][]claudeMatcherGroup `json:"hooks"`
+		Permissions json.RawMessage                 `json:"permissions"`
+	}
+	if err := json.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	for _, spec := range claudeManagedHooks {
+		if got := countClaudeHookCommand(config.Hooks[spec.Event], spec.Command); got != 1 {
+			t.Fatalf("%s command %q count = %d, want 1", spec.Event, spec.Command, got)
+		}
+	}
+	if countClaudeHookCommand(config.Hooks["Stop"], "my own stop hook") != 1 {
+		t.Fatalf("user Stop hook not preserved: %#v", config.Hooks["Stop"])
+	}
+	if len(config.Permissions) == 0 {
+		t.Fatalf("unrelated settings clobbered: %s", data)
 	}
 }
 

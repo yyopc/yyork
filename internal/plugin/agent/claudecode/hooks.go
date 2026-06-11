@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/yyopc/yyork/internal/plugin/agent"
+	"github.com/yyopc/yyork/internal/plugin/agent/hookexec"
 )
 
 const (
@@ -86,6 +86,7 @@ func (p *Plugin) GetAgentHooks(ctx context.Context, cfg agent.WorkspaceHookConfi
 		if err := parseClaudeHookType(rawHooks, event, &existingGroups); err != nil {
 			return fmt.Errorf("claude-code.GetAgentHooks: %w", err)
 		}
+		existingGroups = removeClaudeManagedHooks(existingGroups)
 		for _, spec := range specs {
 			if !claudeHookCommandExists(existingGroups, spec.Command) {
 				entry := claudeHookEntry{Type: "command", Command: spec.Command, Timeout: claudeHookTimeout}
@@ -268,25 +269,7 @@ func claudeHookCommand(event string) string {
 }
 
 func yyorkHookExecutable() string {
-	executable, err := os.Executable()
-	if err != nil || strings.TrimSpace(executable) == "" {
-		return "yyork"
-	}
-	if strings.Contains(executable, "go-build") {
-		cwd, err := os.Getwd()
-		if err != nil || strings.TrimSpace(cwd) == "" {
-			return "go run ./cmd/yyork"
-		}
-		if direnv, err := exec.LookPath("direnv"); err == nil {
-			return shellQuote(direnv) + " exec " + shellQuote(cwd) + " go run ./cmd/yyork"
-		}
-		return "go run ./cmd/yyork"
-	}
-	return shellQuote(executable)
-}
-
-func shellQuote(value string) string {
-	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
+	return hookexec.Executable()
 }
 
 // removeClaudeManagedHooks strips yyork hook entries from every group,
