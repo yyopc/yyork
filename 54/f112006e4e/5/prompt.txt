@@ -1,0 +1,23 @@
+# Context from my IDE setup:
+
+## Active file: package.json
+
+## Open tabs:
+- package.json: package.json
+- portless.json: portless.json
+- dashboard.go: dashboard.go
+- .gitkeep: cmd/yyork/dashboard/.gitkeep
+- .gitignore: .gitignore
+
+## My request for Codex:
+why this route `https://yyork.localhost/terminal/%252FUsers%252Ftanishqpalandurkar%252FProjects%252Fyyork%3A5pcyw3` simply can't be `https://yyork.localhost/terminal/5pcyw3`?
+
+Is there any good reason?
+
+---
+
+The main reason is still not understood
+
+---
+
+Yes then, let's pretty this up.
