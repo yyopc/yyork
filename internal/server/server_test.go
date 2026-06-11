@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/yyopc/yyork/internal/session"
 )
@@ -29,6 +32,92 @@ func TestServerWithoutWorkspaceSourceReturnsEmptyWorkspace(t *testing.T) {
 	}
 	if len(workspace.Sessions) != 0 {
 		t.Fatalf("expected no implicit demo sessions, got %#v", workspace.Sessions)
+	}
+}
+
+func TestAPIHostRootDoesNotServeDashboard(t *testing.T) {
+	server := New(Config{
+		WebFS: dashboardFixtureFS(),
+	})
+	request := httptest.NewRequest(http.MethodGet, "https://api.yyork.localhost/", nil)
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected API host root to succeed, got %d: %s", response.Code, response.Body.String())
+	}
+	if contentType := response.Header().Get("Content-Type"); contentType != "application/json" {
+		t.Fatalf("expected JSON response, got %q", contentType)
+	}
+	body := response.Body.String()
+	if !strings.Contains(body, `"service":"yyork api"`) {
+		t.Fatalf("expected API service response, got %s", body)
+	}
+	if strings.Contains(body, "dashboard fixture") {
+		t.Fatalf("expected API host not to serve dashboard HTML, got %s", body)
+	}
+}
+
+func TestForwardedAPIHostRootDoesNotServeDashboard(t *testing.T) {
+	server := New(Config{
+		WebFS: dashboardFixtureFS(),
+	})
+	request := httptest.NewRequest(http.MethodGet, "https://yyork.localhost/", nil)
+	request.Header.Set("X-Forwarded-Host", "api.yyork.localhost")
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected forwarded API host root to succeed, got %d: %s", response.Code, response.Body.String())
+	}
+	if contentType := response.Header().Get("Content-Type"); contentType != "application/json" {
+		t.Fatalf("expected JSON response, got %q", contentType)
+	}
+	body := response.Body.String()
+	if !strings.Contains(body, `"service":"yyork api"`) {
+		t.Fatalf("expected API service response, got %s", body)
+	}
+	if strings.Contains(body, "dashboard fixture") {
+		t.Fatalf("expected forwarded API host not to serve dashboard HTML, got %s", body)
+	}
+}
+
+func TestAPIHostUnknownPathDoesNotServeDashboard(t *testing.T) {
+	server := New(Config{
+		WebFS: dashboardFixtureFS(),
+	})
+	request := httptest.NewRequest(http.MethodGet, "https://api.yyork.localhost/board/demo", nil)
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected API host fallback to return 404, got %d: %s", response.Code, response.Body.String())
+	}
+	if contentType := response.Header().Get("Content-Type"); contentType != "application/json" {
+		t.Fatalf("expected JSON response, got %q", contentType)
+	}
+	if body := response.Body.String(); strings.Contains(body, "dashboard fixture") {
+		t.Fatalf("expected API host not to serve dashboard HTML, got %s", body)
+	}
+}
+
+func TestDashboardHostStillServesDashboard(t *testing.T) {
+	server := New(Config{
+		WebFS: dashboardFixtureFS(),
+	})
+	request := httptest.NewRequest(http.MethodGet, "https://yyork.localhost/board/demo", nil)
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected dashboard host to serve SPA, got %d: %s", response.Code, response.Body.String())
+	}
+	if body := response.Body.String(); !strings.Contains(body, "dashboard fixture") {
+		t.Fatalf("expected dashboard HTML, got %s", body)
 	}
 }
 
@@ -293,4 +382,12 @@ type recordingIDEOpener struct {
 func (o *recordingIDEOpener) Open(_ context.Context, cwd string) error {
 	o.cwd = append(o.cwd, cwd)
 	return o.err
+}
+
+func dashboardFixtureFS() fs.FS {
+	return fstest.MapFS{
+		"index.html": &fstest.MapFile{
+			Data: []byte("<!doctype html><title>dashboard fixture</title>"),
+		},
+	}
 }

@@ -6,13 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/yyopc/yyork/internal/durabilityprovider"
 	"github.com/yyopc/yyork/internal/events"
@@ -30,8 +33,8 @@ type SessionStopper interface {
 }
 
 type Config struct {
-	IDEOpener IDEOpener
-	Registry  *plugin.Registry
+	IDEOpener       IDEOpener
+	Registry        *plugin.Registry
 	TerminalManager *terminal.Manager
 
 	// WebDir is a filesystem path to serve the dashboard from (dev mode).
@@ -82,6 +85,8 @@ type Server struct {
 	stopper             SessionStopper
 	eventBus            *events.Bus
 	controlToken        string
+	previewTargets      map[string]*url.URL
+	previewTargetsMu    sync.RWMutex
 }
 
 type WorkspaceSource interface {
@@ -107,7 +112,6 @@ func New(cfg Config) *Server {
 	if ideOpener == nil {
 		ideOpener = localIDEOpener{}
 	}
-
 	durabilityProviders := cfg.DurabilityProviders
 	if durabilityProviders == nil {
 		durabilityProviders = durabilityprovider.NewDefaultRegistry()
@@ -126,6 +130,7 @@ func New(cfg Config) *Server {
 		stopper:             cfg.Stopper,
 		eventBus:            cfg.EventBus,
 		controlToken:        cfg.ControlToken,
+		previewTargets:      map[string]*url.URL{},
 	}
 }
 
@@ -136,8 +141,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/workspace", s.handleWorkspace)
 	mux.HandleFunc("POST /api/projects/{projectID}/ide", s.handleProjectIDE)
 	mux.HandleFunc("POST /api/sessions/{sessionID}/ide", s.handleSessionIDE)
+	mux.HandleFunc("GET /api/sessions/{sessionID}/files", s.handleSessionFiles)
+	mux.HandleFunc("GET /api/sessions/{sessionID}/files/content", s.handleSessionFileContent)
+	mux.HandleFunc("GET /api/sessions/{sessionID}/canvas/diff", s.handleSessionCanvasDiff)
 	mux.HandleFunc("GET /api/sessions/{sessionID}/terminal", s.handleSessionTerminal)
 	mux.HandleFunc("POST /api/annotations/{sessionID}", s.handleAnnotations)
+	mux.HandleFunc("POST /api/browser-preview/targets", s.handleBrowserPreviewTarget)
 	mux.HandleFunc("GET /api/sessions", s.handleListSessions)
 	mux.HandleFunc("PATCH /api/sessions/{sessionID}", s.handleRenameSession)
 	mux.HandleFunc("DELETE /api/sessions/{sessionID}", s.handleStopSession)
@@ -352,6 +361,26 @@ func workspaceDirectory(cwd string, label string) (string, int, error) {
 }
 
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
+	if isBrowserPreviewHost(externalRequestHost(r)) {
+		s.handleBrowserPreview(w, r)
+		return
+	}
+
+	if isAPIHost(externalRequestHost(r)) {
+		if r.URL.Path == "/" {
+			writeJSON(w, http.StatusOK, map[string]string{
+				"service": "yyork api",
+				"status":  "ok",
+			})
+			return
+		}
+
+		writeJSON(w, http.StatusNotFound, map[string]string{
+			"error": "not found",
+		})
+		return
+	}
+
 	// Prefer the on-disk dashboard when WebDir is set (dev workflow).
 	if s.webDir != "" {
 		if _, err := os.Stat(filepath.Join(s.webDir, "index.html")); err == nil {
@@ -382,6 +411,26 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
     </main>
   </body>
 </html>`)
+}
+
+func externalRequestHost(r *http.Request) string {
+	if forwardedHost := r.Header.Get("X-Forwarded-Host"); forwardedHost != "" {
+		host, _, _ := strings.Cut(forwardedHost, ",")
+		if host = strings.TrimSpace(host); host != "" {
+			return host
+		}
+	}
+
+	return r.Host
+}
+
+func isAPIHost(host string) bool {
+	hostname := host
+	if parsedHost, _, err := net.SplitHostPort(host); err == nil {
+		hostname = parsedHost
+	}
+	hostname = strings.ToLower(strings.TrimSuffix(hostname, "."))
+	return hostname == "api.yyork.localhost"
 }
 
 // serveSPA serves static assets from fsys with SPA-style fallback: any
