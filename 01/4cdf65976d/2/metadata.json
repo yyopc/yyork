@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.7.5",
+  "checkpoint_id": "014cdf65976d",
+  "session_id": "019ea012-dfaa-79c2-b279-881a9712adfb",
+  "strategy": "manual-commit",
+  "created_at": "2026-06-11T13:20:35.524301Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "internal/durabilityprovider/provider.go",
+    "internal/durabilityprovider/send.go",
+    "internal/durabilityprovider/zellij.go",
+    "internal/durabilityprovider/zellij_lifecycle.go"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "2b60c0803ff7",
+  "token_usage": {
+    "input_tokens": 358139,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 19448832,
+    "output_tokens": 46990,
+    "api_call_count": 125
+  },
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-06-11T13:20:35.499979Z",
+    "agent_lines": 99,
+    "agent_removed": 17,
+    "human_added": 367,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 466,
+    "total_lines_changed": 483,
+    "agent_percentage": 24.016563146997928,
+    "metric_version": 2
+  }
+}

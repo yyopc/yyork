@@ -3,8 +3,12 @@
   "checkpoint_id": "014cdf65976d",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 1,
+  "checkpoints_count": 2,
   "files_touched": [
+    "internal/durabilityprovider/provider.go",
+    "internal/durabilityprovider/send.go",
+    "internal/durabilityprovider/zellij.go",
+    "internal/durabilityprovider/zellij_lifecycle.go",
     "internal/terminal/clear_repaint_test.go"
   ],
   "sessions": [
@@ -19,13 +23,19 @@
       "transcript": "/01/4cdf65976d/1/full.jsonl",
       "content_hash": "/01/4cdf65976d/1/content_hash.txt",
       "prompt": "/01/4cdf65976d/1/prompt.txt"
+    },
+    {
+      "metadata": "/01/4cdf65976d/2/metadata.json",
+      "transcript": "/01/4cdf65976d/2/full.jsonl",
+      "content_hash": "/01/4cdf65976d/2/content_hash.txt",
+      "prompt": "/01/4cdf65976d/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 172676,
+    "input_tokens": 530815,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 2645760,
-    "output_tokens": 20690,
-    "api_call_count": 22
+    "cache_read_tokens": 22094592,
+    "output_tokens": 67680,
+    "api_call_count": 147
   }
 }
