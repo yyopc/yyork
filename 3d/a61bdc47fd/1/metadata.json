@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.7.5",
+  "checkpoint_id": "3da61bdc47fd",
+  "session_id": "019ea489-0d8a-7f93-96d6-df93583b43a2",
+  "strategy": "manual-commit",
+  "created_at": "2026-06-11T13:54:45.779919Z",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "web/vite.config.ts"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "4a722c65a7d4",
+  "checkpoint_transcript_start": 283,
+  "transcript_lines_at_start": 283,
+  "session_metrics": {
+    "turn_count": 2
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-06-11T13:54:45.727998Z",
+    "agent_lines": 13,
+    "agent_removed": 1,
+    "human_added": 694,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 707,
+    "total_lines_changed": 1428,
+    "agent_percentage": 0.9803921568627451,
+    "metric_version": 2
+  }
+}
