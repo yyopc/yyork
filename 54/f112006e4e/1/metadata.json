@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.7.5",
+  "checkpoint_id": "54f112006e4e",
+  "session_id": "019eaa3e-4ae2-7733-ba8f-c135641a6fd1",
+  "strategy": "manual-commit",
+  "created_at": "2026-06-11T14:17:32.625267Z",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "skills-lock.json"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "d0b3e5a980db",
+  "checkpoint_transcript_start": 235,
+  "transcript_lines_at_start": 235,
+  "session_metrics": {
+    "turn_count": 4
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-06-11T14:17:32.611248Z",
+    "agent_lines": 6,
+    "agent_removed": 6,
+    "human_added": 790,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 796,
+    "total_lines_changed": 808,
+    "agent_percentage": 1.4851485148514851,
+    "metric_version": 2
+  }
+}
