@@ -1,0 +1,23 @@
+# Context from my IDE setup:
+
+## Active file: package.json
+
+## Open tabs:
+- package.json: package.json
+- portless.json: portless.json
+- dashboard.go: dashboard.go
+- .gitkeep: cmd/yyork/dashboard/.gitkeep
+- .gitignore: .gitignore
+
+## My request for Codex:
+https://https-yyork-localhost-preview.yyork.localhost/terminal/5pcyw3
+
+why does yyork's preview url has this: `https-` prefix?
+
+I was also thinking about what if there are 2 agents working on diff worktrees, made some changes and user would like to see the preview of the code changes. What it would do?
+
+so for that something like `https://{sessionId}-{projectName}-preview.yyork.localhost` would be awesome and distinguishing enough.
+
+---
+
+tell me what's the reason that we need a fallback here?
