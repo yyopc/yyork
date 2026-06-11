@@ -3,7 +3,7 @@
   "checkpoint_id": "bb755cc58cac",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 1,
+  "checkpoints_count": 2,
   "files_touched": [
     "README.md",
     "flake.nix",
@@ -33,13 +33,19 @@
       "transcript": "/bb/755cc58cac/2/full.jsonl",
       "content_hash": "/bb/755cc58cac/2/content_hash.txt",
       "prompt": "/bb/755cc58cac/2/prompt.txt"
+    },
+    {
+      "metadata": "/bb/755cc58cac/3/metadata.json",
+      "transcript": "/bb/755cc58cac/3/full.jsonl",
+      "content_hash": "/bb/755cc58cac/3/content_hash.txt",
+      "prompt": "/bb/755cc58cac/3/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 358139,
+    "input_tokens": 6212121,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 19448832,
-    "output_tokens": 46990,
-    "api_call_count": 125
+    "cache_read_tokens": 157829120,
+    "output_tokens": 441070,
+    "api_call_count": 1019
   }
 }
