@@ -1,0 +1,52 @@
+Why does the zellij's statusline looks diff in yyork than vscode?
+
+---
+
+Is that browser glyph rendering issue that we have previously experienced unsolvable? I don't think so bro.
+
+---
+
+lets fix this then and give our users the best experience
+
+---
+
+what did I told you regarding running lil cmds bro? I'm an entrepreneur man. I don't hv time for running this lil cmds bro
+
+---
+
+If we were using the portless pkg we won't have to suffer from this problem specifically. Here's the [why](https://portless.sh/why). Setup [portless](https://portless.sh/) for yyork right now. the web app should be available at http://yyork.localhost.
+
+---
+
+If we were using the portless pkg we won't have to suffer from this problem specifically. Here's the [why](https://portless.sh/why). Setup [portless](https://portless.sh/) for yyork right now. the web app should be available at https://yyork.localhost.
+
+---
+
+This only starts the vite dev server Ig.
+
+---
+
+I would like to hv a subdomain for the api to the backend. something like api.yyork.localhost would be awesome
+
+---
+
+how the fuck is this possible?
+
+---
+
+sometimes I wonder how many landmines are there present in my codebase. I've unlimited budget for tokens. We should design a workflow that test the app continuously in a loop, testing it in every fucking way possible kind of like continuous penetration testing bro. What you say? Lets design it in another thread where we would have a fresh context.
+
+---
+
+Like these. You see there are hell lot of inconsistencies in the code these agents write. Sometimes its just that the server that's running this is a stale bin. A rebuild and restart would fix it. But sometimes its just some edge conditions that the agent didn't considered or kept in mind during the implementation.
+Sometimes its just some poor design decisions, poor security based assumptions etc. Right now these are only surfaced after a human has encountered it. 
+
+We need these things to be discovered autonomously. That would be such a great thing for agentic development.
+
+---
+
+send this message to that thread
+
+---
+
+also send the images for visual rf
