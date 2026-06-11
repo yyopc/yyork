@@ -1,0 +1,98 @@
+We are so close to rendering the zellij statusline. It just needs one more push bro. Do you know what needs to be done next?
+
+---
+
+Well I was talking about something else but we will do that too. But before that, take a look at this image and tell me what's up?
+
+---
+
+yo its not clipped. I only took a ss of a small region. here's the full statusline. but the arrow glyph is rendered in gray color. did you notice that?
+
+---
+
+yeah do that and tell me what's the value?
+
+---
+
+alright how you are gonna fix that?
+
+---
+
+hold on! 1st image is the ss of yyork in dark theme, 2nd image is the ss of yyork in light theme.
+First of all, solve for dark theme. the same problem is observed in the dark theme as well.
+
+---
+
+alright how do I see the preview for the dark theme first of all?
+
+---
+
+what's the reason that yyork.localhost is still serving the stale website?
+
+---
+
+do I need to spawn a new agent session to observe the changes?
+
+---
+
+could you rebuild yyork and restart it
+
+---
+
+could you use the in-app browser use skill to confirm it yourself?
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: https://yyork.localhost/terminal/%252FUsers%252Ftanishqpalandurkar%252FProjects%252Fyyork%3A6nja7b
+
+## My request for Codex:
+for me the problem still persists. I took this ss from the codex's in app browser btw.
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: https://yyork.localhost/terminal/%252FUsers%252Ftanishqpalandurkar%252FProjects%252Fyyork%3A6nja7b
+
+## My request for Codex:
+PLEASE IMPLEMENT THIS PLAN:
+# Fix Dark Zellij Statusline Separators
+
+## Summary
+- The remaining gray Powerline separator is not from `--terminal-color-15`.
+- Root cause: Zellij leaves SGR bold active on the statusline, and xterm.js defaults `drawBoldTextInBrightColors` to `true`, so ANSI black (`38;5;0`) is rendered as bright black (`#666`) for the `` glyph.
+- Fix xterm rendering so bold changes weight only, not ANSI color index.
+
+## Implementation Changes
+- In `web/src/features/home/components/organisms/xterm-terminal.tsx`, add `drawBoldTextInBrightColors: false` to the `new XTerm({ ... })` options.
+- Keep `minimumContrastRatio: 4.5`; xterm already excludes Powerline/private-use glyphs from contrast adjustment, and normal terminal readability still benefits from it.
+- Leave the dark ANSI palette as-is:
+  - `--terminal-color-0: #000000`
+  - `--terminal-color-15: #ffffff`
+  - `--terminal-color-8: #666666`
+
+## Test Plan
+- Run `pnpm --filter @yyork/web build`.
+- Run `pnpm --filter @yyork/web lint:ts` if the option type needs confirmation.
+- Rebuild the embedded Go binary with `nix develop --command go build -o ./yyork .`.
+- Restart `yyork` on `127.0.0.1:4204`.
+- Confirm in the in-app browser at `https://yyork.localhost/terminal/%252FUsers%252Ftanishqpalandurkar%252FProjects%252Fyyork%3A6nja7b`:
+  - page is in dark mode,
+  - terminal statusline still renders white segment backgrounds,
+  - black-on-white `` separators render black, not gray/bright-black.
+
+## Assumptions
+- Scope is dark-theme xterm.js rendering only.
+- Existing Zellij ANSI output should not be changed.
+- Existing sessions do not need respawning; a page reload after rebuild/restart is enough.
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: https://yyork.localhost/terminal/%252FUsers%252Ftanishqpalandurkar%252FProjects%252Fyyork%3A6nja7b
+
+## My request for Codex:
+awesome bro. I love my codex.
