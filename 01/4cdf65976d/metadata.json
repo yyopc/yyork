@@ -90,6 +90,12 @@
       "transcript": "/01/4cdf65976d/12/full.jsonl",
       "content_hash": "/01/4cdf65976d/12/content_hash.txt",
       "prompt": "/01/4cdf65976d/12/prompt.txt"
+    },
+    {
+      "metadata": "/01/4cdf65976d/13/metadata.json",
+      "transcript": "/01/4cdf65976d/13/full.jsonl",
+      "content_hash": "/01/4cdf65976d/13/content_hash.txt",
+      "prompt": "/01/4cdf65976d/13/prompt.txt"
     }
   ],
   "token_usage": {
