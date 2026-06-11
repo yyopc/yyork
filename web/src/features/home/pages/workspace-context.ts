@@ -1,11 +1,14 @@
-import { createContext, useContext } from 'react';
+import { createContext, use } from 'react';
 
 import type {
   CanvasTab,
   CanvasTargetSummary,
 } from '@/features/home/components/organisms/canvas-panel';
 import type { WorkspacePanelState } from '@/features/home/components/organisms/workspace-status-view';
-import type { HomeWorkspaceCanvasLayout } from '@/features/home/data/workspace-preferences';
+import type {
+  HomeWorkspaceCanvasLayout,
+  HomeWorkspaceCanvasReviewPreferences,
+} from '@/features/home/data/workspace-preferences';
 import type {
   KanbanColumnData,
   WorkerSession,
@@ -16,6 +19,7 @@ export interface WorkspaceContextValue {
   canvasLayout?: HomeWorkspaceCanvasLayout;
   canvasOpen: boolean;
   canvasPreviewUrl?: string;
+  canvasReviewPreferences?: HomeWorkspaceCanvasReviewPreferences;
   canvasResizing: boolean;
   canvasTab: CanvasTab;
   canvasTarget: CanvasTargetSummary;
@@ -23,6 +27,9 @@ export interface WorkspaceContextValue {
   onCanvasLayoutChange: (layout: HomeWorkspaceCanvasLayout) => void;
   onCanvasOpenChange: (open: boolean) => void;
   onCanvasPreviewUrlChange: (url: string) => void;
+  onCanvasReviewPreferencesChange: (
+    preferences: HomeWorkspaceCanvasReviewPreferences
+  ) => void;
   onCanvasResizingChange: (resizing: boolean) => void;
   onCanvasTabChange: (tab: CanvasTab) => void;
   onWorkerSessionSelect: (selectionKey: string) => void;
@@ -39,7 +46,7 @@ export const WorkspaceContext = createContext<WorkspaceContextValue | null>(
 );
 
 export function useWorkspaceContext() {
-  const context = useContext(WorkspaceContext);
+  const context = use(WorkspaceContext);
 
   if (!context) {
     throw new Error('useWorkspaceContext must be used within WorkspaceLayout');

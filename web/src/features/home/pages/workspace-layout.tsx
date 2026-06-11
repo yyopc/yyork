@@ -1,11 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Outlet, useNavigate, useParams } from '@tanstack/react-router';
+import {
+  Outlet,
+  useNavigate,
+  useParams,
+  useSearch,
+} from '@tanstack/react-router';
 import {
   LayoutDashboardIcon,
   PanelRightIcon,
   SquareTerminalIcon,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useReducer } from 'react';
 import { toast } from 'sonner';
 
 import {
@@ -42,19 +47,29 @@ import {
   stopSessionMutationOptions,
 } from '@/features/home/data/workspace';
 import {
+  getCanvasPreviewTargetKey,
+  getCanvasPreviewUrlForTarget,
+  getCanvasPreviewUrlPreferenceUpdate,
   type HomeWorkspaceCanvasLayout,
+  type HomeWorkspaceCanvasReviewPreferences,
   type HomeWorkspacePreferences,
   readHomeWorkspacePreferences,
   writeHomeWorkspacePreferences,
 } from '@/features/home/data/workspace-preferences';
 import {
   getKanbanColumns,
+  getProjectIdFromSelectionKey,
   getSelectedWorkerSession,
+  getSessionIdFromSelectionKey,
+  getTerminalRouteTarget,
   getTerminalSession,
+  getTerminalSessionForRoute,
   getWorkerSessionGroups,
   getWorkerSessionSelectionKey,
   type ProjectOrchestrator,
+  terminalSessionIdRequiresProject,
   withSelectedWorkerSession,
+  type WorkerSession,
   type WorkerSessionState,
   workerSessionStates,
 } from '@/features/home/domain/session-workspace';
@@ -64,28 +79,111 @@ import {
 } from '@/features/home/pages/workspace-context';
 import { OrchestratorWorkspaceTemplate } from '@/features/home/templates/orchestrator-workspace-template';
 
+interface PendingSessionStop {
+  label: string;
+  selectionKey: string;
+}
+
+interface WorkspaceLayoutState {
+  canvasResizing: boolean;
+  canvasTab: CanvasTab;
+  commandPaletteOpen: boolean;
+  homeWorkspacePreferences: HomeWorkspacePreferences;
+  pendingSessionStop: PendingSessionStop | null;
+}
+
+type WorkspaceLayoutAction =
+  | { open: boolean | ((open: boolean) => boolean); type: 'command-palette' }
+  | { pendingSessionStop: PendingSessionStop | null; type: 'pending-stop' }
+  | {
+      homeWorkspacePreferences: HomeWorkspacePreferences;
+      type: 'workspace-preferences';
+    }
+  | { canvasResizing: boolean; type: 'canvas-resizing' }
+  | { canvasTab: CanvasTab; type: 'canvas-tab' };
+
+function createWorkspaceLayoutState(): WorkspaceLayoutState {
+  const homeWorkspacePreferences = readHomeWorkspacePreferences();
+
+  return {
+    canvasResizing: false,
+    canvasTab: homeWorkspacePreferences.canvasTab ?? 'files',
+    commandPaletteOpen: false,
+    homeWorkspacePreferences,
+    pendingSessionStop: null,
+  };
+}
+
+function workspaceLayoutReducer(
+  state: WorkspaceLayoutState,
+  action: WorkspaceLayoutAction
+): WorkspaceLayoutState {
+  switch (action.type) {
+    case 'command-palette':
+      return {
+        ...state,
+        commandPaletteOpen:
+          typeof action.open === 'function'
+            ? action.open(state.commandPaletteOpen)
+            : action.open,
+      };
+    case 'pending-stop':
+      return {
+        ...state,
+        pendingSessionStop: action.pendingSessionStop,
+      };
+    case 'workspace-preferences':
+      return {
+        ...state,
+        homeWorkspacePreferences: action.homeWorkspacePreferences,
+      };
+    case 'canvas-resizing':
+      return {
+        ...state,
+        canvasResizing: action.canvasResizing,
+      };
+    case 'canvas-tab':
+      return {
+        ...state,
+        canvasTab: action.canvasTab,
+      };
+  }
+}
+
 export function WorkspaceLayout() {
+  const workspaceLayout = useWorkspaceLayout();
+
+  return <WorkspaceLayoutView {...workspaceLayout} />;
+}
+
+function useWorkspaceLayout() {
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as {
     projectId?: string;
     sessionId?: string;
   };
-  const selectedTerminalSessionKey = params.sessionId;
-  const boardProjectIdParam = params.projectId;
-  const isTerminalRoute = Boolean(selectedTerminalSessionKey);
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [pendingSessionStop, setPendingSessionStop] = useState<{
-    label: string;
-    selectionKey: string;
-  } | null>(null);
-
-  const [homeWorkspacePreferences, setHomeWorkspacePreferences] = useState(
-    readHomeWorkspacePreferences
+  const search = useSearch({ strict: false }) as { project?: unknown };
+  const terminalRouteTarget = getTerminalRouteTarget(
+    params.sessionId,
+    getOptionalSearchString(search.project)
   );
+  const boardProjectIdParam = params.projectId;
+  const isTerminalRoute = Boolean(terminalRouteTarget);
+  const [layoutState, dispatchLayout] = useReducer(
+    workspaceLayoutReducer,
+    undefined,
+    createWorkspaceLayoutState
+  );
+  const {
+    canvasResizing,
+    canvasTab,
+    commandPaletteOpen,
+    homeWorkspacePreferences,
+    pendingSessionStop,
+  } = layoutState;
   const {
     canvasLayout,
     canvasOpen,
-    canvasPreviewUrl,
     hiddenProjectIds,
     hiddenTerminalSessionKeys,
     openProjectIds,
@@ -93,13 +191,18 @@ export function WorkspaceLayout() {
     pinnedProjectIds,
     pinnedTerminalSessionKeys,
     projectNameOverrides,
+    canvasReview: canvasReviewPreferences,
     sidebarOpen,
     sidebarWidth,
     skipStopSessionConfirmation,
   } = homeWorkspacePreferences;
-  const [canvasResizing, setCanvasResizing] = useState(false);
-  const [canvasTab, setCanvasTab] = useState<CanvasTab>('files');
-  const workspaceQuery = useQuery(homeWorkspaceQueryOptions());
+  const {
+    data: queriedWorkspace,
+    error: workspaceQueryError,
+    isError: workspaceQueryIsError,
+    isPending: workspaceQueryIsPending,
+    refetch: refetchWorkspace,
+  } = useQuery(homeWorkspaceQueryOptions());
   const { mutate: openProjectIde } = useMutation(
     openProjectIdeMutationOptions()
   );
@@ -111,7 +214,7 @@ export function WorkspaceLayout() {
     renameSessionMutationOptions()
   );
 
-  const workspace = workspaceQuery.data ?? fallbackHomeWorkspace;
+  const workspace = queriedWorkspace ?? fallbackHomeWorkspace;
   const hiddenProjectIdSet = new Set(hiddenProjectIds ?? []);
   const projects: typeof workspace.projects = [];
 
@@ -138,21 +241,53 @@ export function WorkspaceLayout() {
       projectIds.has(session.project) &&
       !hiddenTerminalSessionKeySet.has(getWorkerSessionSelectionKey(session))
   );
+  const routeSelectedWorkerSession = getTerminalSessionForRoute(
+    workspaceSessions,
+    terminalRouteTarget
+  );
+  const routeSelectedWorkerSessionKey = routeSelectedWorkerSession
+    ? getWorkerSessionSelectionKey(routeSelectedWorkerSession)
+    : terminalRouteTarget?.selectionKey;
   const sessions = withSelectedWorkerSession(
     workspaceSessions,
-    selectedTerminalSessionKey
+    routeSelectedWorkerSessionKey
   );
   const selectedWorkerSession = getSelectedWorkerSession(sessions);
-  const terminalSessions = [...workspaceOrchestrators, ...sessions];
+  const terminalSessions = useMemo(
+    () => [...workspaceOrchestrators, ...sessions],
+    [workspaceOrchestrators, sessions]
+  );
+  const defaultProjectId =
+    boardProjectIdParam ?? workspace.activeProjectId ?? projects[0]?.id;
+  const defaultOrchestratorSession =
+    !selectedWorkerSession && defaultProjectId
+      ? workspaceOrchestrators.find(
+          (session) => session.project === defaultProjectId
+        )
+      : undefined;
   const selectedTerminalSession = isTerminalRoute
-    ? (getTerminalSession(terminalSessions, selectedTerminalSessionKey) ??
+    ? (getTerminalSessionForRoute(terminalSessions, terminalRouteTarget) ??
       selectedWorkerSession)
     : undefined;
+  const selectedTerminalSessionKey = selectedTerminalSession
+    ? getWorkerSessionSelectionKey(selectedTerminalSession)
+    : routeSelectedWorkerSessionKey;
+  const terminalRouteTargetLegacy =
+    terminalRouteTarget?.legacySelectionKey ?? false;
+  const terminalRouteTargetProject = terminalRouteTarget?.project;
+  const terminalRouteTargetSessionId = terminalRouteTarget?.sessionId;
+  const selectedTerminalSessionId = selectedTerminalSession?.id;
+  const selectedTerminalSessionProject = selectedTerminalSession?.project;
+  const selectedTerminalSessionRouteProject =
+    selectedTerminalSession &&
+    terminalSessionIdRequiresProject(
+      terminalSessions,
+      selectedTerminalSession.id
+    )
+      ? selectedTerminalSession.project
+      : undefined;
   const selectedProjectId =
-    selectedTerminalSession?.project ??
-    boardProjectIdParam ??
-    projects[0]?.id ??
-    workspace.activeProjectId;
+    selectedTerminalSession?.project ?? defaultProjectId;
   const activeBoardProjectId = isTerminalRoute ? undefined : selectedProjectId;
   const selectedProject = projects.find(
     (project) => project.id === selectedProjectId
@@ -161,11 +296,19 @@ export function WorkspaceLayout() {
     ? {
         cwd: selectedTerminalSession.cwd,
         projectId: selectedTerminalSession.project,
+        projectName: selectedProject?.name,
         sessionId: selectedTerminalSession.id,
       }
     : {
         cwd: selectedProject?.cwd,
+        projectId: selectedProject?.id,
+        projectName: selectedProject?.name,
       };
+  const canvasPreviewTargetKey = getCanvasPreviewTargetKey(canvasTarget);
+  const canvasPreviewUrl = getCanvasPreviewUrlForTarget(
+    homeWorkspacePreferences,
+    canvasPreviewTargetKey
+  );
   const defaultOpenProjectIds: string[] =
     selectedProjectId &&
     projects.some((project) => project.id === selectedProjectId)
@@ -176,13 +319,70 @@ export function WorkspaceLayout() {
   );
   const kanbanColumns = getKanbanColumns(boardSessions);
   const workerSessionGroups = getWorkerSessionGroups(sessions);
-  const workspaceState: WorkspacePanelState = workspaceQuery.isPending
+  const workspaceState: WorkspacePanelState = workspaceQueryIsPending
     ? 'loading'
-    : workspaceQuery.isError
+    : workspaceQueryIsError
       ? 'error'
       : terminalSessions.length === 0
         ? 'empty'
         : 'ready';
+
+  useEffect(() => {
+    if (
+      isTerminalRoute ||
+      boardProjectIdParam ||
+      !defaultOrchestratorSession ||
+      workspaceQueryIsPending ||
+      workspaceQueryIsError
+    ) {
+      return;
+    }
+
+    void navigate({
+      to: '/terminal/$sessionId',
+      params: { sessionId: defaultOrchestratorSession.id },
+      search: getTerminalRouteSearch(
+        terminalSessions,
+        defaultOrchestratorSession
+      ),
+    });
+  }, [
+    boardProjectIdParam,
+    defaultOrchestratorSession,
+    isTerminalRoute,
+    navigate,
+    terminalSessions,
+    workspaceQueryIsError,
+    workspaceQueryIsPending,
+  ]);
+
+  useEffect(() => {
+    if (
+      !terminalRouteTargetLegacy ||
+      !selectedTerminalSessionId ||
+      selectedTerminalSessionId !== terminalRouteTargetSessionId ||
+      selectedTerminalSessionProject !== terminalRouteTargetProject
+    ) {
+      return;
+    }
+
+    void navigate({
+      replace: true,
+      search: selectedTerminalSessionRouteProject
+        ? { project: selectedTerminalSessionRouteProject }
+        : {},
+      params: { sessionId: selectedTerminalSessionId },
+      to: '/terminal/$sessionId',
+    });
+  }, [
+    navigate,
+    selectedTerminalSessionId,
+    selectedTerminalSessionProject,
+    selectedTerminalSessionRouteProject,
+    terminalRouteTargetLegacy,
+    terminalRouteTargetProject,
+    terminalRouteTargetSessionId,
+  ]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -194,7 +394,7 @@ export function WorkspaceLayout() {
       }
 
       event.preventDefault();
-      setCommandPaletteOpen((open) => !open);
+      dispatchLayout({ open: (open) => !open, type: 'command-palette' });
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -210,7 +410,10 @@ export function WorkspaceLayout() {
     };
 
     writeHomeWorkspacePreferences(nextPreferences);
-    setHomeWorkspacePreferences(nextPreferences);
+    dispatchLayout({
+      homeWorkspacePreferences: nextPreferences,
+      type: 'workspace-preferences',
+    });
   };
 
   const handleSidebarOpenChange = (open: boolean) => {
@@ -229,10 +432,25 @@ export function WorkspaceLayout() {
     updateHomeWorkspacePreferences({ canvasLayout: layout });
   };
 
+  const handleCanvasTabChange = (tab: CanvasTab) => {
+    dispatchLayout({ canvasTab: tab, type: 'canvas-tab' });
+    updateHomeWorkspacePreferences({ canvasTab: tab });
+  };
+
   const handleCanvasPreviewUrlChange = (url: string) => {
-    updateHomeWorkspacePreferences({
-      canvasPreviewUrl: url.trim() || undefined,
-    });
+    updateHomeWorkspacePreferences(
+      getCanvasPreviewUrlPreferenceUpdate(
+        homeWorkspacePreferences,
+        canvasPreviewTargetKey,
+        url
+      )
+    );
+  };
+
+  const handleCanvasReviewPreferencesChange = (
+    preferences: HomeWorkspaceCanvasReviewPreferences
+  ) => {
+    updateHomeWorkspacePreferences({ canvasReview: preferences });
   };
 
   const handleProjectOpenChange = (projectId: string, open: boolean) => {
@@ -305,6 +523,7 @@ export function WorkspaceLayout() {
     if (!sessionId) {
       return;
     }
+    const projectId = getProjectIdFromSelectionKey(selectionKey);
 
     const nextLabel = window.prompt('Rename session', currentLabel);
     if (nextLabel === null) {
@@ -320,7 +539,7 @@ export function WorkspaceLayout() {
       return;
     }
 
-    renameSession({ sessionId, displayName: normalizedLabel })
+    renameSession({ sessionId, displayName: normalizedLabel, projectId })
       .then(() => {
         void queryClient.invalidateQueries({
           queryKey: homeWorkspaceQueryKey,
@@ -341,8 +560,9 @@ export function WorkspaceLayout() {
     if (!sessionId) {
       return;
     }
+    const projectId = getProjectIdFromSelectionKey(selectionKey);
 
-    stopSession(sessionId).catch((error: unknown) => {
+    stopSession({ sessionId, projectId }).catch((error: unknown) => {
       toast.error('Could not stop session', {
         description:
           error instanceof Error
@@ -365,7 +585,10 @@ export function WorkspaceLayout() {
       return;
     }
 
-    setPendingSessionStop({ selectionKey, label: currentLabel });
+    dispatchLayout({
+      pendingSessionStop: { label: currentLabel, selectionKey },
+      type: 'pending-stop',
+    });
   };
 
   const handleConfirmSessionStop = (dontShowAgain: boolean) => {
@@ -380,7 +603,7 @@ export function WorkspaceLayout() {
     }
 
     executeTerminalSessionStop(pendingSessionStop.selectionKey);
-    setPendingSessionStop(null);
+    dispatchLayout({ pendingSessionStop: null, type: 'pending-stop' });
   };
 
   const handleTerminalSessionHide = (
@@ -479,7 +702,14 @@ export function WorkspaceLayout() {
   };
 
   const handleTerminalSessionOpen = (selectionKey: string) => {
+    const targetSession = getTerminalSession(terminalSessions, selectionKey);
+    const targetSessionId =
+      targetSession?.id ?? getSessionIdFromSelectionKey(selectionKey);
     const targetProjectId = getProjectIdFromSelectionKey(selectionKey);
+
+    if (!targetSessionId) {
+      return;
+    }
 
     if (targetProjectId) {
       updateHomeWorkspacePreferences({
@@ -494,7 +724,12 @@ export function WorkspaceLayout() {
 
     void navigate({
       to: '/terminal/$sessionId',
-      params: { sessionId: selectionKey },
+      params: { sessionId: targetSessionId },
+      search: targetSession
+        ? getTerminalRouteSearch(terminalSessions, targetSession)
+        : targetProjectId
+          ? { project: targetProjectId }
+          : {},
     });
   };
 
@@ -503,6 +738,7 @@ export function WorkspaceLayout() {
     canvasLayout,
     canvasOpen,
     canvasPreviewUrl,
+    canvasReviewPreferences,
     canvasResizing,
     canvasTab,
     canvasTarget,
@@ -510,82 +746,129 @@ export function WorkspaceLayout() {
     onCanvasLayoutChange: handleCanvasLayoutChange,
     onCanvasOpenChange: handleCanvasOpenChange,
     onCanvasPreviewUrlChange: handleCanvasPreviewUrlChange,
-    onCanvasResizingChange: setCanvasResizing,
-    onCanvasTabChange: setCanvasTab,
+    onCanvasReviewPreferencesChange: handleCanvasReviewPreferencesChange,
+    onCanvasResizingChange: (canvasResizing) =>
+      dispatchLayout({ canvasResizing, type: 'canvas-resizing' }),
+    onCanvasTabChange: handleCanvasTabChange,
     onWorkerSessionSelect: handleTerminalSessionOpen,
-    onWorkspaceRefresh: () => void workspaceQuery.refetch(),
+    onWorkspaceRefresh: () => void refetchWorkspace(),
     selectedTerminalSession,
     selectedTerminalSessionKey,
     terminalSessions,
     workspaceError:
-      workspaceQuery.error instanceof Error
-        ? workspaceQuery.error.message
+      workspaceQueryError instanceof Error
+        ? workspaceQueryError.message
         : undefined,
     workspaceState,
   };
 
+  return {
+    activeBoardProjectId,
+    canvasOpen,
+    commandPaletteOpen,
+    handleCanvasOpenChange,
+    handleConfirmSessionStop,
+    handleProjectBoardSelect,
+    handleProjectDelete,
+    handleProjectIdeOpen,
+    handleProjectOpenChange,
+    handleProjectPinToggle,
+    handleProjectRename,
+    handleSidebarOpenChange,
+    handleSidebarWidthChange,
+    handleTerminalSessionDelete,
+    handleTerminalSessionHide,
+    handleTerminalSessionOpen,
+    handleTerminalSessionPinToggle,
+    handleTerminalSessionRename,
+    handleWorkerSessionGroupOpenChange,
+    isTerminalRoute,
+    openProjectIds,
+    openWorkerSessionGroupIds,
+    pendingSessionStop,
+    pinnedProjectIds,
+    pinnedTerminalSessionKeys,
+    projects,
+    selectedProjectId,
+    selectedTerminalSessionKey,
+    setCommandPaletteOpen: (open: boolean | ((open: boolean) => boolean)) =>
+      dispatchLayout({ open, type: 'command-palette' }),
+    setPendingSessionStop: (pendingSessionStop: PendingSessionStop | null) =>
+      dispatchLayout({ pendingSessionStop, type: 'pending-stop' }),
+    sidebarOpen,
+    sidebarWidth,
+    terminalSessions,
+    workerSessionGroups,
+    workspaceContextValue,
+    workspaceOrchestrators,
+  };
+}
+
+function WorkspaceLayoutView(props: ReturnType<typeof useWorkspaceLayout>) {
   return (
-    <WorkspaceContext value={workspaceContextValue}>
+    <WorkspaceContext value={props.workspaceContextValue}>
       <OrchestratorWorkspaceTemplate
-        sidebarOpen={sidebarOpen}
-        sidebarWidth={sidebarWidth}
-        onSidebarOpenChange={handleSidebarOpenChange}
-        onSidebarWidthChange={handleSidebarWidthChange}
+        sidebarOpen={props.sidebarOpen}
+        sidebarWidth={props.sidebarWidth}
+        onSidebarOpenChange={props.handleSidebarOpenChange}
+        onSidebarWidthChange={props.handleSidebarWidthChange}
         primarySidebar={
           <ProjectOrchestratorSidebar
-            activeBoardProjectId={activeBoardProjectId}
-            onOrchestratorSessionSelect={handleTerminalSessionOpen}
-            onProjectBoardSelect={handleProjectBoardSelect}
-            onProjectDelete={handleProjectDelete}
-            onProjectIdeOpen={handleProjectIdeOpen}
-            onProjectPinToggle={handleProjectPinToggle}
-            onProjectOpenChange={handleProjectOpenChange}
-            onProjectRename={handleProjectRename}
-            onTerminalSessionDelete={handleTerminalSessionDelete}
-            onTerminalSessionHide={handleTerminalSessionHide}
-            onTerminalSessionPinToggle={handleTerminalSessionPinToggle}
-            onTerminalSessionRename={handleTerminalSessionRename}
-            onWorkerSessionGroupOpenChange={handleWorkerSessionGroupOpenChange}
-            projects={projects}
-            pinnedProjectIds={pinnedProjectIds}
-            pinnedTerminalSessionKeys={pinnedTerminalSessionKeys}
-            selectedProjectId={selectedProjectId}
-            selectedTerminalSessionKey={selectedTerminalSessionKey}
-            openProjectIds={openProjectIds}
-            openWorkerSessionGroupIds={openWorkerSessionGroupIds}
-            onWorkerSessionSelect={handleTerminalSessionOpen}
-            orchestrators={workspaceOrchestrators}
-            workerSessionGroups={workerSessionGroups}
+            activeBoardProjectId={props.activeBoardProjectId}
+            onOrchestratorSessionSelect={props.handleTerminalSessionOpen}
+            onProjectBoardSelect={props.handleProjectBoardSelect}
+            onProjectDelete={props.handleProjectDelete}
+            onProjectIdeOpen={props.handleProjectIdeOpen}
+            onProjectPinToggle={props.handleProjectPinToggle}
+            onProjectOpenChange={props.handleProjectOpenChange}
+            onProjectRename={props.handleProjectRename}
+            onTerminalSessionDelete={props.handleTerminalSessionDelete}
+            onTerminalSessionHide={props.handleTerminalSessionHide}
+            onTerminalSessionPinToggle={props.handleTerminalSessionPinToggle}
+            onTerminalSessionRename={props.handleTerminalSessionRename}
+            onWorkerSessionGroupOpenChange={
+              props.handleWorkerSessionGroupOpenChange
+            }
+            projects={props.projects}
+            pinnedProjectIds={props.pinnedProjectIds}
+            pinnedTerminalSessionKeys={props.pinnedTerminalSessionKeys}
+            selectedProjectId={props.selectedProjectId}
+            selectedTerminalSessionKey={props.selectedTerminalSessionKey}
+            openProjectIds={props.openProjectIds}
+            openWorkerSessionGroupIds={props.openWorkerSessionGroupIds}
+            onWorkerSessionSelect={props.handleTerminalSessionOpen}
+            orchestrators={props.workspaceOrchestrators}
+            workerSessionGroups={props.workerSessionGroups}
           />
         }
         topbar={<MainTopbar />}
         main={<Outlet />}
       />
       <StopSessionConfirmDialog
-        open={pendingSessionStop !== null}
-        sessionLabel={pendingSessionStop?.label ?? 'session'}
+        open={props.pendingSessionStop !== null}
+        sessionLabel={props.pendingSessionStop?.label ?? 'session'}
         onOpenChange={(open) => {
           if (!open) {
-            setPendingSessionStop(null);
+            props.setPendingSessionStop(null);
           }
         }}
-        onConfirm={handleConfirmSessionStop}
+        onConfirm={props.handleConfirmSessionStop}
       />
       <CommandDialog
-        open={commandPaletteOpen}
-        onOpenChange={setCommandPaletteOpen}
+        open={props.commandPaletteOpen}
+        onOpenChange={props.setCommandPaletteOpen}
       >
         <CommandInput placeholder="Search boards, sessions, actions..." />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
           <CommandGroup heading="Boards">
-            {projects.map((project) => (
+            {props.projects.map((project) => (
               <CommandItem
                 key={project.id}
                 value={`board ${project.name}`}
                 onSelect={() => {
-                  handleProjectBoardSelect(project.id);
-                  setCommandPaletteOpen(false);
+                  props.handleProjectBoardSelect(project.id);
+                  props.setCommandPaletteOpen(false);
                 }}
               >
                 <LayoutDashboardIcon aria-hidden="true" />
@@ -594,10 +877,10 @@ export function WorkspaceLayout() {
             ))}
           </CommandGroup>
           <CommandGroup heading="Sessions">
-            {terminalSessions.map((session) => {
+            {props.terminalSessions.map((session) => {
               const selectionKey = getWorkerSessionSelectionKey(session);
               const projectName =
-                projects.find((project) => project.id === session.project)
+                props.projects.find((project) => project.id === session.project)
                   ?.name ?? session.project;
               const sessionSuffix =
                 session.kind === 'orchestrator'
@@ -610,8 +893,8 @@ export function WorkspaceLayout() {
                   key={selectionKey}
                   value={`session ${label} ${session.workerId} ${session.issue}`}
                   onSelect={() => {
-                    handleTerminalSessionOpen(selectionKey);
-                    setCommandPaletteOpen(false);
+                    props.handleTerminalSessionOpen(selectionKey);
+                    props.setCommandPaletteOpen(false);
                   }}
                 >
                   <SquareTerminalIcon aria-hidden="true" />
@@ -624,29 +907,33 @@ export function WorkspaceLayout() {
             <CommandItem
               value="toggle sidebar"
               onSelect={() => {
-                handleSidebarOpenChange(!sidebarOpen);
-                setCommandPaletteOpen(false);
+                props.handleSidebarOpenChange(!props.sidebarOpen);
+                props.setCommandPaletteOpen(false);
               }}
             >
               <PanelRightIcon aria-hidden="true" className="rotate-180" />
-              <span>{sidebarOpen ? 'Close sidebar' : 'Open sidebar'}</span>
+              <span>
+                {props.sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+              </span>
               <CommandShortcut>
                 <Kbd>{MOD_KEY}</Kbd>
                 <span aria-hidden="true">+</span>
                 <Kbd>B</Kbd>
               </CommandShortcut>
             </CommandItem>
-            {isTerminalRoute ? (
+            {props.isTerminalRoute ? (
               <CommandItem
                 value="toggle canvas panel"
                 onSelect={() => {
-                  handleCanvasOpenChange(!canvasOpen);
-                  setCommandPaletteOpen(false);
+                  props.handleCanvasOpenChange(!props.canvasOpen);
+                  props.setCommandPaletteOpen(false);
                 }}
               >
                 <PanelRightIcon aria-hidden="true" />
                 <span>
-                  {canvasOpen ? 'Close Canvas panel' : 'Open Canvas panel'}
+                  {props.canvasOpen
+                    ? 'Close Canvas panel'
+                    : 'Open Canvas panel'}
                 </span>
                 <CommandShortcut>
                   <Kbd>{MOD_KEY}</Kbd>
@@ -697,33 +984,15 @@ function updateOpenIds<T extends string>(
   return Array.from(nextIds);
 }
 
-function getProjectIdFromSelectionKey(selectionKey: string) {
-  const [encodedProjectId] = selectionKey.split(':', 1);
-
-  if (!encodedProjectId) {
-    return undefined;
-  }
-
-  try {
-    return decodeURIComponent(encodedProjectId);
-  } catch {
-    return undefined;
-  }
+function getOptionalSearchString(value: unknown) {
+  return typeof value === 'string' && value !== '' ? value : undefined;
 }
 
-function getSessionIdFromSelectionKey(selectionKey: string) {
-  const parts = selectionKey.split(':');
-  if (parts.length < 2) {
-    return undefined;
-  }
-  const encodedSessionId = parts[1];
-  if (!encodedSessionId) {
-    return undefined;
-  }
-
-  try {
-    return decodeURIComponent(encodedSessionId);
-  } catch {
-    return undefined;
-  }
+function getTerminalRouteSearch(
+  terminalSessions: WorkerSession[],
+  targetSession: WorkerSession
+): { project?: string } {
+  return terminalSessionIdRequiresProject(terminalSessions, targetSession.id)
+    ? { project: targetSession.project }
+    : {};
 }

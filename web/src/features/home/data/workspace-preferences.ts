@@ -1,16 +1,23 @@
+import { validatePreviewUrlInput } from '@/features/home/data/browser-preview';
+import {
+  type CanvasTab,
+  isCanvasTab,
+} from '@/features/home/domain/canvas-tabs';
 import {
   type WorkerSessionState,
   workerSessionStates,
 } from '@/features/home/domain/session-workspace';
 
-const homeWorkspacePreferencesStorageKey =
-  'yyork.home.workspace-preferences';
+const homeWorkspacePreferencesStorageKey = 'yyork.home.workspace-preferences';
 const homeWorkspacePreferencesVersion = 1;
 
 export interface HomeWorkspacePreferences {
   canvasLayout?: HomeWorkspaceCanvasLayout;
   canvasOpen: boolean;
+  canvasPreviewUrls?: Record<string, string>;
   canvasPreviewUrl?: string;
+  canvasReview?: HomeWorkspaceCanvasReviewPreferences;
+  canvasTab?: CanvasTab;
   hiddenProjectIds?: string[];
   hiddenTerminalSessionKeys?: string[];
   openProjectIds?: string[];
@@ -27,6 +34,19 @@ export interface HomeWorkspaceCanvasLayout {
   canvas: number;
   main: number;
 }
+
+export type HomeWorkspaceCanvasReviewDiffLayout = 'split' | 'stacked';
+
+export interface HomeWorkspaceCanvasReviewPreferences {
+  diffLayout?: HomeWorkspaceCanvasReviewDiffLayout;
+  wrapLines?: boolean;
+}
+
+export type CanvasPreviewTargetSummary = {
+  cwd?: string;
+  projectId?: string;
+  sessionId?: string;
+};
 
 interface StoredHomeWorkspacePreferences extends Partial<HomeWorkspacePreferences> {
   version?: number;
@@ -69,6 +89,59 @@ export function writeHomeWorkspacePreferences(
   } catch {
     // Browser storage can be unavailable in private or restricted contexts.
   }
+}
+
+export function getCanvasPreviewTargetKey(target: CanvasPreviewTargetSummary) {
+  if (target.projectId && target.sessionId) {
+    return `session:${encodeURIComponent(target.projectId)}:${encodeURIComponent(
+      target.sessionId
+    )}`;
+  }
+
+  if (target.projectId) {
+    return `project:${encodeURIComponent(target.projectId)}`;
+  }
+
+  if (target.cwd) {
+    return `cwd:${encodeURIComponent(target.cwd)}`;
+  }
+
+  return 'global';
+}
+
+export function getCanvasPreviewUrlForTarget(
+  preferences: Pick<
+    HomeWorkspacePreferences,
+    'canvasPreviewUrl' | 'canvasPreviewUrls'
+  >,
+  targetKey: string
+) {
+  return (
+    preferences.canvasPreviewUrls?.[targetKey] ?? preferences.canvasPreviewUrl
+  );
+}
+
+export function getCanvasPreviewUrlPreferenceUpdate(
+  preferences: Pick<
+    HomeWorkspacePreferences,
+    'canvasPreviewUrl' | 'canvasPreviewUrls'
+  >,
+  targetKey: string,
+  url: string
+): Pick<HomeWorkspacePreferences, 'canvasPreviewUrl' | 'canvasPreviewUrls'> {
+  const nextUrls = { ...preferences.canvasPreviewUrls };
+  const normalizedUrl = normalizeCanvasPreviewUrl(url);
+
+  if (normalizedUrl) {
+    nextUrls[targetKey] = normalizedUrl;
+  } else {
+    delete nextUrls[targetKey];
+  }
+
+  return {
+    canvasPreviewUrl: undefined,
+    canvasPreviewUrls: Object.keys(nextUrls).length > 0 ? nextUrls : undefined,
+  };
 }
 
 function readStoredValue() {
@@ -120,7 +193,14 @@ function normalizeHomeWorkspacePreferences(
       typeof preferences.canvasOpen === 'boolean'
         ? preferences.canvasOpen
         : false,
-    canvasPreviewUrl: normalizeString(preferences.canvasPreviewUrl),
+    canvasPreviewUrl: normalizeCanvasPreviewUrl(preferences.canvasPreviewUrl),
+    canvasPreviewUrls: normalizeCanvasPreviewUrlRecord(
+      preferences.canvasPreviewUrls
+    ),
+    canvasReview: normalizeCanvasReviewPreferences(preferences.canvasReview),
+    canvasTab: isCanvasTab(preferences.canvasTab)
+      ? preferences.canvasTab
+      : undefined,
   };
 }
 
@@ -155,6 +235,36 @@ function normalizeCanvasLayout(value: unknown) {
         main,
       }
     : undefined;
+}
+
+function normalizeCanvasReviewPreferences(
+  value: unknown
+): HomeWorkspaceCanvasReviewPreferences | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const diffLayout = normalizeCanvasReviewDiffLayout(
+    Reflect.get(value, 'diffLayout')
+  );
+  const wrapLines = Reflect.get(value, 'wrapLines');
+  const normalizedWrapLines =
+    typeof wrapLines === 'boolean' ? wrapLines : undefined;
+
+  if (diffLayout === undefined && normalizedWrapLines === undefined) {
+    return undefined;
+  }
+
+  return {
+    diffLayout,
+    wrapLines: normalizedWrapLines,
+  };
+}
+
+function normalizeCanvasReviewDiffLayout(
+  value: unknown
+): HomeWorkspaceCanvasReviewDiffLayout | undefined {
+  return value === 'split' || value === 'stacked' ? value : undefined;
 }
 
 function isStoredHomeWorkspacePreferences(
@@ -198,6 +308,34 @@ function normalizeStringRecord(value: unknown) {
         entry[1].trim().length > 0
     )
     .map(([key, label]) => [key, label.trim()]);
+
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+function normalizeCanvasPreviewUrl(value: unknown) {
+  const normalizedValue = normalizeString(value);
+
+  if (!normalizedValue) {
+    return undefined;
+  }
+
+  const result = validatePreviewUrlInput(normalizedValue);
+
+  return result.url || undefined;
+}
+
+function normalizeCanvasPreviewUrlRecord(value: unknown) {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const entries = Object.entries(value)
+    .filter(
+      (entry): entry is [string, string] =>
+        entry[0].length > 0 && typeof entry[1] === 'string'
+    )
+    .map(([key, url]) => [key, normalizeCanvasPreviewUrl(url)])
+    .filter((entry): entry is [string, string] => typeof entry[1] === 'string');
 
   return entries.length > 0 ? Object.fromEntries(entries) : undefined;
 }

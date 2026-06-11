@@ -1,13 +1,8 @@
 import { mutationOptions } from '@tanstack/react-query';
 import { z } from 'zod';
 
-/**
- * AnnotationPayload is the subset of the agentation v1.1 Annotation shape that
- * yyork forwards to an agent. The in-app agentation instance emits these
- * via `onAnnotationAdd`; the worker's glue postMessages them to the dashboard.
- */
 export interface AnnotationPayload {
-  comment: string;
+  comment?: string;
   element?: string;
   elementPath?: string;
   id?: string;
@@ -50,7 +45,7 @@ export function createSendAnnotationsPath(
   return query ? `${base}?${query}` : base;
 }
 
-async function sendAnnotations(
+export async function sendAnnotations(
   input: SendAnnotationsInput
 ): Promise<SendAnnotationsResult> {
   const response = await fetch(createSendAnnotationsPath(input), {

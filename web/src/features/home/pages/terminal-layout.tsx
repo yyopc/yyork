@@ -1,10 +1,4 @@
-import {
-  type ReactNode,
-  type RefObject,
-  useCallback,
-  useEffect,
-  useRef,
-} from 'react';
+import { type ReactNode, type RefObject, useEffect, useRef } from 'react';
 
 import { cn } from '@/lib/tailwind/utils';
 
@@ -13,7 +7,7 @@ import { useWorkspaceContext } from '@/features/home/pages/workspace-context';
 
 const CANVAS_PANE_WIDTH_VAR = '--canvas-pane-width';
 const CANVAS_MIN_PERCENT = 22;
-const CANVAS_MAX_PERCENT = 55;
+const CANVAS_MAX_PERCENT = 70;
 const CANVAS_MIN_PX = '17.5rem';
 
 export function TerminalLayout(props: { children: ReactNode }) {
@@ -60,15 +54,12 @@ export function TerminalLayout(props: { children: ReactNode }) {
     };
   }, []);
 
-  const handleResize = useCallback(
-    (percent: number) => {
-      context.onCanvasLayoutChange({
-        canvas: percent,
-        main: 100 - percent,
-      });
-    },
-    [context]
-  );
+  const handleResize = (percent: number) => {
+    context.onCanvasLayoutChange({
+      canvas: percent,
+      main: 100 - percent,
+    });
+  };
 
   return (
     <div
@@ -111,7 +102,9 @@ export function TerminalLayout(props: { children: ReactNode }) {
           <CanvasPanel
             activeTab={context.canvasTab}
             previewUrl={context.canvasPreviewUrl}
+            reviewPreferences={context.canvasReviewPreferences}
             onPreviewUrlChange={context.onCanvasPreviewUrlChange}
+            onReviewPreferencesChange={context.onCanvasReviewPreferencesChange}
             onTabChange={context.onCanvasTabChange}
             target={context.canvasTarget}
           />

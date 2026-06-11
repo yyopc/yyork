@@ -12,7 +12,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-import { isCanvasTab } from '@/features/home/components/organisms/canvas-panel';
+import { isCanvasTab } from '@/features/home/domain/canvas-tabs';
 import { useWorkspaceContext } from '@/features/home/pages/workspace-context';
 
 // 0.75rem (slot↔button gap) + 2.25rem (toggle button) + 0.75rem (header pe-3).
