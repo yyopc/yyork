@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useRef } from 'react';
 import { useFormState } from 'react-hook-form';
 
 import { useFormField } from '@/components/form/form-field';
@@ -26,13 +26,9 @@ export const FieldOtp = (
   const ctx = useFormField();
   const formState = useFormState();
   const { field, fieldState } = useFormFieldController();
-  const slotIds = useMemo(
-    () =>
-      Array.from(
-        { length: rest.maxLength },
-        (_, index) => `${ctx.id}-otp-slot-${index}`
-      ),
-    [ctx.id, rest.maxLength]
+  const slotIds = Array.from(
+    { length: rest.maxLength },
+    (_, index) => `${ctx.id}-otp-slot-${index}`
   );
 
   return (

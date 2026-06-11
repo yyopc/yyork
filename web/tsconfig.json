@@ -11,13 +11,6 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    "typeRoots": ["node_modules/@types", "src/types"],
-    "plugins": [
-      {
-        "name": "ts-plugin-sort-import-suggestions",
-        "moveUpPatterns": ["@/", "\\.{1,2}/"],
-        "moveDownPatterns": ["lucide-react"]
-      }
-    ]
+    "typeRoots": ["node_modules/@types", "src/types"]
   }
 }

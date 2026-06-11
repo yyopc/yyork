@@ -21,6 +21,7 @@ const formOptions = {
   mode: 'onBlur',
   resolver: zodResolver(zFormSchema()),
 } as const;
+const defaultCalendarMonth = new Date(2026, 0, 1);
 
 export const Default = () => {
   const form = useForm(formOptions);
@@ -60,7 +61,7 @@ export const CalendarCustomization = () => {
             name="date"
             placeholder="DD/MM/YYYY"
             calendarProps={{
-              startMonth: new Date(),
+              startMonth: defaultCalendarMonth,
             }}
           />
           <FormFieldHelper>Help</FormFieldHelper>

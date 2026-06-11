@@ -5,7 +5,7 @@ import {
   FieldValues,
 } from 'react-hook-form';
 
-import { FieldType } from '@/components/form/_fields';
+import type { FieldType } from '@/components/form/field-types';
 
 export type NonGenericFormFieldControllerContextValue =
   FormFieldControllerContextValue<FieldValues>;

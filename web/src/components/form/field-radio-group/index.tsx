@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { createElement } from 'react';
 
 import { useFormField } from '@/components/form/form-field';
 import { FormFieldContainer } from '@/components/form/form-field-container';
@@ -41,17 +41,14 @@ export const FieldRadioGroup = (
           const radioId = `${ctx.id}-${option.value}`;
 
           if (renderOption) {
-            return (
-              <Fragment key={radioId}>
-                {renderOption({
-                  label,
-                  'aria-invalid': fieldState.invalid,
-                  size: ctx.size,
-                  ...field,
-                  ...option,
-                })}
-              </Fragment>
-            );
+            return createElement(renderOption, {
+              key: radioId,
+              label,
+              'aria-invalid': fieldState.invalid,
+              size: ctx.size,
+              ...field,
+              ...option,
+            });
           }
 
           return (

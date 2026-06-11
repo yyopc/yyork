@@ -9,6 +9,7 @@ import { FieldRadioGroup } from './field-radio-group';
 import { FieldSelect } from './field-select';
 import { FieldText } from './field-text';
 import { FieldTextarea } from './field-textarea';
+import type { FieldType } from './field-types';
 
 export const fieldComponents = {
   text: FieldText,
@@ -24,9 +25,8 @@ export const fieldComponents = {
   checkbox: FieldCheckbox,
   'checkbox-group': FieldCheckboxGroup,
   'radio-group': FieldRadioGroup,
-} as const;
+} as const satisfies Record<FieldType, React.ComponentType<any>>;
 
-export type FieldType = keyof typeof fieldComponents;
 export type FieldComponent<TFieldType extends FieldType> =
   (typeof fieldComponents)[TFieldType];
 

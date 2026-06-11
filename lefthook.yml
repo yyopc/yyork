@@ -12,7 +12,7 @@ pre-commit:
       stage_fixed: true
     oxlint:
       glob: '*.{js,ts,cjs,mjs,jsx,tsx}'
-      run: web/node_modules/.bin/oxlint --config web/.oxlintrc.json --tsconfig web/tsconfig.json --fix {staged_files}
+      run: web/node_modules/.bin/oxlint --config web/oxlint.config.ts --tsconfig web/tsconfig.json --fix {staged_files}
       stage_fixed: true
 
 pre-push:

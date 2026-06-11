@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-export const themes = ['system', 'light', 'dark'] as const;
+const themes = ['system', 'light', 'dark'] as const;
 
 export const ThemeSwitcher = (props: {
   iconOnly?: boolean;

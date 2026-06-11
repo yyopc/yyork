@@ -2,7 +2,7 @@ import { createRouter } from '@tanstack/react-router';
 
 import { queryClient } from '@/lib/tanstack-query/query-client';
 
-import { routeTree } from './routeTree.gen';
+import { routeTree } from './route-tree.gen';
 
 export function getRouter() {
   return createRouter({

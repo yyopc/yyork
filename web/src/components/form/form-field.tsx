@@ -1,4 +1,4 @@
-import { createContext, ReactNode, use, useId, useMemo } from 'react';
+import { createContext, ReactNode, use, useId } from 'react';
 
 import { cn } from '@/lib/tailwind/utils';
 
@@ -15,16 +15,13 @@ export const FormField = (props: FormFieldProps) => {
   const _id = useId();
   const id = props.id ?? _id;
 
-  const contextValue = useMemo(
-    () => ({
-      id,
-      labelId: `${id}-label`,
-      descriptionId: `${id}-description`,
-      errorId: `${id}-error`,
-      size: props.size,
-    }),
-    [id, props.size]
-  );
+  const contextValue = {
+    id,
+    labelId: `${id}-label`,
+    descriptionId: `${id}-description`,
+    errorId: `${id}-error`,
+    size: props.size,
+  };
 
   return (
     <FormFieldContext value={contextValue}>
@@ -43,9 +40,7 @@ type FormFieldContextValue = {
   size?: FormFieldSize;
 };
 
-export const FormFieldContext = createContext<FormFieldContextValue | null>(
-  null
-);
+const FormFieldContext = createContext<FormFieldContextValue | null>(null);
 
 export const useFormField = () => {
   const fieldContext = use(FormFieldContext);

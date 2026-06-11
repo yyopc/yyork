@@ -44,13 +44,10 @@ function InputOTP({
 }: Omit<React.ComponentProps<typeof OTPInput>, 'size' | 'render'> &
   VariantProps<typeof inputOTPVariants> & { children: ReactNode }) {
   const invalid = !!props['aria-invalid'];
-  const value = React.useMemo(
-    () => ({
-      size,
-      invalid,
-    }),
-    [size, invalid]
-  );
+  const value = {
+    size,
+    invalid,
+  };
 
   return (
     <InputOTPContext value={value}>
@@ -110,11 +107,11 @@ function InputOTPSlot({
   );
 }
 
-function InputOTPSeparator({ ...props }: React.ComponentProps<'div'>) {
+function InputOTPSeparator({ ...props }: React.ComponentProps<'span'>) {
   return (
-    <div data-slot="input-otp-separator" role="separator" {...props}>
+    <span data-slot="input-otp-separator" {...props}>
       <MinusIcon />
-    </div>
+    </span>
   );
 }
 
