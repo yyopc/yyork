@@ -128,6 +128,12 @@
       "transcript": "/bb/755cc58cac/17/full.jsonl",
       "content_hash": "/bb/755cc58cac/17/content_hash.txt",
       "prompt": "/bb/755cc58cac/17/prompt.txt"
+    },
+    {
+      "metadata": "/bb/755cc58cac/18/metadata.json",
+      "transcript": "/bb/755cc58cac/18/full.jsonl",
+      "content_hash": "/bb/755cc58cac/18/content_hash.txt",
+      "prompt": "/bb/755cc58cac/18/prompt.txt"
     }
   ],
   "token_usage": {
