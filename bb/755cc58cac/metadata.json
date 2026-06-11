@@ -3,7 +3,7 @@
   "checkpoint_id": "bb755cc58cac",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 6,
+  "checkpoints_count": 7,
   "files_touched": [
     "README.md",
     "bin/install-yyork.mjs",
@@ -110,13 +110,19 @@
       "transcript": "/bb/755cc58cac/14/full.jsonl",
       "content_hash": "/bb/755cc58cac/14/content_hash.txt",
       "prompt": "/bb/755cc58cac/14/prompt.txt"
+    },
+    {
+      "metadata": "/bb/755cc58cac/15/metadata.json",
+      "transcript": "/bb/755cc58cac/15/full.jsonl",
+      "content_hash": "/bb/755cc58cac/15/content_hash.txt",
+      "prompt": "/bb/755cc58cac/15/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 10107952,
+    "input_tokens": 12692779,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 223693184,
-    "output_tokens": 717583,
-    "api_call_count": 1519
+    "cache_read_tokens": 267006976,
+    "output_tokens": 878918,
+    "api_call_count": 1877
   }
 }
