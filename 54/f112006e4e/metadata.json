@@ -3,7 +3,7 @@
   "checkpoint_id": "54f112006e4e",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 1,
+  "checkpoints_count": 2,
   "files_touched": [
     "skills-lock.json"
   ],
@@ -19,13 +19,19 @@
       "transcript": "/54/f112006e4e/1/full.jsonl",
       "content_hash": "/54/f112006e4e/1/content_hash.txt",
       "prompt": "/54/f112006e4e/1/prompt.txt"
+    },
+    {
+      "metadata": "/54/f112006e4e/2/metadata.json",
+      "transcript": "/54/f112006e4e/2/full.jsonl",
+      "content_hash": "/54/f112006e4e/2/content_hash.txt",
+      "prompt": "/54/f112006e4e/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 635884,
+    "input_tokens": 2133592,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 5753472,
-    "output_tokens": 32896,
-    "api_call_count": 47
+    "cache_read_tokens": 32615936,
+    "output_tokens": 132504,
+    "api_call_count": 256
   }
 }
