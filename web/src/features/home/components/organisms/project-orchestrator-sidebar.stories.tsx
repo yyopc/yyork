@@ -174,7 +174,7 @@ export const ProjectRootOwnsOrchestrator: Story = {
       >
         <TerminalWorkspacePanel
           eyebrow={activeProject.name}
-          title="Project orchestrator"
+          title="Orchestrator"
           lines={[
             '$ ao status',
             'workers: 8',
@@ -557,7 +557,7 @@ function WorkerSessionButton(props: {
         render={<button type="button" />}
         isActive={props.session.selectionKey === props.selectedKey}
         size="sm"
-        className="h-6 w-full ps-16 pe-2"
+        className="h-7 w-full ps-16 pe-2"
         onClick={() => props.onSessionSelect?.(props.session.selectionKey)}
       >
         <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
@@ -617,7 +617,7 @@ function TopbarOrchestratorPanel(props: { projectName: string }) {
       </div>
       <TerminalWorkspacePanel
         eyebrow={props.projectName}
-        title="Project orchestrator"
+        title="Orchestrator"
         lines={[
           '$ ao watch --project agent-orchestrator',
           'active: orchestrator',
