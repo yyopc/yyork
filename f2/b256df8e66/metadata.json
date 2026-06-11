@@ -1,0 +1,59 @@
+{
+  "cli_version": "0.7.5",
+  "checkpoint_id": "f2b256df8e66",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "api/generate-workspace-contract.go",
+    "go.mod",
+    "internal/ao/workspace.go",
+    "internal/ao/workspace_test.go",
+    "internal/app/app.go",
+    "internal/control/control.go",
+    "internal/control/control_test.go",
+    "internal/durabilityprovider/provider.go",
+    "internal/durabilityprovider/send.go",
+    "internal/durabilityprovider/send_test.go",
+    "internal/durabilityprovider/zellij.go",
+    "internal/durabilityprovider/zellij_lifecycle.go",
+    "internal/durabilityprovider/zellij_lifecycle_smoke_test.go",
+    "internal/durabilityprovider/zellij_test.go",
+    "internal/events/events_test.go",
+    "internal/plugin/agent/agent.go",
+    "internal/plugin/agent/claudecode/claudecode.go",
+    "internal/plugin/agent/claudecode/claudecode_test.go",
+    "internal/plugin/agent/claudecode/hooks.go",
+    "internal/plugin/agent/codex/codex.go",
+    "internal/plugin/agent/codex/codex_test.go",
+    "internal/plugin/agent/codex/hooks.go",
+    "internal/server/annotations.go",
+    "internal/server/annotations_test.go",
+    "internal/server/publish_event_test.go",
+    "internal/server/server.go",
+    "internal/server/server_test.go",
+    "internal/server/sessions.go",
+    "internal/server/sessions_test.go",
+    "internal/session/engine.go",
+    "internal/session/engine_test.go",
+    "internal/session/workspace_source.go",
+    "internal/session/workspace_source_test.go",
+    "internal/store/store_test.go",
+    "internal/worktree/worktree_test.go"
+  ],
+  "sessions": [
+    {
+      "metadata": "/f2/b256df8e66/0/metadata.json",
+      "transcript": "/f2/b256df8e66/0/full.jsonl",
+      "content_hash": "/f2/b256df8e66/0/content_hash.txt",
+      "prompt": "/f2/b256df8e66/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 358139,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 19448832,
+    "output_tokens": 46990,
+    "api_call_count": 125
+  }
+}
