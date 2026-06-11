@@ -1,9 +1,11 @@
 {
   "cli_version": "0.7.5",
   "checkpoint_id": "3da61bdc47fd",
+  "session_id": "019ea678-c3e6-7221-92c7-d3121f3aac93",
   "strategy": "manual-commit",
+  "created_at": "2026-06-11T13:57:21.536884Z",
   "branch": "main",
-  "checkpoints_count": 3,
+  "checkpoints_count": 1,
   "files_touched": [
     "web/AGENTS.md",
     "web/src/components/errors/page-error.tsx",
@@ -49,37 +51,29 @@
     "web/tsconfig.json",
     "web/vite.config.ts"
   ],
-  "sessions": [
-    {
-      "metadata": "/3d/a61bdc47fd/0/metadata.json",
-      "transcript": "/3d/a61bdc47fd/0/full.jsonl",
-      "content_hash": "/3d/a61bdc47fd/0/content_hash.txt",
-      "prompt": "/3d/a61bdc47fd/0/prompt.txt"
-    },
-    {
-      "metadata": "/3d/a61bdc47fd/1/metadata.json",
-      "transcript": "/3d/a61bdc47fd/1/full.jsonl",
-      "content_hash": "/3d/a61bdc47fd/1/content_hash.txt",
-      "prompt": "/3d/a61bdc47fd/1/prompt.txt"
-    },
-    {
-      "metadata": "/3d/a61bdc47fd/2/metadata.json",
-      "transcript": "/3d/a61bdc47fd/2/full.jsonl",
-      "content_hash": "/3d/a61bdc47fd/2/content_hash.txt",
-      "prompt": "/3d/a61bdc47fd/2/prompt.txt"
-    },
-    {
-      "metadata": "/3d/a61bdc47fd/3/metadata.json",
-      "transcript": "/3d/a61bdc47fd/3/full.jsonl",
-      "content_hash": "/3d/a61bdc47fd/3/content_hash.txt",
-      "prompt": "/3d/a61bdc47fd/3/prompt.txt"
-    }
-  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "69b38e239f21",
   "token_usage": {
-    "input_tokens": 7616221,
+    "input_tokens": 672654,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 171628416,
-    "output_tokens": 538089,
-    "api_call_count": 1138
+    "cache_read_tokens": 16503040,
+    "output_tokens": 64068,
+    "api_call_count": 119
+  },
+  "session_metrics": {
+    "turn_count": 3
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-06-11T13:57:21.290039Z",
+    "agent_lines": 319,
+    "agent_removed": 425,
+    "human_added": 389,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 708,
+    "total_lines_changed": 1430,
+    "agent_percentage": 52.02797202797203,
+    "metric_version": 2
   }
 }
