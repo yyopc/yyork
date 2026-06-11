@@ -1,15 +1,3 @@
-export type BrowserDomEvent = {
-  element?: string;
-  eventType: string;
-  selector?: string;
-  text?: string;
-  timestamp: string;
-  url?: string;
-  value?: string;
-  x?: number;
-  y?: number;
-};
-
 export type BrowserPreviewUrlResult = {
   error?: string;
   url: string;

@@ -9,7 +9,6 @@ import {
   RefreshCcwIcon,
   RotateCcwIcon,
   SendHorizontalIcon,
-  SquareMousePointerIcon,
   Trash2Icon,
   XIcon,
 } from 'lucide-react';
@@ -35,7 +34,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { Toggle } from '@/components/ui/toggle';
 import {
   Tooltip,
   TooltipContent,
@@ -47,7 +45,6 @@ import {
   sendAnnotationsMutationOptions,
 } from '@/features/home/data/annotations';
 import {
-  type BrowserDomEvent,
   type BrowserPreviewAgentationMessage,
   type BrowserPreviewAnnotation,
   type BrowserPreviewMessage,
@@ -61,8 +58,6 @@ interface WebPreviewContextValue {
   canGoBack: boolean;
   canGoForward: boolean;
   currentUrl: string;
-  domEvents: BrowserDomEvent[];
-  domEventsOpen: boolean;
   error: string | null;
   iframeKey: number;
   iframeRef: React.RefObject<HTMLIFrameElement | null>;
@@ -75,7 +70,6 @@ interface WebPreviewContextValue {
     storageScope?: 'cache' | 'cookies' | 'all'
   ) => void;
   runHistory: (direction: 'back' | 'forward') => void;
-  setDomEventsOpen: (open: boolean) => void;
   setError: (error: string | null) => void;
   setLoading: (loading: boolean) => void;
   updateCurrentUrlFromFrame: () => void;
@@ -86,7 +80,6 @@ type HistoryEntry = {
 };
 
 interface PreviewState {
-  domEvents: BrowserDomEvent[];
   error: string | null;
   history: HistoryEntry[];
   historyIndex: number;
@@ -99,7 +92,6 @@ interface StagedAnnotation extends AnnotationPayload {
   sourceId?: string;
 }
 
-const maxDOMEvents = 200;
 const WebPreviewContext = createContext<WebPreviewContextValue | null>(null);
 
 export function CanvasWebPreview(props: {
@@ -114,7 +106,6 @@ export function CanvasWebPreview(props: {
     createPreviewState(props.defaultUrl)
   );
   const [iframeKey, setIframeKey] = useState(0);
-  const [domEventsOpen, setDomEventsOpen] = useState(false);
   const [annotations, setAnnotations] = useState<StagedAnnotation[]>([]);
   const annotationKeyRef = useRef(0);
   const sendMutation = useMutation(sendAnnotationsMutationOptions());
@@ -122,8 +113,7 @@ export function CanvasWebPreview(props: {
     previewState,
     props.defaultUrl
   );
-  const { domEvents, error, history, historyIndex, loading } =
-    activePreviewState;
+  const { error, history, historyIndex, loading } = activePreviewState;
 
   function updatePreviewState(update: (current: PreviewState) => PreviewState) {
     setPreviewState((current) =>
@@ -168,7 +158,6 @@ export function CanvasWebPreview(props: {
 
       return {
         ...current,
-        domEvents: [],
         error: null,
         history: [...current.history.slice(0, nextIndex), { url: result.url }],
         historyIndex: nextIndex,
@@ -344,8 +333,6 @@ export function CanvasWebPreview(props: {
     canGoBack,
     canGoForward,
     currentUrl,
-    domEvents,
-    domEventsOpen,
     error,
     iframeKey,
     iframeRef,
@@ -355,7 +342,6 @@ export function CanvasWebPreview(props: {
     recordFrameNavigation,
     reloadPreview,
     runHistory,
-    setDomEventsOpen,
     setError: setPreviewError,
     setLoading: setPreviewLoading,
     updateCurrentUrlFromFrame,
@@ -369,19 +355,10 @@ export function CanvasWebPreview(props: {
           <HistoryButton direction="forward" />
           <ReloadPreviewButton />
           <WebPreviewUrl placeholder="http://localhost:3000" />
-          <DomEventsToggle />
           <OpenExternalButton />
           <BrowserMenuButton />
         </WebPreviewNavigation>
-        <BrowserViewport
-          onAgentationMessage={handleAgentationMessage}
-          onDOMEvent={(event) => {
-            updatePreviewState((current) => ({
-              ...current,
-              domEvents: [...current.domEvents, event].slice(-maxDOMEvents),
-            }));
-          }}
-        />
+        <BrowserViewport onAgentationMessage={handleAgentationMessage} />
         {annotations.length > 0 || sendMutation.isPending ? (
           <AnnotationTray
             annotations={annotations}
@@ -394,7 +371,6 @@ export function CanvasWebPreview(props: {
             onSend={() => sendAnnotationsToAgent()}
           />
         ) : null}
-        {domEventsOpen ? <DomEventsTray events={domEvents} /> : null}
       </div>
     </WebPreviewContext>
   );
@@ -450,6 +426,7 @@ function OpenExternalButton() {
   return (
     <WebPreviewNavigationButton
       tooltip="Open externally"
+      className="ms-auto"
       disabled={disabled}
       onClick={() => {
         if (!disabled) {
@@ -513,40 +490,8 @@ function BrowserMenuButton() {
   );
 }
 
-function DomEventsToggle() {
-  const { domEvents, domEventsOpen, setDomEventsOpen } = useWebPreview();
-  const tooltip = domEventsOpen ? 'Hide DOM events' : 'Show DOM events';
-
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Toggle
-            size={domEventsOpen ? 'sm' : 'icon-sm'}
-            className={cn(
-              'ms-auto rounded-sm font-normal shadow-none',
-              domEventsOpen &&
-                'border-positive-500/60 bg-positive-500/10 text-positive-500 hover:border-positive-500/70 hover:bg-positive-500/15 hover:text-positive-500 data-pressed:border-positive-500/60 data-pressed:bg-positive-500/10 data-pressed:text-positive-500'
-            )}
-            pressed={domEventsOpen}
-            aria-label={tooltip}
-            onPressedChange={setDomEventsOpen}
-          />
-        }
-      >
-        <SquareMousePointerIcon aria-hidden="true" data-icon="inline-start" />
-        {domEventsOpen ? <span>{domEvents.length}</span> : null}
-      </TooltipTrigger>
-      <TooltipContent>
-        <p>{tooltip}</p>
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
 function BrowserViewport(props: {
   onAgentationMessage: (message: BrowserPreviewAgentationMessage) => void;
-  onDOMEvent: (event: BrowserDomEvent) => void;
 }) {
   const [frameState, setFrameState] = useState<{
     frameUrl: string;
@@ -576,14 +521,9 @@ function BrowserViewport(props: {
       setLoading(false);
     }
   );
-  const handleFrameLoad = useEffectEvent((activeFrame: HTMLIFrameElement) => {
+  const handleFrameLoad = useEffectEvent(() => {
     setLoading(false);
     updateCurrentUrlFromFrame();
-    const cleanup = attachDOMEventBridge(activeFrame, props.onDOMEvent);
-    if (!cleanup) {
-      return;
-    }
-    activeFrame.addEventListener('beforeunload', cleanup, { once: true });
   });
   const handleFrameError = useEffectEvent(() => {
     setLoading(false);
@@ -598,9 +538,6 @@ function BrowserViewport(props: {
         if (message.type === 'yyork:location-changed' && message.url) {
           recordFrameNavigation(message.url);
         }
-        if (message.type === 'yyork:dom-event') {
-          props.onDOMEvent(toBrowserDOMEventFromBridge(message));
-        }
         if (message.type === 'yyork:storage-clear-failed') {
           setError(message.error ?? 'Preview storage could not be cleared.');
         }
@@ -608,7 +545,6 @@ function BrowserViewport(props: {
       }
 
       if (message.type !== 'yyork:agentation-ready') {
-        props.onDOMEvent(toBrowserDOMEventFromAgentation(message));
         props.onAgentationMessage(message);
       }
     }
@@ -649,7 +585,7 @@ function BrowserViewport(props: {
     const activeFrame = frame;
 
     function handleLoad() {
-      handleFrameLoad(activeFrame);
+      handleFrameLoad();
     }
 
     function handleError() {
@@ -710,50 +646,6 @@ function BrowserViewport(props: {
           {error}
         </div>
       ) : null}
-    </div>
-  );
-}
-
-function DomEventsTray(props: { events: BrowserDomEvent[] }) {
-  const events = props.events.slice(-60).reverse();
-
-  return (
-    <div className="flex max-h-[34%] min-h-0 shrink-0 flex-col border-t border-border bg-muted/20">
-      <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2 text-xs">
-        <span className="font-medium">DOM events</span>
-        <span className="text-muted-foreground">{props.events.length}</span>
-      </div>
-      {events.length === 0 ? (
-        <p className="px-3 pb-3 text-xs text-muted-foreground">
-          No events captured yet
-        </p>
-      ) : (
-        <ul className="min-h-0 flex-1 divide-y divide-border overflow-auto">
-          {events.map((event, index) => (
-            <li
-              key={`${event.timestamp}:${index}`}
-              className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-2 px-3 py-2 text-xs"
-            >
-              <span className="font-medium text-foreground">
-                {event.eventType}
-              </span>
-              <span className="min-w-0 text-muted-foreground">
-                <span className="me-2">{formatEventTime(event.timestamp)}</span>
-                {event.selector ? (
-                  <code className="rounded-sm bg-background/80 px-1">
-                    {event.selector}
-                  </code>
-                ) : null}
-                {event.value || event.text ? (
-                  <span className="ms-2 break-words text-foreground">
-                    {event.value || event.text}
-                  </span>
-                ) : null}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
@@ -925,7 +817,6 @@ function createPreviewState(defaultUrl: string | undefined): PreviewState {
 
   if (!result.url) {
     return {
-      domEvents: [],
       error: result.error ?? null,
       history: [],
       historyIndex: -1,
@@ -935,7 +826,6 @@ function createPreviewState(defaultUrl: string | undefined): PreviewState {
   }
 
   return {
-    domEvents: [],
     error: null,
     history: [{ url: result.url }],
     historyIndex: 0,
@@ -953,122 +843,6 @@ function getActivePreviewState(
   }
 
   return createPreviewState(defaultUrl);
-}
-
-function attachDOMEventBridge(
-  frame: HTMLIFrameElement,
-  onDOMEvent: (event: BrowserDomEvent) => void
-) {
-  let doc: Document | null = null;
-  let win: Window | null = null;
-  try {
-    doc = frame.contentDocument;
-    win = frame.contentWindow;
-  } catch {
-    return null;
-  }
-  if (!doc || !win) {
-    return null;
-  }
-
-  const eventTypes = [
-    'click',
-    'input',
-    'change',
-    'keydown',
-    'focusin',
-    'submit',
-    'scroll',
-  ] as const;
-  const handler = (event: Event) => {
-    onDOMEvent(toBrowserDOMEvent(event, win));
-  };
-
-  for (const eventType of eventTypes) {
-    doc.addEventListener(eventType, handler, true);
-  }
-  win.addEventListener('scroll', handler, true);
-
-  return () => {
-    for (const eventType of eventTypes) {
-      doc.removeEventListener(eventType, handler, true);
-    }
-    win.removeEventListener('scroll', handler, true);
-  };
-}
-
-function toBrowserDOMEvent(event: Event, win: Window): BrowserDomEvent {
-  const target =
-    event.target instanceof Element
-      ? event.target
-      : win.document.documentElement;
-  const inputTarget =
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement
-      ? target
-      : null;
-  const text =
-    target instanceof HTMLElement ? target.innerText?.slice(0, 160) : '';
-
-  return {
-    eventType: event.type,
-    selector: elementSelector(target),
-    text: text || undefined,
-    timestamp: new Date().toISOString(),
-    url: win.location.href,
-    value: inputTarget?.value,
-  };
-}
-
-function toBrowserDOMEventFromBridge(message: {
-  element?: string;
-  eventType?: string;
-  selector?: string;
-  text?: string;
-  timestamp?: string;
-  url?: string;
-  value?: string;
-  x?: number;
-  y?: number;
-}): BrowserDomEvent {
-  return {
-    element: message.element,
-    eventType: message.eventType ?? 'event',
-    selector: message.selector,
-    text: message.text,
-    timestamp: message.timestamp ?? new Date().toISOString(),
-    url: message.url,
-    value: message.value,
-    x: message.x,
-    y: message.y,
-  };
-}
-
-function toBrowserDOMEventFromAgentation(
-  message: BrowserPreviewAgentationMessage
-): BrowserDomEvent {
-  const annotations = message.annotations ?? [];
-  const annotation =
-    message.annotation ?? annotations[annotations.length - 1] ?? undefined;
-  const boundingBox = annotation?.boundingBox;
-  const text =
-    annotation?.comment ??
-    annotation?.selectedText ??
-    message.markdown ??
-    message.output;
-
-  return {
-    element: annotation?.element,
-    eventType: message.type.replace(/^yyork:/, ''),
-    selector: annotation?.fullPath ?? annotation?.elementPath,
-    text,
-    timestamp: message.timestamp ?? new Date().toISOString(),
-    url: message.url,
-    value: annotation?.id,
-    x: boundingBox?.x ?? annotation?.x,
-    y: boundingBox?.y ?? annotation?.y,
-  };
 }
 
 function toStagedAnnotation(
@@ -1136,38 +910,6 @@ function toAnnotationRequestPayload(
   };
 }
 
-function elementSelector(element: Element) {
-  if (element.id) {
-    return `#${CSS.escape(element.id)}`;
-  }
-  const testId = element.getAttribute('data-testid');
-  if (testId) {
-    return `[data-testid="${cssAttributeEscape(testId)}"]`;
-  }
-  const parts: string[] = [];
-  let current: Element | null = element;
-  while (
-    current &&
-    current.nodeType === Node.ELEMENT_NODE &&
-    parts.length < 4
-  ) {
-    let selector = current.localName;
-    if (current.classList.length > 0) {
-      selector += `.${Array.from(current.classList)
-        .slice(0, 2)
-        .map((className) => CSS.escape(className))
-        .join('.')}`;
-    }
-    parts.unshift(selector);
-    current = current.parentElement;
-  }
-  return parts.join(' > ');
-}
-
-function cssAttributeEscape(value: string) {
-  return value.replace(/["\\]/g, '\\$&');
-}
-
 async function clearCurrentFrameStorage(
   frame: HTMLIFrameElement | null,
   scope: 'cache' | 'cookies' | 'all' = 'all'
@@ -1229,18 +971,6 @@ function readableFrameURL(frame: HTMLIFrameElement | null) {
   } catch {
     return '';
   }
-}
-
-function formatEventTime(value: string) {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return '';
-  }
-  return parsed.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
 }
 
 function useWebPreview() {
