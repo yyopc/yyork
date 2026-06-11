@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.7.5",
+  "checkpoint_id": "4f6ad6216597",
+  "session_id": "019ea0c8-7da5-7ec0-a430-f257a9abd2bd",
+  "strategy": "manual-commit",
+  "created_at": "2026-06-11T14:12:09.25286Z",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "pnpm-lock.yaml"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "e7909791f66d",
+  "checkpoint_transcript_start": 2806,
+  "transcript_lines_at_start": 2806,
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-06-11T14:12:08.756829Z",
+    "agent_lines": 407,
+    "agent_removed": 89,
+    "human_added": 3053,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 3460,
+    "total_lines_changed": 3733,
+    "agent_percentage": 13.28690061612644,
+    "metric_version": 2
+  }
+}
