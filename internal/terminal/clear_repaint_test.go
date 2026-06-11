@@ -13,7 +13,7 @@ import (
 //
 // Reading the results:
 //   - If the emulator's Render()/snapshot is CLEAN here, the garble lives in the
-//     CLIENT renderer (xterm.js / wterm) and the right fix is a server snapshot
+//     CLIENT renderer (xterm.js) and the right fix is a server snapshot
 //     re-push ("refresh" control message) — repaint from authoritative state.
 //   - If Render()/snapshot is itself GARBLED, the bug is in vt state handling or
 //     snapshot() reconstruction, and a repaint would only re-paint garbage.
@@ -89,7 +89,7 @@ func TestClearWipesScreenAndScrollback(t *testing.T) {
 
 // TestSnapshotReplayUnderWidthMismatch isolates the realistic client scenario:
 // the attach snapshot is produced at the emulator's width, but a freshly-fitted
-// xterm.js/wterm grid may momentarily be a different width when it applies that
+// xterm.js grid may momentarily be a different width when it applies that
 // snapshot. snapshot() paints each grid row at an absolute column-1 position; a
 // row that is exactly the emulator width can trigger the receiving terminal's
 // pending-wrap and bleed into the next row when the receiver is NARROWER. This

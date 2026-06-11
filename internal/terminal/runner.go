@@ -154,6 +154,15 @@ func mergeTerminalEnv(base []string, extra []string) []string {
 	env := append([]string(nil), base...)
 	if runtime.GOOS != "windows" {
 		env = upsertEnv(env, "TERM=xterm-256color")
+		// Zellij resurrects dead sessions on attach, and the resurrected
+		// server inherits THIS attach client's env — which every pane process
+		// the session spawns then inherits. A backend launched from an
+		// agent/CI shell carries NO_COLOR=1 and a blank COLORTERM (Codex CLI
+		// does this), which would force agents in the session to render
+		// monochrome. The terminal on the other end is the web frontend,
+		// which is truecolor-capable regardless of how the backend started.
+		env = removeEnv(env, "NO_COLOR")
+		env = upsertEnv(env, "COLORTERM=truecolor")
 	}
 
 	for _, value := range extra {
@@ -161,6 +170,18 @@ func mergeTerminalEnv(base []string, extra []string) []string {
 	}
 
 	return env
+}
+
+func removeEnv(env []string, key string) []string {
+	keyPrefix := key + "="
+	out := env[:0]
+	for _, current := range env {
+		if len(current) >= len(keyPrefix) && current[:len(keyPrefix)] == keyPrefix {
+			continue
+		}
+		out = append(out, current)
+	}
+	return out
 }
 
 func upsertEnv(env []string, value string) []string {

@@ -15,6 +15,12 @@ import (
 	"github.com/aymanbagabas/go-pty"
 
 	"github.com/yyopc/yyork/internal/session"
+	"github.com/yyopc/yyork/internal/zellijconfig"
+)
+
+const (
+	defaultZellijTerm      = "xterm-256color"
+	defaultZellijColorterm = "truecolor"
 )
 
 // CreateSession brings up a new zellij session named opts.Name running
@@ -54,6 +60,11 @@ func (z *ZellijProvider) CreateSession(ctx context.Context, opts session.CreateO
 		return err
 	}
 
+	// yyork's managed config selects the "yyork" color theme. Best-effort: a
+	// failure here just means zellij falls back to the user's own config, so
+	// we launch without it rather than abort session creation.
+	configPath, _ := zellijconfig.Ensure()
+
 	layoutPath, err := writeLaunchLayout(opts.LaunchCmd, opts.Cwd)
 	if err != nil {
 		return err
@@ -62,7 +73,7 @@ func (z *ZellijProvider) CreateSession(ctx context.Context, opts session.CreateO
 	// loaded it. Remove after we know the session is up (or after rollback).
 	cleanupLayout := func() { _ = os.Remove(layoutPath) }
 
-	clientCmd, ptmx, err := startZellijClient(ctx, binary, opts.Name, layoutPath, opts.Cwd, opts.Env)
+	clientCmd, ptmx, err := startZellijClient(ctx, binary, configPath, opts.Name, layoutPath, opts.Cwd, opts.Env)
 	if err != nil {
 		cleanupLayout()
 		return err
@@ -184,7 +195,10 @@ func (z *ZellijProvider) ListSessionNames(ctx context.Context) ([]string, error)
 // startZellijClient spawns a `zellij --session NAME --layout L` client
 // attached to a PTY in its own process group. The session, once observed
 // by waitForSessionUp, lives on the server even after this client exits.
-func startZellijClient(ctx context.Context, binary, name, layoutPath, cwd string, extraEnv map[string]string) (*pty.Cmd, pty.Pty, error) {
+//
+// configPath, when non-empty, is passed as `--config` so the session adopts
+// yyork's color theme; an empty configPath leaves zellij on its own config.
+func startZellijClient(ctx context.Context, binary, configPath, name, layoutPath, cwd string, extraEnv map[string]string) (*pty.Cmd, pty.Pty, error) {
 	ptmx, err := pty.New()
 	if err != nil {
 		return nil, nil, fmt.Errorf("zellij: open pty: %w", err)
@@ -204,7 +218,11 @@ func startZellijClient(ctx context.Context, binary, name, layoutPath, cwd string
 	// a fresh session. Plain `--session NAME --layout L` tries to attach to
 	// an existing session first and fails with "There is no active session!"
 	// when NAME doesn't exist — that's the wrong semantic for us.
-	args := []string{"--session", name, "--new-session-with-layout", layoutPath}
+	args := make([]string, 0, 6)
+	if configPath != "" {
+		args = append(args, "--config", configPath)
+	}
+	args = append(args, "--session", name, "--new-session-with-layout", layoutPath)
 	cmd := ptmx.CommandContext(ctx, binary, args...)
 	cmd.Dir = cwd
 	cmd.Env = buildEnv(extraEnv)
@@ -224,12 +242,13 @@ func startZellijClient(ctx context.Context, binary, name, layoutPath, cwd string
 }
 
 // buildEnv merges extra env vars onto the calling process's environment.
-// Later additions override earlier ones; vars listed in extra always win.
+// Later additions override earlier ones; vars listed in extra always win, then
+// TERM and the color vars are normalized so zellij never starts from a
+// sparse/dumb terminal environment. The attach side already sets
+// TERM=xterm-256color; creation must do the same because zellij plugins can
+// latch compatibility decisions when the session is first created.
 func buildEnv(extra map[string]string) []string {
 	base := os.Environ()
-	if len(extra) == 0 {
-		return base
-	}
 	out := make([]string, 0, len(base)+len(extra))
 	override := make(map[string]struct{}, len(extra))
 	for k, v := range extra {
@@ -246,6 +265,51 @@ func buildEnv(extra map[string]string) []string {
 			continue
 		}
 		out = append(out, pair)
+	}
+	return normalizeColorEnv(ensureZellijTerm(out))
+}
+
+func ensureZellijTerm(env []string) []string {
+	for i, pair := range env {
+		key, value, ok := strings.Cut(pair, "=")
+		if !ok || key != "TERM" {
+			continue
+		}
+		if strings.TrimSpace(value) == "" {
+			env[i] = "TERM=" + defaultZellijTerm
+		}
+		return env
+	}
+	return append(env, "TERM="+defaultZellijTerm)
+}
+
+// normalizeColorEnv makes the session environment color-capable regardless of
+// how the backend was launched. A backend started from an agent/CI shell
+// (Codex CLI exports NO_COLOR=1 and a blank COLORTERM) would otherwise bake
+// those vars into the long-lived zellij server, and every pane process the
+// session ever spawns inherits them — agents render monochrome until the
+// session is recreated. The session is always viewed through yyork's web
+// terminal (truecolor-capable), so the launching shell's own color support is
+// irrelevant: drop NO_COLOR and fill in COLORTERM when it is missing or blank,
+// preserving any explicit non-empty value.
+func normalizeColorEnv(env []string) []string {
+	out := env[:0]
+	colortermPresent := false
+	for _, pair := range env {
+		key, value, _ := strings.Cut(pair, "=")
+		switch key {
+		case "NO_COLOR":
+			continue
+		case "COLORTERM":
+			if strings.TrimSpace(value) == "" {
+				pair = "COLORTERM=" + defaultZellijColorterm
+			}
+			colortermPresent = true
+		}
+		out = append(out, pair)
+	}
+	if !colortermPresent {
+		out = append(out, "COLORTERM="+defaultZellijColorterm)
 	}
 	return out
 }
@@ -277,11 +341,30 @@ func waitForSessionUp(ctx context.Context, run commandRunner, binary, target str
 
 // writeLaunchLayout renders launchCmd into a temp KDL layout file. Caller
 // owns the file and must remove it.
+//
+// The agent pane is wrapped with zellij's built-in tab-bar and status-bar
+// plugin panes (each one row, borderless) so a yyork session looks like a
+// default zellij session rather than a bare single pane. These bars are not
+// implicit in zellij — a custom layout only shows them if it includes the
+// plugin panes explicitly, which is exactly what the built-in "default"
+// layout does. They render in the yyork theme colors (see internal/zellijconfig).
 func writeLaunchLayout(launchCmd []string, cwd string) (string, error) {
 	quoted := shellQuoteArgs(launchCmd)
 	bashCmd := quoted + `; exec "${SHELL:-/bin/bash}" -i`
 
-	kdl := fmt.Sprintf("layout {\n    pane command=\"bash\" cwd=%s {\n        args \"-c\" %s\n    }\n}\n",
+	const layoutTemplate = `layout {
+    pane size=1 borderless=true {
+        plugin location="tab-bar"
+    }
+    pane command="bash" cwd=%s {
+        args "-c" %s
+    }
+    pane size=1 borderless=true {
+        plugin location="status-bar"
+    }
+}
+`
+	kdl := fmt.Sprintf(layoutTemplate,
 		kdlQuote(cwd),
 		kdlQuote(bashCmd),
 	)
@@ -300,7 +383,7 @@ func writeLaunchLayout(launchCmd []string, cwd string) (string, error) {
 
 // shellQuoteArgs returns args concatenated as a single POSIX shell command,
 // with each argument single-quoted (any single quotes inside an arg are
-// escaped via the standard '\'' trick).
+// escaped via the standard single-quote/backslash/single-quote trick).
 func shellQuoteArgs(args []string) string {
 	parts := make([]string, len(args))
 	for i, a := range args {

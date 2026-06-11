@@ -34,7 +34,7 @@ func NewZellijProvider() *ZellijProvider {
 	return &ZellijProvider{}
 }
 
-// Name reports the AO runtime name this provider handles.
+// Name reports the runtime name this provider handles.
 func (z *ZellijProvider) Name() string { return zellijRuntimeName }
 
 // SendMessage pastes message into sess's Zellij session and submits it.
@@ -70,8 +70,7 @@ func (z *ZellijProvider) SendMessage(ctx context.Context, sess session.Session, 
 	return nil
 }
 
-// resolvePath finds the zellij binary, mirroring the discovery used by the AO
-// workspace provider.
+// resolvePath finds the zellij binary from common package-manager locations.
 func (z *ZellijProvider) resolvePath() (string, error) {
 	if z.path != "" {
 		return z.path, nil

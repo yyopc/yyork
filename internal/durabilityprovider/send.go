@@ -44,7 +44,7 @@ func Send(ctx context.Context, registry *Registry, sess session.Session, message
 	return provider.SendMessage(ctx, sess, message)
 }
 
-// runtimeOf infers the AO runtime backing a session. Today only Zellij sessions
+// runtimeOf infers the runtime backing a session. Today only Zellij sessions
 // carry a durable handle (session.ZellijSession), so its presence implies the
 // "zellij" runtime. Generalize when a second runtime is added.
 func runtimeOf(sess session.Session) string {

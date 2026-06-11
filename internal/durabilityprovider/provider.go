@@ -1,6 +1,6 @@
 // Package durabilityprovider delivers user messages into the runtime that hosts
-// a session's CLI agent. AO tags each session with a runtime (e.g. "zellij"),
-// and a Provider knows how to inject a message into that runtime.
+// a session's CLI agent. yyork sessions currently use Zellij, and a Provider
+// knows how to inject a message into that runtime.
 package durabilityprovider
 
 import (
@@ -10,9 +10,9 @@ import (
 )
 
 // Provider delivers a message into the runtime backing a session's agent.
-// Implementations are keyed by the AO runtime name reported by Name.
+// Implementations are keyed by the runtime name reported by Name.
 type Provider interface {
-	// Name is the AO runtime name this provider handles, e.g. "zellij".
+	// Name is the runtime name this provider handles, e.g. "zellij".
 	Name() string
 
 	// SendMessage delivers message to the agent running in sess as if the user
