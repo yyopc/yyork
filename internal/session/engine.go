@@ -248,16 +248,6 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 	if kind == "" {
 		kind = KindWorker
 	}
-	systemPrompt := req.SystemPrompt
-	if strings.TrimSpace(systemPrompt) == "" && strings.TrimSpace(req.SystemPromptFile) == "" {
-		switch kind {
-		case KindOrchestrator:
-			systemPrompt = DefaultOrchestratorSystemPrompt()
-		case KindWorker:
-			systemPrompt = DefaultWorkerSystemPrompt()
-		}
-	}
-
 	baseRef, err := e.worktree.BaseRef(ctx, req.ProjectPath)
 	if err != nil {
 		return store.Session{}, fmt.Errorf("session.Spawn: detect base ref: %w", err)
@@ -266,6 +256,29 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 	id := e.newID()
 	workspacePath := filepath.Join(e.worktreeBase, id)
 	branchName := branchNameFor(id)
+
+	// The built-in default prompts render per-session facts (workspace,
+	// branch), so they can only be resolved once those are derived.
+	systemPrompt := req.SystemPrompt
+	if strings.TrimSpace(systemPrompt) == "" && strings.TrimSpace(req.SystemPromptFile) == "" {
+		pc := PromptContext{
+			SessionID:     id,
+			ProjectPath:   req.ProjectPath,
+			ProjectName:   filepath.Base(req.ProjectPath),
+			WorkspacePath: workspacePath,
+			Branch:        branchName,
+			BaseRef:       baseRef,
+		}
+		switch kind {
+		case KindOrchestrator:
+			systemPrompt, err = DefaultOrchestratorSystemPrompt(pc)
+		case KindWorker:
+			systemPrompt, err = DefaultWorkerSystemPrompt(pc)
+		}
+		if err != nil {
+			return store.Session{}, fmt.Errorf("session.Spawn: render default system prompt: %w", err)
+		}
+	}
 
 	// Step 1: create the worktree. Failure here leaks nothing.
 	if err := e.worktree.Create(ctx, req.ProjectPath, workspacePath, branchName, baseRef); err != nil {

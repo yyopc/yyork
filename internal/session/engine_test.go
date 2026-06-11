@@ -389,7 +389,7 @@ func TestSpawnOrchestratorUsesDefaultSystemPrompt(t *testing.T) {
 	h := newHarness(t)
 	ctx := context.Background()
 
-	_, err := h.engine.Spawn(ctx, session.SpawnRequest{
+	sess, err := h.engine.Spawn(ctx, session.SpawnRequest{
 		Kind:        session.KindOrchestrator,
 		ProjectPath: "/tmp/proj",
 		Prompt:      "coordinate the work",
@@ -401,7 +401,11 @@ func TestSpawnOrchestratorUsesDefaultSystemPrompt(t *testing.T) {
 	if len(h.agent.launchCalls) != 1 {
 		t.Fatalf("launchCalls = %d, want 1", len(h.agent.launchCalls))
 	}
-	if h.agent.launchCalls[0].SystemPrompt != session.DefaultOrchestratorSystemPrompt() {
+	want, err := session.DefaultOrchestratorSystemPrompt(promptContextFor(sess))
+	if err != nil {
+		t.Fatalf("render expected prompt: %v", err)
+	}
+	if h.agent.launchCalls[0].SystemPrompt != want {
 		t.Fatalf("launch SystemPrompt = %q, want default orchestrator prompt", h.agent.launchCalls[0].SystemPrompt)
 	}
 }
@@ -411,7 +415,7 @@ func TestSpawnWorkerUsesDefaultSystemPrompt(t *testing.T) {
 	h := newHarness(t)
 	ctx := context.Background()
 
-	_, err := h.engine.Spawn(ctx, session.SpawnRequest{
+	sess, err := h.engine.Spawn(ctx, session.SpawnRequest{
 		Kind:        session.KindWorker,
 		ProjectPath: "/tmp/proj",
 		Prompt:      "do the work",
@@ -423,8 +427,25 @@ func TestSpawnWorkerUsesDefaultSystemPrompt(t *testing.T) {
 	if len(h.agent.launchCalls) != 1 {
 		t.Fatalf("launchCalls = %d, want 1", len(h.agent.launchCalls))
 	}
-	if h.agent.launchCalls[0].SystemPrompt != session.DefaultWorkerSystemPrompt() {
+	want, err := session.DefaultWorkerSystemPrompt(promptContextFor(sess))
+	if err != nil {
+		t.Fatalf("render expected prompt: %v", err)
+	}
+	if h.agent.launchCalls[0].SystemPrompt != want {
 		t.Fatalf("launch SystemPrompt = %q, want default worker prompt", h.agent.launchCalls[0].SystemPrompt)
+	}
+}
+
+// promptContextFor rebuilds the PromptContext the engine derives during Spawn,
+// from the facts it persists on the session row.
+func promptContextFor(sess store.Session) session.PromptContext {
+	return session.PromptContext{
+		SessionID:     sess.ID,
+		ProjectPath:   sess.ProjectPath,
+		ProjectName:   sess.ProjectName,
+		WorkspacePath: sess.WorkspacePath,
+		Branch:        "yyork/" + sess.ID,
+		BaseRef:       "refs/heads/main",
 	}
 }
 
