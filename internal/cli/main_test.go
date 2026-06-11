@@ -1,13 +1,17 @@
-package main
+package cli
 
 import (
 	"bytes"
 	"context"
 	"errors"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/yyopc/yyork/internal/app"
+	"github.com/yyopc/yyork/internal/session"
 )
 
 // execCLI builds the cobra command tree (the same tree main() hands to fang)
@@ -17,7 +21,9 @@ import (
 // these tests deterministic.
 func execCLI(t *testing.T, runApp appRunner, args ...string) (string, error) {
 	t.Helper()
-	root := newRootCmd(runApp)
+	root := newRootCmd(runApp, fstest.MapFS{
+		"index.html": {Data: []byte("<!doctype html>")},
+	})
 	var buf bytes.Buffer
 	root.SetOut(&buf)
 	root.SetErr(&buf)
@@ -62,6 +68,9 @@ func TestRootHelpListsImplementedAndPlannedSurface(t *testing.T) {
 	if strings.Contains(out, "hooks") {
 		t.Fatalf("help output should not list the hidden hooks command:\n%s", out)
 	}
+	if strings.Contains(out, "orchestrator [--flags]") {
+		t.Fatalf("help output should not list a separate orchestrator command:\n%s", out)
+	}
 	// Absence of the removed start/dashboard verbs is covered by
 	// TestRemovedVerbsAreUnknown; the words also appear in the root's prose
 	// description, so a substring check here would be misleading.
@@ -89,13 +98,66 @@ func TestRootNoArgsStartsServerWithDefaults(t *testing.T) {
 		t.Fatal("expected server to open the browser by default")
 	}
 	// In single-binary mode the server is wired to the embedded FS, not a
-	// WebDir path. The embed lives under cmd/yyork/dashboard/ and is passed via
-	// WebFS.
+	// WebDir path.
 	if got.WebDir != "" {
 		t.Fatalf("expected WebDir to be empty (embed mode), got: %s", got.WebDir)
 	}
 	if got.WebFS == nil {
 		t.Fatal("expected WebFS to be set from the embed")
+	}
+}
+
+func TestRootProjectPathStartsServerWithResolvedProject(t *testing.T) {
+	projectPath := t.TempDir()
+	runGit(t, projectPath, "init")
+
+	var got app.Config
+	runApp := func(_ context.Context, cfg app.Config) error {
+		got = cfg
+		return nil
+	}
+
+	if _, err := execCLI(t, runApp, projectPath); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	wantProjectPath, err := filepath.EvalSymlinks(projectPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ProjectPath != wantProjectPath {
+		t.Fatalf("ProjectPath = %q, want %q", got.ProjectPath, wantProjectPath)
+	}
+}
+
+func TestRootProjectPathRejectsNonGitDirectory(t *testing.T) {
+	runApp, called := noopApp()
+
+	_, err := execCLI(t, runApp, t.TempDir())
+	if err == nil {
+		t.Fatal("expected an error for a non-git project path")
+	}
+	if *called {
+		t.Fatal("invalid project path should not start the server")
+	}
+	if !strings.Contains(err.Error(), "not inside a git repository") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestSpawnHelpListsTypeFlag(t *testing.T) {
+	runApp, called := noopApp()
+
+	out, err := execCLI(t, runApp, "spawn", "--help")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if *called {
+		t.Fatal("spawn help should not start the server")
+	}
+	for _, want := range []string{"--type", "worker", "orchestrator"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("spawn help missing %q:\n%s", want, out)
+		}
 	}
 }
 
@@ -117,7 +179,7 @@ func TestRootLeadingFlagsStartServer(t *testing.T) {
 	}
 }
 
-func TestRemovedVerbsAreUnknown(t *testing.T) {
+func TestRemovedVerbsDoNotStartServer(t *testing.T) {
 	for _, verb := range []string{"start", "dashboard"} {
 		t.Run(verb, func(t *testing.T) {
 			runApp, called := noopApp()
@@ -129,7 +191,7 @@ func TestRemovedVerbsAreUnknown(t *testing.T) {
 			if *called {
 				t.Fatalf("%s was routed to the server despite being removed", verb)
 			}
-			if !strings.Contains(err.Error(), "unknown command") || !strings.Contains(err.Error(), verb) {
+			if !strings.Contains(err.Error(), "not inside a git repository") {
 				t.Fatalf("unexpected error: %v", err)
 			}
 		})
@@ -163,6 +225,29 @@ func TestSpawnRequiresPrompt(t *testing.T) {
 		t.Fatal("spawn should not start the server")
 	}
 	if !strings.Contains(err.Error(), "prompt") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestSpawnAllowsOrchestratorWithoutPromptAtValidation(t *testing.T) {
+	if err := validateSpawnRequest(session.SpawnRequest{
+		Kind: session.KindOrchestrator,
+	}); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}
+
+func TestSpawnRejectsInvalidTypeBeforeStartingServer(t *testing.T) {
+	runApp, called := noopApp()
+
+	_, err := execCLI(t, runApp, "spawn", "--type", "manager", "--prompt", "do it")
+	if err == nil {
+		t.Fatal("expected an error for an invalid spawn type")
+	}
+	if *called {
+		t.Fatal("spawn should not start the server")
+	}
+	if !strings.Contains(err.Error(), "--type") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -203,8 +288,8 @@ func TestVersionFlagPrintsVersion(t *testing.T) {
 	if *called {
 		t.Fatal("version should not start the server")
 	}
-	if !strings.Contains(out, version) {
-		t.Fatalf("version output missing %q:\n%s", version, out)
+	if !strings.Contains(out, Version) {
+		t.Fatalf("version output missing %q:\n%s", Version, out)
 	}
 }
 
@@ -219,5 +304,15 @@ func TestServerErrorPropagates(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "boom") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func runGit(t *testing.T, cwd string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = cwd
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
 	}
 }

@@ -1,13 +1,10 @@
-// Command yyork starts the local dashboard/API server and drives the
-// agent-orchestration verbs (spawn, session, stop, send) plus the internal
-// agent lifecycle hooks. The command surface is built with spf13/cobra and
-// presented through charmbracelet/fang, which renders help, errors, version,
-// shell completion, and man pages from the same command tree.
-package main
+// Package cli owns yyork's command tree and presentation layer.
+package cli
 
 import (
 	"context"
 	"image/color"
+	"io/fs"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,9 +16,13 @@ import (
 	"github.com/yyopc/yyork/internal/durabilityprovider"
 )
 
-var version = "0.0.1"
+// Version is overridden by release builds with:
+//
+//	-X github.com/yyopc/yyork/internal/cli.Version=<version>
+var Version = "0.0.1"
 
-func main() {
+// Main starts yyork and exits the process with the command result.
+func Main(webFS fs.FS) {
 	// Pin a short Zellij IPC socket directory before any verb runs. Both the
 	// session-create path and the terminal-attach path shell out to zellij and
 	// inherit this process's environment, so setting it here once keeps their
@@ -32,13 +33,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// fang renders help/usage/errors/version/completion; the command tree and
-	// every handler live in commands.go. Tests drive newRootCmd directly,
-	// bypassing this presentation layer.
+	// fang renders help/usage/errors/version/completion; tests drive
+	// newRootCmd directly, bypassing this presentation layer.
 	if err := fang.Execute(
 		ctx,
-		newRootCmd(app.Run),
-		fang.WithVersion(version),
+		newRootCmd(app.Run, webFS),
+		fang.WithVersion(Version),
 		fang.WithColorSchemeFunc(brand),
 	); err != nil {
 		os.Exit(1)

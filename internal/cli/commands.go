@@ -1,17 +1,18 @@
-package main
+package cli
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
-	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/yyopc/yyork/internal/ao"
 	"github.com/yyopc/yyork/internal/app"
 	"github.com/yyopc/yyork/internal/control"
 	"github.com/yyopc/yyork/internal/durabilityprovider"
@@ -25,37 +26,41 @@ import (
 	"github.com/yyopc/yyork/internal/worktree"
 )
 
-// defaultAgentPlugin is the agent used when `spawn` is run without --agent.
-const defaultAgentPlugin = "claude-code"
-
-// Command groups, so help lists shipped verbs separately from the planned
-// Agent Orchestrator parity surface.
+// Command groups, so help lists shipped verbs separately from planned surface.
 const (
 	groupCore    = "core"
 	groupPlanned = "planned"
+)
+
+const defaultAgentPlugin = "claude-code"
+
+const (
+	spawnTypeOrchestrator = "orchestrator"
+	spawnTypeWorker       = "worker"
 )
 
 // appRunner is the server entrypoint (app.Run), injected into the root command
 // so tests can drive the no-verb server path without binding a real port.
 type appRunner func(context.Context, app.Config) error
 
-// newRootCmd builds the full command tree. main() wraps it in fang; tests
+// newRootCmd builds the full command tree. Main wraps it in fang; tests
 // execute it directly.
-func newRootCmd(runApp appRunner) *cobra.Command {
+func newRootCmd(runApp appRunner, webFS fs.FS) *cobra.Command {
 	var addr string
 	var openBrowser bool
 
 	root := &cobra.Command{
-		Use:   "yyork",
+		Use:   "yyork [projectPath]",
 		Short: "Local-first agent orchestration for parallel AI coding work.",
 		Long: "yyork orchestrates parallel AI coding agents across Zellij-backed " +
 			"workspaces, repos, and issue trackers.\n\n" +
 			"Run with no command to start the local dashboard and API server.",
-		Version: version,
+		Version: Version,
 		// No verb => start the local server. `yyork start` / `yyork dashboard`
 		// are not user-facing verbs.
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runServer(cmd, addr, openBrowser, runApp)
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runServer(cmd, addr, openBrowser, webFS, runApp, args)
 		},
 		// fang sets these too; setting them here makes the cobra tree behave
 		// identically under test (where fang is absent) — errors propagate as
@@ -68,7 +73,7 @@ func newRootCmd(runApp appRunner) *cobra.Command {
 
 	root.AddGroup(
 		&cobra.Group{ID: groupCore, Title: "Commands"},
-		&cobra.Group{ID: groupPlanned, Title: "Planned (Agent Orchestrator parity surface)"},
+		&cobra.Group{ID: groupPlanned, Title: "Planned"},
 	)
 	// Fold cobra's auto-generated help/completion commands into the core group
 	// so help shows a single "Commands" section instead of an ungrouped bucket
@@ -76,6 +81,7 @@ func newRootCmd(runApp appRunner) *cobra.Command {
 	root.SetHelpCommandGroupID(groupCore)
 	root.SetCompletionCommandGroupID(groupCore)
 	root.AddCommand(newSpawnCmd(), newSessionCmd(), newStopCmd(), newSendCmd(), newHooksCmd())
+	root.AddCommand(newDevCmd(runApp, webFS))
 	root.AddCommand(plannedCmds()...)
 	return root
 }
@@ -83,20 +89,25 @@ func newRootCmd(runApp appRunner) *cobra.Command {
 // runServer starts the local dashboard/API server. With no verb this is the
 // root command's action; `yyork` and `yyork --addr ... --open=false` both land
 // here.
-func runServer(cmd *cobra.Command, addr string, openBrowser bool, runApp appRunner) error {
+func runServer(cmd *cobra.Command, addr string, openBrowser bool, webFS fs.FS, runApp appRunner, args []string) error {
 	// Install the colorized, structured slog handler now that we know this is
 	// the server path. The verb subcommands print plain text via the command's
 	// stdout and intentionally leave the global logger alone.
 	logging.Setup(cmd.ErrOrStderr())
 
-	// In dev mode the wrapper (scripts/yyork.mjs) runs Vite and proxies API
-	// requests here — the dashboard isn't served from this process. In
-	// single-binary mode the embedded FS (cmd/yyork/dashboard) is the source.
-	// Pass it and let the server prefer whichever is populated.
-	webFS, _ := dashboardFS()
-	err := runApp(cmd.Context(), app.Config{
+	projectPath, err := resolveServerProjectPath(cmd.Context(), args)
+	if err != nil {
+		return err
+	}
+
+	// Source and package installs serve the embedded dashboard mirror. Frontend
+	// dev can still run Vite separately through `pnpm web:dev`, but the default
+	// server path stays integrated so API, terminal websockets, and dashboard
+	// assets share one yyork origin.
+	err = runApp(cmd.Context(), app.Config{
 		Addr:        addr,
 		OpenBrowser: openBrowser,
+		ProjectPath: projectPath,
 		WebFS:       webFS,
 	})
 	// A canceled context is a clean Ctrl-C / SIGTERM shutdown, not a failure.
@@ -151,61 +162,133 @@ func buildEngine(ctx context.Context) (*session.Engine, func(), error) {
 }
 
 func newSpawnCmd() *cobra.Command {
-	var prompt, systemPromptFile, permissions, agentPlugin string
+	var prompt, systemPromptFile, permissions, agentPlugin, sessionType string
 
 	cmd := &cobra.Command{
 		Use:     "spawn",
 		GroupID: groupCore,
 		Short:   "Spawn a new agent session in the current project.",
 		Long: "Spawn a new agent session in the current project directory.\n\n" +
-			"The current directory must be a git repository. A per-session git worktree " +
-			"is created on branch yyork/<sessionId>, the configured agent is launched " +
-			"inside a fresh zellij session, and the session row is persisted to " +
-			"~/.yyork/state.db once the zellij session confirms it is live.",
+			"yyork creates a per-session git worktree and branch, starts the selected " +
+			"agent inside Zellij, persists the session row, and forwards lifecycle " +
+			"events to a running dashboard when one is available.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			kind, err := spawnKind(sessionType)
+			if err != nil {
+				return err
+			}
 			return runSpawn(cmd, session.SpawnRequest{
 				AgentPlugin:      agentPlugin,
+				Kind:             kind,
 				Prompt:           prompt,
 				SystemPromptFile: systemPromptFile,
 				Permissions:      pluginagent.PermissionMode(permissions),
 			})
 		},
 	}
-	cmd.Flags().StringVar(&prompt, "prompt", "", "prompt the orchestrator passes to the worker agent (required)")
-	cmd.Flags().StringVar(&agentPlugin, "agent", defaultAgentPlugin, "agent plugin to run: claude-code | codex")
-	cmd.Flags().StringVar(&systemPromptFile, "system-prompt-file", "", "path to a file containing the orchestrator agent's system prompt")
-	cmd.Flags().StringVar(&permissions, "permissions", "", "permissions mode: default | accept-edits | auto | bypass-permissions")
-	_ = cmd.MarkFlagRequired("prompt")
+	cmd.Flags().StringVar(&prompt, "prompt", "", "initial prompt for the spawned agent")
+	cmd.Flags().StringVar(&agentPlugin, "agent", defaultAgentPlugin, "agent plugin to launch, e.g. claude-code or codex")
+	cmd.Flags().StringVar(&systemPromptFile, "system-prompt-file", "", "path to a system prompt file for the spawned agent")
+	cmd.Flags().StringVar(&permissions, "permissions", "", "agent permission mode override")
+	cmd.Flags().StringVar(&sessionType, "type", spawnTypeWorker, "session type: worker or orchestrator")
 	return cmd
 }
 
 func runSpawn(cmd *cobra.Command, req session.SpawnRequest) error {
-	// MarkFlagRequired catches a missing --prompt; this catches a whitespace-
-	// only one.
-	if strings.TrimSpace(req.Prompt) == "" {
-		return errors.New("spawn: --prompt must not be empty")
+	if err := validateSpawnRequest(req); err != nil {
+		return err
 	}
 
-	projectPath, err := os.Getwd()
+	projectPath, err := resolveProjectPathForSpawn()
 	if err != nil {
-		return fmt.Errorf("spawn: resolve current directory: %w", err)
+		return err
 	}
 	req.ProjectPath = projectPath
 
-	eng, closeEng, err := buildEngine(cmd.Context())
+	eng, closeFn, err := buildEngine(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("spawn: %w", err)
 	}
-	defer closeEng()
+	defer closeFn()
 
 	sess, err := eng.Spawn(cmd.Context(), req)
 	if err != nil {
 		return fmt.Errorf("spawn: %w", err)
 	}
-
 	fmt.Fprintln(cmd.OutOrStdout(), sess.ID)
 	return nil
+}
+
+func validateSpawnRequest(req session.SpawnRequest) error {
+	if req.Kind != session.KindOrchestrator && strings.TrimSpace(req.Prompt) == "" {
+		return errors.New("spawn: --prompt must not be empty for worker sessions")
+	}
+	return nil
+}
+
+func spawnKind(raw string) (session.Kind, error) {
+	switch strings.TrimSpace(raw) {
+	case "", spawnTypeWorker:
+		return session.KindWorker, nil
+	case spawnTypeOrchestrator:
+		return session.KindOrchestrator, nil
+	default:
+		return "", fmt.Errorf("spawn: --type must be %q or %q", spawnTypeWorker, spawnTypeOrchestrator)
+	}
+}
+
+func resolveProjectPathForSpawn() (string, error) {
+	projectPath := strings.TrimSpace(os.Getenv("YYORK_PROJECT_PATH"))
+	if projectPath == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("spawn: resolve current directory: %w", err)
+		}
+		projectPath = cwd
+	}
+
+	abs, err := filepath.Abs(projectPath)
+	if err != nil {
+		return "", fmt.Errorf("spawn: resolve project path: %w", err)
+	}
+	return abs, nil
+}
+
+func resolveServerProjectPath(ctx context.Context, args []string) (string, error) {
+	if len(args) > 0 {
+		projectPath, err := resolveGitProjectRoot(ctx, args[0])
+		if err != nil {
+			return "", fmt.Errorf("project path: %w", err)
+		}
+		return projectPath, nil
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("resolve current directory: %w", err)
+	}
+	projectPath, err := resolveGitProjectRoot(ctx, cwd)
+	if err != nil {
+		return "", nil
+	}
+	return projectPath, nil
+}
+
+func resolveGitProjectRoot(ctx context.Context, path string) (string, error) {
+	abs, err := filepath.Abs(strings.TrimSpace(path))
+	if err != nil {
+		return "", err
+	}
+	out, err := exec.CommandContext(ctx, "git", "-C", abs, "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return "", fmt.Errorf("%q is not inside a git repository", abs)
+	}
+	root := strings.TrimSpace(string(out))
+	if root == "" {
+		return "", fmt.Errorf("git reported an empty repository root for %q", abs)
+	}
+	return root, nil
 }
 
 func newSessionCmd() *cobra.Command {
@@ -224,32 +307,38 @@ func newSessionCmd() *cobra.Command {
 			return runSessionList(cmd, project)
 		},
 	}
-	list.Flags().StringVar(&project, "project", "", "filter to a single project's absolute path")
+	list.Flags().StringVar(&project, "project", "", "filter to a single project path")
 	cmd.AddCommand(list)
 	return cmd
 }
 
 func runSessionList(cmd *cobra.Command, projectFilter string) error {
 	ctx := cmd.Context()
-
 	dbPath, err := store.DefaultPath()
 	if err != nil {
 		return fmt.Errorf("session list: %w", err)
 	}
-	s, err := store.Open(ctx, dbPath)
+	dataStore, err := store.Open(ctx, dbPath)
 	if err != nil {
 		return fmt.Errorf("session list: open store: %w", err)
 	}
-	defer func() { _ = s.Close() }()
+	defer func() { _ = dataStore.Close() }()
 
-	var rows []store.Session
-	if projectFilter != "" {
-		rows, err = s.Sessions().ListByProject(ctx, projectFilter)
-	} else {
-		rows, err = s.Sessions().List(ctx)
-	}
+	workspace, err := session.NewStoreWorkspaceSource(dataStore.Sessions()).Workspace(ctx)
 	if err != nil {
 		return fmt.Errorf("session list: %w", err)
+	}
+
+	rows := append([]session.Session{}, workspace.Orchestrators...)
+	rows = append(rows, workspace.Sessions...)
+	if projectFilter != "" {
+		filtered := rows[:0]
+		for _, row := range rows {
+			if row.Project == projectFilter {
+				filtered = append(filtered, row)
+			}
+		}
+		rows = filtered
 	}
 
 	out := cmd.OutOrStdout()
@@ -259,14 +348,14 @@ func runSessionList(cmd *cobra.Command, projectFilter string) error {
 	}
 
 	tw := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "ID\tPROJECT\tAGENT\tSTARTED")
+	fmt.Fprintln(tw, "ID\tPROJECT\tKIND\tAGENT\tSTATE")
 	for _, row := range rows {
-		project := row.ProjectName
-		if project == "" {
-			project = row.ProjectPath
+		kind := row.Kind
+		if kind == "" {
+			kind = session.KindWorker
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
-			row.ID, project, row.AgentPlugin, row.CreatedAt.Format(time.RFC3339))
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
+			row.ID, row.Project, kind, row.Agent, row.State)
 	}
 	return tw.Flush()
 }
@@ -276,9 +365,9 @@ func newStopCmd() *cobra.Command {
 		Use:     "stop <sessionID>",
 		GroupID: groupCore,
 		Short:   "Terminate a running session.",
-		Long: "Cleanly terminate a session: kill the zellij session, remove the worktree " +
-			"(best-effort), and delete the row from ~/.yyork/state.db.\n\n" +
-			"Stopping a session id that has no row is a no-op (exit 0).",
+		Long: "Cleanly terminate a yyork session by killing its Zellij session, " +
+			"removing its worktree, and deleting its store row.\n\n" +
+			"Stopping a session id that is not in yyork's store is a no-op (exit 0).",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runStop(cmd, args[0])
@@ -287,11 +376,11 @@ func newStopCmd() *cobra.Command {
 }
 
 func runStop(cmd *cobra.Command, id string) error {
-	eng, closeEng, err := buildEngine(cmd.Context())
+	eng, closeFn, err := buildEngine(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("stop: %w", err)
 	}
-	defer closeEng()
+	defer closeFn()
 
 	if err := eng.Stop(cmd.Context(), id); err != nil {
 		return fmt.Errorf("stop: %w", err)
@@ -330,7 +419,17 @@ func runSend(cmd *cobra.Command, sessionID, projectID string, args []string) err
 		return errors.New("send: a non-empty message argument is required")
 	}
 
-	workspace, err := ao.NewWorkspaceProvider().Workspace(ctx)
+	dbPath, err := store.DefaultPath()
+	if err != nil {
+		return fmt.Errorf("send: %w", err)
+	}
+	dataStore, err := store.Open(ctx, dbPath)
+	if err != nil {
+		return fmt.Errorf("send: open store: %w", err)
+	}
+	defer func() { _ = dataStore.Close() }()
+
+	workspace, err := session.NewStoreWorkspaceSource(dataStore.Sessions()).Workspace(ctx)
 	if err != nil {
 		return fmt.Errorf("send: failed to read workspace: %w", err)
 	}
@@ -364,8 +463,8 @@ func newHooksCmd() *cobra.Command {
 	}
 }
 
-// plannedCommandOrder / plannedCommands list verbs that exist in the Agent
-// Orchestrator parity surface but aren't implemented in yyork yet. They are
+// plannedCommandOrder / plannedCommands list orchestration verbs that are not
+// implemented in yyork yet. They are
 // registered as real cobra subcommands grouped under "Planned" so they appear
 // in help and benefit from "did you mean" suggestions, but their RunE just
 // reports that they aren't implemented. Implemented verbs (spawn/session/stop/
@@ -394,16 +493,16 @@ var plannedCommandOrder = []string{
 var plannedCommands = map[string]string{
 	"acknowledge":     "Acknowledge session pickup",
 	"batch-spawn":     "Spawn sessions for multiple issues",
-	"config":          "Read or write global AO config",
+	"config":          "Read or write global orchestration config",
 	"config-help":     "Show config schema guidance",
 	"events":          "Query the activity event log",
-	"migrate-storage": "Migrate legacy AO storage layouts",
+	"migrate-storage": "Migrate legacy storage layouts",
 	"notify":          "Work with configured notification targets",
 	"open":            "Open sessions or dashboard targets",
-	"plugin":          "Browse and manage AO plugins",
+	"plugin":          "Browse and manage plugins",
 	"project":         "Manage portfolio projects",
 	"report":          "Declare a workflow transition",
-	"review":          "Manage AO-local reviewer runs",
+	"review":          "Manage local reviewer runs",
 	"review-check":    "Check PRs for review comments",
 	"setup":           "Set up integrations with external services",
 	"status":          "Show sessions and runtime status",
@@ -419,7 +518,7 @@ func plannedCmds() []*cobra.Command {
 			GroupID: groupPlanned,
 			Short:   plannedCommands[name] + " [planned]",
 			RunE: func(_ *cobra.Command, _ []string) error {
-				return fmt.Errorf("command %q is part of the Agent Orchestrator parity surface, but is not implemented in yyork yet", name)
+				return fmt.Errorf("command %q is part of yyork's planned orchestration surface, but is not implemented in yyork yet", name)
 			},
 		})
 	}

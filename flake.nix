@@ -16,7 +16,38 @@
       system:
       let
         pkgs = import nixpkgs { inherit system; };
+        lib = pkgs.lib;
         go = pkgs.go_1_25;
+        src = lib.cleanSourceWith {
+          src = ./.;
+          filter =
+            path: _type:
+            let
+              rel = lib.removePrefix ((toString ./.) + "/") (toString path);
+            in
+            !(lib.hasPrefix ".git/" rel)
+            && !(lib.hasPrefix ".direnv/" rel)
+            && !(lib.hasPrefix ".go/" rel)
+            && !(lib.hasPrefix ".pnpm/" rel)
+            && !(lib.hasPrefix "dist/" rel)
+            && !(lib.hasPrefix "node_modules/" rel)
+            && !(lib.hasPrefix "web/dist/" rel)
+            && !(lib.hasPrefix "web/node_modules/" rel)
+            && rel != "yyork";
+        };
+        yyork = pkgs.writeShellApplication {
+          name = "yyork";
+          runtimeInputs = [
+            go
+            pkgs.git
+            pkgs.zellij
+          ];
+          text = ''
+            export GOWORK=off
+            cd ${src}
+            exec go run . "$@"
+          '';
+        };
         yyorkDev = pkgs.writeShellApplication {
           name = "yyork";
           runtimeInputs = [
@@ -40,6 +71,16 @@
         };
       in
       {
+        packages = {
+          default = yyork;
+          yyork = yyork;
+        };
+
+        apps = {
+          default = flake-utils.lib.mkApp { drv = yyork; };
+          yyork = flake-utils.lib.mkApp { drv = yyork; };
+        };
+
         devShells.default = pkgs.mkShell {
           buildInputs = [
             yyorkDev

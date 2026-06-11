@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"bytes"
@@ -102,9 +102,9 @@ func runClaudeHook(ctx context.Context, event string, stdin io.Reader, stdout io
 
 // runAgentHook is the shared hook driver for every agent: it reads
 // YYORK_SESSION_ID, parses the payload, merges any normalized session
-// metadata into the AO store, and publishes session.updated. It always writes
-// the empty `{}` hook response and exits 0 when run outside an AO session or
-// when the row is missing, so a hook firing in a non-AO `claude`/`codex`
+// metadata into the yyork store, and publishes session.updated. It always writes
+// the empty `{}` hook response and exits 0 when run outside a yyork session or
+// when the row is missing, so a hook firing in a non-yyork `claude`/`codex`
 // session is a harmless no-op. agentName is used only for diagnostics.
 func runAgentHook(ctx context.Context, agentName, event string, stdin io.Reader, stdout io.Writer, stderr io.Writer) int {
 	if err := ctx.Err(); err != nil {
