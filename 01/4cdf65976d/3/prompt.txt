@@ -1,0 +1,19 @@
+bro I just saw another npm pkg: https://diffs.com from them and its awesome to render the diff views in the canvas's review tab. 
+here's how you can install: pnpm add @pierre/diffs
+and implement the code diff rendering view.
+
+Now remember to only render the code diff hunks that belong to the current agents session only.
+
+If there's any kind of ambiguity on your side, you can always get it clear before starting the implementation.
+
+---
+
+Can you quit the dev servers you started? I've got a dev server running in the server tab inside of a Zelly session with index 1. I'll reuse that.
+
+---
+
+how are we collecting the diff hunks?
+
+---
+
+alright I need to give updates in a meet, so tell me that way
