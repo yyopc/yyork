@@ -3,13 +3,15 @@
   "checkpoint_id": "4f6ad6216597",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 2,
+  "checkpoints_count": 3,
   "files_touched": [
     "pnpm-lock.yaml",
     "web/package.json",
     "web/src/features/home/components/molecules/canvas-web-preview.tsx",
     "web/src/features/home/components/organisms/canvas-panel.tsx",
-    "web/src/features/home/components/organisms/main-topbar.tsx"
+    "web/src/features/home/components/organisms/main-topbar.tsx",
+    "web/src/features/home/data/browser-preview.ts",
+    "web/src/features/home/data/browser-preview.unit.spec.ts"
   ],
   "sessions": [
     {
@@ -35,13 +37,19 @@
       "transcript": "/4f/6ad6216597/3/full.jsonl",
       "content_hash": "/4f/6ad6216597/3/content_hash.txt",
       "prompt": "/4f/6ad6216597/3/prompt.txt"
+    },
+    {
+      "metadata": "/4f/6ad6216597/4/metadata.json",
+      "transcript": "/4f/6ad6216597/4/full.jsonl",
+      "content_hash": "/4f/6ad6216597/4/content_hash.txt",
+      "prompt": "/4f/6ad6216597/4/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 2069196,
+    "input_tokens": 7923178,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 63041920,
-    "output_tokens": 180370,
-    "api_call_count": 430
+    "cache_read_tokens": 201422208,
+    "output_tokens": 574450,
+    "api_call_count": 1324
   }
 }

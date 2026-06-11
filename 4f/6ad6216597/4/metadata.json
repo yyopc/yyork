@@ -1,0 +1,43 @@
+{
+  "cli_version": "0.7.5",
+  "checkpoint_id": "4f6ad6216597",
+  "session_id": "019ea479-1be3-71a3-8d8b-dd15ac2ff2bb",
+  "strategy": "manual-commit",
+  "created_at": "2026-06-11T14:14:57.969978Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "pnpm-lock.yaml",
+    "web/package.json",
+    "web/src/features/home/components/molecules/canvas-web-preview.tsx",
+    "web/src/features/home/components/organisms/canvas-panel.tsx",
+    "web/src/features/home/components/organisms/main-topbar.tsx",
+    "web/src/features/home/data/browser-preview.ts",
+    "web/src/features/home/data/browser-preview.unit.spec.ts"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "2bfe37aeb9d6",
+  "token_usage": {
+    "input_tokens": 5853982,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 138380288,
+    "output_tokens": 394080,
+    "api_call_count": 894
+  },
+  "session_metrics": {
+    "turn_count": 3
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-06-11T14:14:57.229427Z",
+    "agent_lines": 2479,
+    "agent_removed": 364,
+    "human_added": 1959,
+    "human_modified": 5,
+    "human_removed": 0,
+    "total_committed": 4443,
+    "total_lines_changed": 4953,
+    "agent_percentage": 57.39955582475268,
+    "metric_version": 2
+  }
+}
