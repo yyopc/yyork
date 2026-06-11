@@ -258,7 +258,7 @@ function reusedStack() {
 }
 
 function startOwnedStack(ports) {
-  const child = spawn(process.execPath, ['./scripts/yyork.mjs'], {
+  const child = spawn('go', ['run', '.', 'dev'], {
     cwd: rootDir,
     detached: process.platform !== 'win32',
     env: {

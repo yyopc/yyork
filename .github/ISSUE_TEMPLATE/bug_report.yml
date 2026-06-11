@@ -16,7 +16,7 @@ body:
     attributes:
       label: Summary
       description: One or two sentences. What is broken?
-      placeholder: The terminal's right border is ragged when the wterm renderer is active.
+      placeholder: The terminal's right border is ragged when zellij draws bordered panes.
     validations:
       required: true
 
@@ -27,8 +27,7 @@ body:
       description: Numbered, minimal, deterministic. Assume the reader has a fresh checkout.
       placeholder: |
         1. Open a worker session terminal
-        2. Switch the renderer to `wterm` (sliders menu → Renderer)
-        3. Attach to a zellij session with bordered panes
+        2. Attach to a zellij session with bordered panes
       render: markdown
     validations:
       required: true

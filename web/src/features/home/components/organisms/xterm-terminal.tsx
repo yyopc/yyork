@@ -8,10 +8,9 @@ import { useEffect, useRef } from 'react';
 import '@xterm/xterm/css/xterm.css';
 
 /**
- * Minimal terminal surface the TerminalPanel relies on. The wterm `<Terminal>`
- * (whose `WTerm` instance is a structural superset of this) and this xterm.js
- * wrapper both satisfy it, so the panel's WebSocket/mouse/resize plumbing stays
- * renderer-agnostic and either backend can be dropped in behind a toggle.
+ * Minimal terminal surface the TerminalPanel relies on, so its WebSocket and
+ * resize plumbing depends on this narrow contract instead of the full xterm.js
+ * API (and tests can satisfy it with a stub).
  */
 export type TerminalHandle = {
   write(data: string | Uint8Array): void;
@@ -49,8 +48,11 @@ function resolveColor(
   return resolved || fallback;
 }
 
-// Maps our CSS palette (app.css lines ~128-147) onto xterm's theme. ANSI index
-// → name follows the standard order: 0-7 normal, 8-15 bright.
+// Maps the terminal-tuned ANSI palette from app.css (the --terminal-color-*
+// custom properties, set per light/dark theme) onto xterm's theme. ANSI index
+// → name follows the standard order: 0-7 normal, 8-15 bright. Fallbacks are
+// VS Code's default dark palette, so they read well if a token ever resolves
+// empty.
 function buildTheme(host: HTMLElement) {
   return {
     background: resolveColor(host, '--terminal-background', '#1e1e1e'),
@@ -81,10 +83,17 @@ function buildTheme(host: HTMLElement) {
   };
 }
 
+function usesDarkColorScheme(host: HTMLElement): boolean {
+  const colorScheme = getComputedStyle(host)
+    .colorScheme.split(/\s+/)
+    .filter(Boolean);
+
+  return colorScheme.includes('dark');
+}
+
 // Prefer the WebGL renderer, fall back to 2D canvas. Both rasterize box-drawing
-// glyphs themselves (customGlyphs) onto a fixed cell grid — which is the whole
-// point of this experiment. The DOM renderer (no addon) does NOT, so we never
-// rely on it.
+// glyphs themselves (customGlyphs) onto a fixed cell grid, so zellij's borders
+// stay crisp. The DOM renderer (no addon) does NOT, so we never rely on it.
 function loadRenderer(term: XTerm): void {
   try {
     const webgl = new WebglAddon();
@@ -111,7 +120,10 @@ export function XTermTerminal(props: XTermTerminalProps) {
   // dependency-free — we never want to tear down and recreate the terminal just
   // because a handler identity changed between renders.
   const callbacksRef = useRef(props);
-  callbacksRef.current = props;
+
+  useEffect(() => {
+    callbacksRef.current = props;
+  });
 
   useEffect(() => {
     const host = hostRef.current;
@@ -132,6 +144,19 @@ export function XTermTerminal(props: XTermTerminalProps) {
           'ui-monospace, monospace',
         fontSize: 12,
         lineHeight: 1.35,
+        // Zellij's statusline leaves SGR bold active while using ANSI black for
+        // Powerline separators; keep bold as weight-only so black stays black.
+        drawBoldTextInBrightColors: false,
+        // This terminal always attaches to a full-screen zellij session, which
+        // owns its own scrollback — xterm's buffer is never used. Setting it to
+        // 0 also stops FitAddon reserving ~14px on the right for a scrollbar
+        // (an overlay/0px gutter on macOS), so the grid fills the panel width.
+        scrollback: 0,
+        // On the light theme, keep xterm's contrast correction so dim colors do
+        // not disappear against white. On the dark theme, let the configured
+        // ANSI palette render as-is; otherwise xterm pushes many colors toward
+        // foreground white and Zellij/agent output starts looking monochrome.
+        minimumContrastRatio: usesDarkColorScheme(host) ? 1 : 4.5,
         rows: callbacksRef.current.rows,
         theme: buildTheme(host),
       });
@@ -148,6 +173,11 @@ export function XTermTerminal(props: XTermTerminalProps) {
 
     term.open(host);
     loadRenderer(term);
+
+    // Expose the live instance for e2e: the WebGL/canvas renderers leave no
+    // text in the DOM, so tests read the screen through term.buffer instead.
+    const exposedWindow = window as Window & { __yyorkTerminal?: XTerm };
+    exposedWindow.__yyorkTerminal = term;
 
     const dataDisposable = term.onData((data) => {
       callbacksRef.current.onData?.(data);
@@ -192,20 +222,25 @@ export function XTermTerminal(props: XTermTerminalProps) {
     const observer = new ResizeObserver(fitAndReport);
     observer.observe(host);
 
-    // Expose live values via getters so the panel always reads the current grid
-    // dimensions and element rather than a snapshot taken at ready-time.
-    const handle: TerminalHandle = {
+    // Expose live values so the panel reads the current grid dimensions and
+    // element rather than a snapshot taken at ready-time.
+    const handle = {
       write: (data) => term.write(data),
-      get element() {
-        return term.element as HTMLElement;
+    } as TerminalHandle;
+    Object.defineProperties(handle, {
+      element: {
+        enumerable: true,
+        get: () => term.element as HTMLElement,
       },
-      get cols() {
-        return term.cols;
+      cols: {
+        enumerable: true,
+        get: () => term.cols,
       },
-      get rows() {
-        return term.rows;
+      rows: {
+        enumerable: true,
+        get: () => term.rows,
       },
-    };
+    });
     callbacksRef.current.onReady?.(handle);
 
     return () => {
@@ -216,6 +251,9 @@ export function XTermTerminal(props: XTermTerminalProps) {
       observer.disconnect();
       dataDisposable.dispose();
       resizeDisposable.dispose();
+      if (exposedWindow.__yyorkTerminal === term) {
+        delete exposedWindow.__yyorkTerminal;
+      }
       term.dispose();
     };
   }, []);

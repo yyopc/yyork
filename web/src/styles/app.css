@@ -1,20 +1,5 @@
-@import '@wterm/react/css';
 @import 'tailwindcss';
 @import 'tw-animate-css';
-
-@font-face {
-  font-family: PureNerdFont;
-  font-display: swap;
-  src: url('@azurity/pure-nerd-font/PureNerdFont.woff2') format('woff2');
-  unicode-range: U+E000-F8FF, U+F0001-F1AF0;
-}
-
-@font-face {
-  font-family: 'Pure Nerd Font';
-  font-display: swap;
-  src: url('@azurity/pure-nerd-font/PureNerdFont.woff2') format('woff2');
-  unicode-range: U+E000-F8FF, U+F0001-F1AF0;
-}
 
 @custom-variant dark (&:is(.dark *));
 
@@ -27,9 +12,8 @@
     'FiraCode Nerd Font Mono', 'FiraCode Nerd Font', 'MesloLGS NF',
     'CaskaydiaCove Nerd Font Mono', 'CaskaydiaCove Nerd Font',
     'Hack Nerd Font Mono', 'Hack Nerd Font', 'Symbols Nerd Font Mono',
-    'Symbols Nerd Font', 'Pure Nerd Font', PureNerdFont, ui-monospace,
-    SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-    monospace;
+    'Symbols Nerd Font', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    'Liberation Mono', 'Courier New', monospace;
   --color-*: initial;
   --color-white: #fff;
   --color-black: #000;
@@ -129,25 +113,31 @@
   --terminal-foreground: var(--foreground);
   --terminal-cursor: var(--foreground);
   --terminal-selection: color-mix(in oklch, var(--foreground) 20%, transparent);
-  --terminal-color-0: var(--color-neutral-950);
-  --terminal-color-1: var(--color-negative-600);
-  --terminal-color-2: var(--color-positive-600);
-  --terminal-color-3: var(--color-warning-700);
-  --terminal-color-4: var(--chart-2);
-  --terminal-color-5: var(--chart-1);
-  --terminal-color-6: var(--chart-3);
-  --terminal-color-7: var(--foreground);
-  --terminal-color-8: var(--muted-foreground);
-  --terminal-color-9: var(--color-negative-500);
-  --terminal-color-10: var(--color-positive-500);
-  --terminal-color-11: var(--color-warning-600);
-  --terminal-color-12: var(--chart-2);
-  --terminal-color-13: var(--chart-1);
-  --terminal-color-14: var(--chart-3);
-  --terminal-color-15: var(--foreground);
+  /* A first-class ANSI palette tuned for the light (white) background, matching
+     VS Code's "Default Light" terminal colors. We deliberately do NOT borrow
+     UI/chart tokens here — those are tuned as quiet surface accents and render
+     washed out as terminal text. Pairs with minimumContrastRatio in
+     xterm-terminal.tsx. Dark-theme overrides live in the .dark block below. */
+  --terminal-color-0: #000000;
+  --terminal-color-1: #cd3131;
+  --terminal-color-2: #00bc00;
+  --terminal-color-3: #949800;
+  --terminal-color-4: #0451a5;
+  --terminal-color-5: #bc05bc;
+  --terminal-color-6: #0598bc;
+  --terminal-color-7: #555555;
+  --terminal-color-8: #666666;
+  --terminal-color-9: #cd3131;
+  --terminal-color-10: #14ce14;
+  --terminal-color-11: #b5ba00;
+  --terminal-color-12: #0451a5;
+  --terminal-color-13: #bc05bc;
+  --terminal-color-14: #0598bc;
+  --terminal-color-15: #a5a5a5;
   --duration-exit: 150ms;
   --duration-enter: 210ms;
   --duration-move: 400ms;
+  --icon-stroke-width: 1;
   --radius: 0.625rem;
   --sidebar: #f5f5f5;
   --sidebar-foreground: #0a0a0a;
@@ -186,6 +176,25 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
+  /* ANSI palette for the dark (near-black) background — VS Code's "Default
+     Dark" terminal colors. background/foreground/cursor/selection stay tied to
+     the app tokens above; only the 16 ANSI slots are overridden here. */
+  --terminal-color-0: #000000;
+  --terminal-color-1: #cd3131;
+  --terminal-color-2: #0dbc79;
+  --terminal-color-3: #e5e510;
+  --terminal-color-4: #2472c8;
+  --terminal-color-5: #bc3fbc;
+  --terminal-color-6: #11a8cd;
+  --terminal-color-7: #e5e5e5;
+  --terminal-color-8: #666666;
+  --terminal-color-9: #f14c4c;
+  --terminal-color-10: #23d18b;
+  --terminal-color-11: #f5f543;
+  --terminal-color-12: #3b8eea;
+  --terminal-color-13: #d670d6;
+  --terminal-color-14: #29b8db;
+  --terminal-color-15: #ffffff;
   --sidebar: var(--color-neutral-900);
   --sidebar-foreground: var(--color-neutral-300);
   --sidebar-primary: var(--color-neutral-100);
@@ -246,39 +255,22 @@
       height: 100lvh; /* Force full height on iOS standalone */
     }
   }
+  .lucide {
+    stroke-width: var(--icon-stroke-width);
+  }
 }
 
 .ao-terminal {
-  --term-bg: var(--terminal-background);
-  --term-fg: var(--terminal-foreground);
-  --term-cursor: var(--terminal-cursor);
-  --term-color-0: var(--terminal-color-0);
-  --term-color-1: var(--terminal-color-1);
-  --term-color-2: var(--terminal-color-2);
-  --term-color-3: var(--terminal-color-3);
-  --term-color-4: var(--terminal-color-4);
-  --term-color-5: var(--terminal-color-5);
-  --term-color-6: var(--terminal-color-6);
-  --term-color-7: var(--terminal-color-7);
-  --term-color-8: var(--terminal-color-8);
-  --term-color-9: var(--terminal-color-9);
-  --term-color-10: var(--terminal-color-10);
-  --term-color-11: var(--terminal-color-11);
-  --term-color-12: var(--terminal-color-12);
-  --term-color-13: var(--terminal-color-13);
-  --term-color-14: var(--terminal-color-14);
-  --term-color-15: var(--terminal-color-15);
-  --term-font-family: var(--font-mono);
-  --term-font-size: 0.75rem;
-  --term-line-height: 1.35;
-
   box-sizing: border-box;
   width: 100%;
   height: 100%;
   min-height: 0;
-  overflow: auto;
+  /* xterm owns its internal scrollback, so this element never scrolls.
+     overflow:hidden keeps any sub-cell fit remainder from spawning a
+     scrollbar, and dropping scrollbar-gutter reclaims the ~15px the macOS
+     overlay gutter was reserving on the right for nothing. */
+  overflow: hidden;
   overscroll-behavior: contain;
-  scrollbar-gutter: stable;
   border: 1px solid var(--border);
   border-radius: 0;
   box-shadow: none;
@@ -286,6 +278,181 @@
 
 .ao-terminal ::selection {
   background: var(--terminal-selection);
+}
+
+.yyork-files-workspace {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  background: var(--background);
+  /* Keep preview toggles aligned with the file-tree toolbar toggle:
+     shell padding-top + vertical centering in the 2.5rem toolbar row. */
+  --yyork-files-toggle-top: calc(0.75rem + (2.5rem - 2.25rem) / 2);
+  --yyork-files-toggle-right: 0.75rem;
+}
+
+.yyork-files-workspace--collapsed {
+  display: flex;
+}
+
+.yyork-file-preview-pane {
+  position: relative;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  background: var(--background);
+}
+
+.yyork-file-preview-floating-action {
+  position: absolute;
+  top: var(--yyork-files-toggle-top);
+  right: var(--yyork-files-toggle-right);
+  z-index: 1;
+  display: flex;
+}
+
+.yyork-file-preview-header {
+  position: relative;
+  display: flex;
+  min-height: 2.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  padding: 1.5rem;
+  color: var(--foreground);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1rem;
+}
+
+.yyork-file-preview-header--with-action {
+  padding-right: 0;
+}
+
+.yyork-file-preview-header-action {
+  position: absolute;
+  top: var(--yyork-files-toggle-top);
+  right: var(--yyork-files-toggle-right);
+  display: flex;
+}
+
+.yyork-file-preview-body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.yyork-file-code-scroll {
+  height: 100%;
+  min-height: 0;
+  min-width: 100%;
+  flex: 1;
+  overflow: hidden;
+}
+
+.yyork-file-code-viewer {
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  background: var(--background);
+  --diffs-font-family: var(--font-mono);
+  --diffs-font-size: 0.75rem;
+  --diffs-line-height: 1.45;
+}
+
+.yyork-file-tree-shell {
+  box-sizing: border-box;
+  gap: 0.375rem;
+  padding: 0.75rem;
+  background: var(--background);
+}
+
+.yyork-file-tree-pane {
+  height: 100%;
+  min-width: 0;
+}
+
+.yyork-file-tree-resizable-panel {
+  min-width: 0;
+}
+
+.yyork-file-tree-resize-handle {
+  cursor: col-resize;
+}
+
+.yyork-file-tree-toolbar {
+  display: flex;
+  min-height: 2.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+  padding-inline: 0;
+}
+
+.yyork-file-tree {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  --trees-bg-override: var(--background);
+  --trees-fg-override: var(--foreground);
+  --trees-fg-muted-override: var(--muted-foreground);
+  --trees-bg-muted-override: var(--accent);
+  --trees-accent-override: var(--primary);
+  --trees-border-color-override: var(--border);
+  --trees-focus-ring-color-override: var(--ring);
+  --trees-selected-fg-override: var(--accent-foreground);
+  --trees-selected-bg-override: var(--accent);
+  --trees-selected-focused-border-color-override: var(--ring);
+  --trees-font-family-override: var(--font-sans);
+  --trees-font-size-override: 0.8125rem;
+  --trees-font-weight-regular-override: 400;
+  --trees-font-weight-semibold-override: 500;
+  --trees-border-radius-override: calc(var(--radius) - 4px);
+  --trees-item-height: 1.75rem;
+  --trees-item-padding-x-override: 0.5rem;
+  --trees-item-margin-x-override: 0.25rem;
+  --trees-item-row-gap-override: 0.375rem;
+  --trees-level-gap-override: 0.5rem;
+  --trees-icon-width-override: 1rem;
+  --trees-padding-inline-override: 0.5rem;
+  --trees-scrollbar-thumb-override: color-mix(
+    in oklch,
+    var(--foreground) 24%,
+    transparent
+  );
+  --trees-file-icon-color: var(--muted-foreground);
+  --truncate-marker-background-color: var(--background);
+}
+
+.yyork-diff-virtualizer {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  background: var(--background);
+  scrollbar-gutter: stable;
+}
+
+.yyork-diff-virtualizer-content {
+  min-width: 100%;
+}
+
+.yyork-diff-viewer {
+  display: block;
+  min-width: 100%;
+  --diffs-font-family: var(--font-mono);
+  --diffs-font-size: 0.75rem;
+  --diffs-line-height: 1.45;
 }
 
 @keyframes fade {

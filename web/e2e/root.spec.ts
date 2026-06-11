@@ -1,13 +1,7 @@
-import { expect, type Locator, type Page, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 async function installFakeTerminalWebSocket(page: Page) {
   await page.addInitScript(() => {
-    // These terminal tests assert on rendered text via .ao-terminal's
-    // textContent, which only works for wterm's DOM renderer (xterm paints to a
-    // canvas). The panel now defaults to xterm, so pin wterm here to keep
-    // testing the DOM-render round-trip these specs were written for.
-    window.localStorage.setItem('ao-terminal-backend', 'wterm');
-
     class FakeTerminalWebSocket extends EventTarget {
       static CONNECTING = 0;
       static OPEN = 1;
@@ -202,6 +196,38 @@ function setTerminalWebSocketsAutoFail(page: Page, enabled: boolean) {
   }, enabled);
 }
 
+// xterm paints to canvas/WebGL, so rendered output is invisible to the DOM.
+// Read the screen through the live instance the dashboard exposes on window
+// (see xterm-terminal.tsx) instead of asserting on textContent.
+function getTerminalScreenText(page: Page) {
+  return page.evaluate(() => {
+    const terminalWindow = window as Window & {
+      __yyorkTerminal?: {
+        buffer: {
+          active: {
+            length: number;
+            getLine(
+              y: number
+            ): { translateToString(trimRight: boolean): string } | undefined;
+          };
+        };
+      };
+    };
+    const terminal = terminalWindow.__yyorkTerminal;
+    if (!terminal) {
+      return '';
+    }
+
+    const lines: string[] = [];
+    for (let row = 0; row < terminal.buffer.active.length; row++) {
+      lines.push(
+        terminal.buffer.active.getLine(row)?.translateToString(true) ?? ''
+      );
+    }
+    return lines.join('\n');
+  });
+}
+
 function getTerminalSentText(page: Page) {
   return page.evaluate(() => {
     const terminalWindow = window as Window & {
@@ -324,18 +350,15 @@ async function sendTerminalBackendText(page: Page, text: string) {
 
 async function sendTerminalBackendTextAndWait(
   page: Page,
-  terminalPanel: Locator,
   text: string,
   expectedText: string
 ) {
-  const terminal = terminalPanel.locator('.ao-terminal');
-
   await expect
     .poll(
       async () => {
         await sendTerminalBackendText(page, text);
         await page.waitForTimeout(100);
-        return (await terminal.textContent()) ?? '';
+        return getTerminalScreenText(page);
       },
       {
         timeout: 15_000,
@@ -416,7 +439,7 @@ test('terminal view is reachable from the root route', async ({ page }) => {
   );
   const terminal = page
     .locator('section[aria-label$="terminal panel"]')
-    .getByRole('textbox');
+    .locator('.ao-terminal');
   await expect(terminal).toBeVisible();
   await expect(terminal).toHaveAccessibleName(/\[[A-Z0-9_-]+\] terminal/);
 });
@@ -633,7 +656,7 @@ test('selecting a worker card retargets the terminal view', async ({
   }).toPass();
 
   const terminalPanel = page.locator('section[aria-label$="terminal panel"]');
-  const initialTerminal = terminalPanel.getByRole('textbox');
+  const initialTerminal = terminalPanel.locator('.ao-terminal');
   await expect(initialTerminal).toBeVisible();
   await expect(initialTerminal).toHaveAccessibleName(
     `${initialWorkerId} terminal`
@@ -664,7 +687,7 @@ test('selecting a worker card retargets the terminal view', async ({
     'true'
   );
 
-  const terminal = terminalPanel.getByRole('textbox');
+  const terminal = terminalPanel.locator('.ao-terminal');
   await expect(terminal).toBeVisible();
   await expect(terminal).toHaveAccessibleName(`${workerId} terminal`);
   await expect(terminal).not.toHaveAttribute(
@@ -731,14 +754,10 @@ test('root route restores the last active terminal session after reload or tab r
   await kanbanBoard
     .getByRole('button', { name: '[AO-2] Live worker 2' })
     .click();
-  await expect(page.getByRole('tab', { name: 'Terminal' })).toHaveAttribute(
-    'aria-selected',
-    'true'
-  );
   await expect(
     page
       .locator('section[aria-label$="terminal panel"]')
-      .getByRole('textbox', { name: '[AO-2] terminal' })
+      .getByLabel('[AO-2] terminal')
   ).toBeVisible();
 
   await page.reload();
@@ -750,7 +769,7 @@ test('root route restores the last active terminal session after reload or tab r
   await expect(
     page
       .locator('section[aria-label$="terminal panel"]')
-      .getByRole('textbox', { name: '[AO-2] terminal' })
+      .getByLabel('[AO-2] terminal')
   ).toBeVisible();
 
   const reopenedPage = await context.newPage();
@@ -763,7 +782,7 @@ test('root route restores the last active terminal session after reload or tab r
   await expect(
     reopenedPage
       .locator('section[aria-label$="terminal panel"]')
-      .getByRole('textbox', { name: '[AO-2] terminal' })
+      .getByLabel('[AO-2] terminal')
   ).toBeVisible();
   await reopenedPage.close();
 });
@@ -858,9 +877,10 @@ test('orchestrator session is reachable from the project tree', async ({
             kind: 'orchestrator',
             metadata: '[codex/working]',
             project: 'agent-orchestrator_live',
+            recap: 'Coordinates workers for the active project.',
             state: 'working',
             terminalSupported: true,
-            title: 'Project orchestrator',
+            title: 'Orchestrator',
             workerId: '[ORCHESTRATOR]',
           },
         ],
@@ -876,6 +896,7 @@ test('orchestrator session is reachable from the project tree', async ({
             issue: '[PR #1]',
             metadata: '[codex/working]',
             project: 'agent-orchestrator_live',
+            recap: 'A selected live worker.',
             selected: true,
             state: 'working',
             terminalSupported: true,
@@ -890,25 +911,33 @@ test('orchestrator session is reachable from the project tree', async ({
   });
 
   await page.goto('/');
-  await page
-    .getByRole('button', { exact: true, name: 'Orchestrator' })
-    .dispatchEvent('click');
+  const orchestratorButton = page.getByRole('button', {
+    name: 'Open Orchestrator terminal',
+  });
+  const workerButton = page.getByRole('button', {
+    name: 'Open Live worker 1 terminal',
+  });
 
-  await expect(
-    page.getByRole('button', { exact: true, name: 'Orchestrator' })
-  ).toHaveAttribute('data-active', 'true');
-  await expect(page.getByRole('button', { name: 'AO-1' })).toHaveAttribute(
-    'data-active',
-    'false'
-  );
-  await expect(page.getByRole('tab', { name: 'Terminal' })).toHaveAttribute(
-    'aria-selected',
-    'true'
-  );
+  await expect(orchestratorButton).toBeVisible();
+  await expect(workerButton).toBeVisible();
+  await expect
+    .poll(async () => {
+      const orchestratorBox = await orchestratorButton.boundingBox();
+      const workerBox = await workerButton.boundingBox();
+      return Boolean(
+        orchestratorBox && workerBox && orchestratorBox.y < workerBox.y
+      );
+    })
+    .toBe(true);
+
+  await orchestratorButton.dispatchEvent('click');
+
+  await expect(orchestratorButton).toHaveAttribute('data-active', 'true');
+  await expect(workerButton).toHaveAttribute('data-active', 'false');
   await expect(
     page
       .locator('section[aria-label$="terminal panel"]')
-      .getByRole('textbox', { name: 'Orchestrator terminal' })
+      .getByLabel('Orchestrator terminal')
   ).toBeVisible();
   await expect
     .poll(() => getLatestTerminalWebSocketURL(page))
@@ -918,7 +947,119 @@ test('orchestrator session is reachable from the project tree', async ({
     .toContain('project=agent-orchestrator_live');
 });
 
-test('empty AO workspace renders an operational empty state', async ({
+test('root route selects the project orchestrator when no worker is selected', async ({
+  page,
+}) => {
+  await installFakeTerminalWebSocket(page);
+  await page.route('**/api/workspace', async (route) => {
+    await route.fulfill({
+      body: JSON.stringify({
+        activeProjectId: 'agent-orchestrator_live',
+        orchestrators: [
+          {
+            agent: 'claude-code',
+            cwd: '/tmp/ao-live',
+            description: '',
+            id: 'ao-orchestrator',
+            issue: 'Orchestrator',
+            kind: 'orchestrator',
+            metadata: '[claude-code/working]',
+            project: 'agent-orchestrator_live',
+            recap: '',
+            state: 'working',
+            terminalSupported: true,
+            title: 'Orchestrator',
+            workerId: 'ao-orchestrator',
+          },
+        ],
+        projects: [
+          { id: 'agent-orchestrator_live', name: 'Agent Orchestrator' },
+        ],
+        sessions: [],
+      }),
+      contentType: 'application/json',
+      status: 200,
+    });
+  });
+
+  await page.goto('/');
+
+  await expect(
+    page
+      .locator('section[aria-label$="terminal panel"]')
+      .getByLabel('Orchestrator terminal')
+  ).toBeVisible({ timeout: 15_000 });
+  await expect
+    .poll(() => getLatestTerminalWebSocketURL(page))
+    .toContain('/api/sessions/ao-orchestrator/terminal');
+});
+
+test('terminal session route overrides the default project orchestrator', async ({
+  page,
+}) => {
+  await installFakeTerminalWebSocket(page);
+  await page.route('**/api/workspace', async (route) => {
+    await route.fulfill({
+      body: JSON.stringify({
+        activeProjectId: 'agent-orchestrator_live',
+        orchestrators: [
+          {
+            agent: 'claude-code',
+            cwd: '/tmp/ao-live',
+            description: '',
+            id: 'ao-orchestrator',
+            issue: 'Orchestrator',
+            kind: 'orchestrator',
+            metadata: '[claude-code/working]',
+            project: 'agent-orchestrator_live',
+            recap: '',
+            state: 'working',
+            terminalSupported: true,
+            title: 'Orchestrator',
+            workerId: 'ao-orchestrator',
+          },
+        ],
+        projects: [
+          { id: 'agent-orchestrator_live', name: 'Agent Orchestrator' },
+        ],
+        sessions: [
+          {
+            agent: 'codex',
+            cwd: '/tmp/ao-live-worker',
+            description: '',
+            id: 'ao-worker',
+            issue: '[PR #1]',
+            metadata: '[codex/working]',
+            project: 'agent-orchestrator_live',
+            recap: '',
+            state: 'working',
+            terminalSupported: true,
+            title: 'Worker task',
+            workerId: '[AO-1]',
+          },
+        ],
+      }),
+      contentType: 'application/json',
+      status: 200,
+    });
+  });
+
+  await page.goto('/terminal/ao-worker');
+
+  await expect(
+    page
+      .locator('section[aria-label$="terminal panel"]')
+      .getByLabel('[AO-1] terminal')
+  ).toBeVisible({ timeout: 15_000 });
+  await expect
+    .poll(() => getLatestTerminalWebSocketURL(page))
+    .toContain('/api/sessions/ao-worker/terminal');
+  await expect
+    .poll(() => getLatestTerminalWebSocketURL(page))
+    .not.toContain('/api/sessions/ao-orchestrator/terminal');
+});
+
+test('empty yyork workspace renders an operational empty state', async ({
   page,
 }) => {
   await page.route('**/api/workspace', async (route) => {
@@ -936,7 +1077,7 @@ test('empty AO workspace renders an operational empty state', async ({
   await page.goto('/');
 
   await expect(page.getByLabel('Kanban board')).toBeVisible();
-  await expect(page.getByText('No AO workers detected')).toBeVisible({
+  await expect(page.getByText('No worker sessions detected')).toBeVisible({
     timeout: 15_000,
   });
   await expect(
@@ -955,10 +1096,12 @@ test('empty AO workspace renders an operational empty state', async ({
   await expect(
     page
       .locator('section[aria-label$="terminal panel"]')
-      .getByText('No AO workers detected')
+      .getByText('No worker sessions detected')
   ).toBeVisible();
   await expect(
-    page.locator('section[aria-label$="terminal panel"]').getByRole('textbox')
+    page
+      .locator('section[aria-label$="terminal panel"]')
+      .locator('.ao-terminal')
   ).toHaveCount(0);
 });
 
@@ -1007,7 +1150,7 @@ test('workspace refresh picks up newly available AO workers', async ({
 
   await page.goto('/');
 
-  await expect(page.getByText('No AO workers detected')).toBeVisible({
+  await expect(page.getByText('No worker sessions detected')).toBeVisible({
     timeout: 15_000,
   });
   await expect(
@@ -1072,7 +1215,7 @@ test('workspace refresh preserves the selected terminal websocket', async ({
 
   const terminal = page
     .locator('section[aria-label$="terminal panel"]')
-    .getByRole('textbox');
+    .locator('.ao-terminal');
   await expect(terminal).toBeVisible();
   await expect.poll(() => getTerminalWebSocketCount(page)).not.toBe(0);
   const initialWebSocketCount = await getTerminalWebSocketCount(page);
@@ -1137,7 +1280,7 @@ test('terminal view switching keeps the selected terminal mounted', async ({
   );
 
   const terminalPanel = page.locator('section[aria-label$="terminal panel"]');
-  const terminal = terminalPanel.getByRole('textbox');
+  const terminal = terminalPanel.locator('.ao-terminal');
   await expect(terminal).toBeVisible();
   await terminal.evaluate((element) => {
     element.setAttribute('data-e2e-terminal-instance', 'selected-worker');
@@ -1209,14 +1352,13 @@ test('terminal input and backend output round-trip through the websocket', async
 
   await page.getByRole('tab', { name: 'Terminal' }).click();
   const terminalPanel = page.locator('section[aria-label$="terminal panel"]');
-  const terminal = terminalPanel.getByRole('textbox');
+  const terminal = terminalPanel.locator('.ao-terminal');
   await expect(terminal).toBeVisible();
   await expect.poll(() => getTerminalOpenWebSocketCount(page)).not.toBe(0);
   await expect.poll(() => hasTerminalResizeControlMessage(page)).toBe(true);
   await expect.poll(() => hasTerminalResizeControlMessage(page)).toBe(true);
   await sendTerminalBackendTextAndWait(
     page,
-    terminalPanel,
     'BACKEND_READY\r\n',
     'BACKEND_READY'
   );
@@ -1226,7 +1368,7 @@ test('terminal input and backend output round-trip through the websocket', async
   await page.keyboard.press('Enter');
 
   await expect.poll(() => getTerminalSentText(page)).toContain('pwd\r');
-  await expect(terminalPanel).toContainText('pwd');
+  await expect.poll(() => getTerminalScreenText(page)).toContain('pwd');
 });
 
 test('terminal resizes the attached PTY with the viewport', async ({
@@ -1272,7 +1414,9 @@ test('terminal resizes the attached PTY with the viewport', async ({
 
   await page.getByRole('tab', { name: 'Terminal' }).click();
   await expect(
-    page.locator('section[aria-label$="terminal panel"]').getByRole('textbox')
+    page
+      .locator('section[aria-label$="terminal panel"]')
+      .locator('.ao-terminal')
   ).toBeVisible();
   await expect.poll(() => getTerminalOpenWebSocketCount(page)).not.toBe(0);
   await expect.poll(() => hasTerminalResizeControlMessage(page)).toBe(true);
@@ -1300,81 +1444,6 @@ test('terminal resizes the attached PTY with the viewport', async ({
       return latestResize ? latestResize.cols < initialResize.cols : false;
     })
     .toBe(true);
-});
-
-test('terminal output can be scrolled with the browser wheel', async ({
-  page,
-}) => {
-  await installFakeTerminalWebSocket(page);
-  await page.route('**/api/workspace', async (route) => {
-    await route.fulfill({
-      body: JSON.stringify({
-        activeProjectId: 'agent-orchestrator_live',
-        projects: [
-          { id: 'agent-orchestrator_live', name: 'Agent Orchestrator' },
-        ],
-        sessions: [
-          {
-            agent: 'codex',
-            cwd: '/tmp/ao-live',
-            description: 'A selected live worker.',
-            id: 'ao-live',
-            issue: '[PR #1]',
-            metadata: '[codex/working]',
-            project: 'agent-orchestrator_live',
-            selected: true,
-            state: 'working',
-            terminalSupported: true,
-            title: 'Live worker',
-            workerId: '[AO-LIVE]',
-          },
-        ],
-      }),
-      contentType: 'application/json',
-      status: 200,
-    });
-  });
-
-  await page.goto('/');
-  await expect(
-    page.getByRole('button', { name: '[AO-LIVE] Live worker' })
-  ).toBeVisible({
-    timeout: 15_000,
-  });
-
-  await page.getByRole('tab', { name: 'Terminal' }).click();
-  const terminalPanel = page.locator('section[aria-label$="terminal panel"]');
-  const terminal = terminalPanel.getByRole('textbox');
-  await expect(terminal).toBeVisible();
-  await expect.poll(() => getTerminalOpenWebSocketCount(page)).not.toBe(0);
-  await expect.poll(() => hasTerminalResizeControlMessage(page)).toBe(true);
-
-  const scrollbackText = Array.from(
-    { length: 120 },
-    (_, index) => `SCROLL_${index.toString().padStart(3, '0')}\r\n`
-  ).join('');
-  await sendTerminalBackendTextAndWait(
-    page,
-    terminalPanel,
-    scrollbackText,
-    'SCROLL_119'
-  );
-
-  await expect
-    .poll(() =>
-      terminal.evaluate(
-        (element) => element.scrollHeight > element.clientHeight
-      )
-    )
-    .toBe(true);
-  await terminal.evaluate((element) => {
-    element.scrollTop = 0;
-  });
-  await terminal.hover();
-  await page.mouse.wheel(0, 400);
-  await expect
-    .poll(() => terminal.evaluate((element) => element.scrollTop))
-    .toBeGreaterThan(0);
 });
 
 test('terminal automatically reconnects after a transient websocket drop', async ({
@@ -1419,16 +1488,11 @@ test('terminal automatically reconnects after a transient websocket drop', async
 
   await page.getByRole('tab', { name: 'Terminal' }).click();
   const terminalPanel = page.locator('section[aria-label$="terminal panel"]');
-  const terminal = terminalPanel.getByRole('textbox');
+  const terminal = terminalPanel.locator('.ao-terminal');
   await expect(terminal).toBeVisible();
   await expect.poll(() => getTerminalOpenWebSocketCount(page)).not.toBe(0);
   const initialWebSocketCount = await getTerminalWebSocketCount(page);
-  await sendTerminalBackendTextAndWait(
-    page,
-    terminalPanel,
-    'BEFORE_DROP\r\n',
-    'BEFORE_DROP'
-  );
+  await sendTerminalBackendTextAndWait(page, 'BEFORE_DROP\r\n', 'BEFORE_DROP');
 
   await dropTerminalWebSocket(page);
   await expect
@@ -1437,13 +1501,14 @@ test('terminal automatically reconnects after a transient websocket drop', async
   await expect.poll(() => getTerminalOpenWebSocketCount(page)).not.toBe(0);
   await sendTerminalBackendTextAndWait(
     page,
-    terminalPanel,
     'BEFORE_DROP\r\nAFTER_RECONNECT\r\n',
     'AFTER_RECONNECT'
   );
+  // The reset-on-reconnect must have cleared the stale screen: the replayed
+  // BEFORE_DROP appears exactly once, not once per attach.
   await expect
     .poll(async () => {
-      const text = (await terminalPanel.textContent()) ?? '';
+      const text = await getTerminalScreenText(page);
       return text.match(/BEFORE_DROP/g)?.length ?? 0;
     })
     .toBe(1);
@@ -1502,7 +1567,7 @@ test('terminal selection is scoped by project when AO worker ids collide', async
   await expect(
     page
       .locator('section[aria-label$="terminal panel"]')
-      .getByRole('textbox', { name: '[AO-1] terminal' })
+      .getByLabel('[AO-1] terminal')
   ).toBeVisible();
 
   await expect
@@ -1552,7 +1617,9 @@ test('terminal stops automatic reconnects after bounded flapping websocket retri
 
   await page.getByRole('tab', { name: 'Terminal' }).click();
   await expect(
-    page.locator('section[aria-label$="terminal panel"]').getByRole('textbox')
+    page
+      .locator('section[aria-label$="terminal panel"]')
+      .locator('.ao-terminal')
   ).toBeVisible();
   await expect.poll(() => getTerminalWebSocketCount(page)).not.toBe(0);
   const initialWebSocketCount = await getTerminalWebSocketCount(page);
