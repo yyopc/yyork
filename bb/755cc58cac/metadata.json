@@ -86,6 +86,12 @@
       "transcript": "/bb/755cc58cac/10/full.jsonl",
       "content_hash": "/bb/755cc58cac/10/content_hash.txt",
       "prompt": "/bb/755cc58cac/10/prompt.txt"
+    },
+    {
+      "metadata": "/bb/755cc58cac/11/metadata.json",
+      "transcript": "/bb/755cc58cac/11/full.jsonl",
+      "content_hash": "/bb/755cc58cac/11/content_hash.txt",
+      "prompt": "/bb/755cc58cac/11/prompt.txt"
     }
   ],
   "token_usage": {
