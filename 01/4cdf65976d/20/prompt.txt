@@ -1,0 +1,1 @@
+I need a list of relevant files that takes care of the terminal component end to end and makes sure that the intended experience is provided
