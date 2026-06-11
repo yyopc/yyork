@@ -1,4 +1,4 @@
-import { ReactNode, useMemo } from 'react';
+import { ReactNode } from 'react';
 import {
   Controller,
   ControllerProps,
@@ -9,8 +9,8 @@ import {
 import {
   FieldComponentProps,
   fieldComponents,
-  FieldType,
 } from '@/components/form/_fields';
+import type { FieldType } from '@/components/form/field-types';
 
 import {
   FormFieldControllerContext,
@@ -100,18 +100,13 @@ function FormFieldControllerRender<
   displayError: boolean;
 }) {
   const { type } = controllerProps;
-  const contextValue = useMemo(
-    () => ({ type, displayError, field, fieldState }),
-    [type, displayError, field, fieldState]
-  );
+  const contextValue = { type, displayError, field, fieldState };
 
-  const fieldContent = useMemo(() => {
-    return renderFieldContent(controllerProps, {
-      field,
-      fieldState,
-      formState,
-    });
-  }, [controllerProps, field, fieldState, formState]);
+  const fieldContent = renderFieldContent(controllerProps, {
+    field,
+    fieldState,
+    formState,
+  });
 
   return (
     <FormFieldControllerContext

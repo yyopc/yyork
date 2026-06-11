@@ -60,7 +60,7 @@ export function Render() {
   return (
     <ResponsiveIconButton
       label="Add"
-      render={<a href="/" />}
+      render={<a href="/" aria-label="Add" />}
       nativeButton={false}
     >
       <PlusIcon />

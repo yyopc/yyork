@@ -31,14 +31,19 @@ const SearchButtonComponent = ({
 }: Props) => {
   const { t } = useTranslation(['components']);
   const [open, setOpen] = useState(false);
-  const [internalValue, setInternalValue] = useState(value);
+  const [internalValue, setInternalValue] = useState<string | undefined>();
+  const searchValue = internalValue ?? value;
 
   return (
     <Drawer
       swipeDirection="up"
       open={open}
       onOpenChange={(o) => {
-        onChange?.(internalValue ?? '');
+        if (o) {
+          setInternalValue(value);
+        } else {
+          onChange?.(searchValue ?? '');
+        }
         setOpen(o);
       }}
     >
@@ -57,7 +62,7 @@ const SearchButtonComponent = ({
         </DrawerHeader>
         <DrawerBody className="py-4">
           <SearchInput
-            value={internalValue}
+            value={searchValue}
             delay={0}
             onChange={setInternalValue}
             size="lg"
@@ -66,7 +71,7 @@ const SearchButtonComponent = ({
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
                 setOpen(false);
-                onChange?.(internalValue ?? '');
+                onChange?.(searchValue ?? '');
               }
               inputProps?.onKeyDown?.(event);
             }}

@@ -6,6 +6,8 @@ import { page, render } from '@/tests/utils';
 
 import { Calendar } from './calendar';
 
+const selectedDate = new Date(2026, 0, 15);
+
 // https://vitest.dev/guide/browser/#limitations
 vi.mock('react-i18next', { spy: true });
 vi.mocked(module.useTranslation).mockImplementation(
@@ -35,7 +37,7 @@ describe('Calendar', () => {
 
   it('should render date buttons when controlled', () => {
     render(
-      <Calendar mode="single" selected={new Date()} onSelect={() => {}} />
+      <Calendar mode="single" selected={selectedDate} onSelect={() => {}} />
     );
 
     // 3 are the previous, next and year select buttons
@@ -48,7 +50,7 @@ describe('Calendar', () => {
     render(
       <Calendar
         mode="single"
-        selected={new Date()}
+        selected={selectedDate}
         onSelect={(v) => {
           // Start of day is easier to expect
           onSelect(dayjs(v).startOf('day').toDate());

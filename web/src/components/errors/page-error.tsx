@@ -52,7 +52,7 @@ export const PageError = (props: {
   );
 };
 
-export const PageErrorButtonBack = () => {
+const PageErrorButtonBack = () => {
   const { t } = useTranslation(['components']);
   return (
     <Button
@@ -62,7 +62,7 @@ export const PageErrorButtonBack = () => {
         e.preventDefault();
         window.history.back();
       }}
-      render={<a href="/" />}
+      render={<a href="/" aria-label={t('components:pageError.goBack')} />}
       nativeButton={false}
     >
       <Undo2Icon className="opacity-60" />
@@ -70,13 +70,13 @@ export const PageErrorButtonBack = () => {
     </Button>
   );
 };
-export const PageErrorButtonHome = () => {
+const PageErrorButtonHome = () => {
   const { t } = useTranslation(['components']);
   return (
     <Button
       variant="link"
       className="text-muted-foreground"
-      render={<a href="/" />}
+      render={<a href="/" aria-label={t('components:pageError.goHome')} />}
       nativeButton={false}
     >
       <HomeIcon className="opacity-60" />

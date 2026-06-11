@@ -18,6 +18,8 @@ export default {
   title: 'DatePicker',
 };
 
+const defaultCalendarMonth = new Date(2026, 0, 1);
+
 export const Default = () => {
   const [date, setDate] = useState<Date | null>();
 
@@ -32,8 +34,8 @@ export const CalendarCustomization = () => {
       onChange={(value) => setDate(value)}
       value={date}
       calendarProps={{
-        startMonth: new Date(),
-        endMonth: new Date(),
+        startMonth: defaultCalendarMonth,
+        endMonth: defaultCalendarMonth,
       }}
     />
   );

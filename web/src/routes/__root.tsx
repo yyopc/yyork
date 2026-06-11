@@ -6,6 +6,7 @@ import { PageError } from '@/components/errors/page-error';
 
 import { Providers } from '@/providers';
 
+// react-doctor-disable-next-line react-doctor/only-export-components -- TanStack Router route modules must export Route.
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient;
 }>()({
@@ -14,7 +15,7 @@ export const Route = createRootRouteWithContext<{
   component: RootComponent,
 });
 
-function RootComponent() {
+export function RootComponent() {
   return (
     <Providers>
       <Outlet />

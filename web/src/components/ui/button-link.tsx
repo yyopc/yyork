@@ -4,7 +4,7 @@ import { ComponentProps } from 'react';
 
 import { cn } from '@/lib/tailwind/utils';
 
-import { buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button-variants';
 
 function ButtonLink({
   className,

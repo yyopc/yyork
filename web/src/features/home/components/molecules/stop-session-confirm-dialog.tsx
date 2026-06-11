@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import {
   AlertDialog,
@@ -20,14 +20,16 @@ export function StopSessionConfirmDialog(props: {
 }) {
   const [dontShowAgain, setDontShowAgain] = useState(false);
 
-  useEffect(() => {
-    if (!props.open) {
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
       setDontShowAgain(false);
     }
-  }, [props.open]);
+
+    props.onOpenChange(open);
+  };
 
   return (
-    <AlertDialog open={props.open} onOpenChange={props.onOpenChange}>
+    <AlertDialog open={props.open} onOpenChange={handleOpenChange}>
       <AlertDialogContent size="default" className="sm:max-w-md">
         <AlertDialogHeader className="text-left">
           <AlertDialogTitle>Stop {props.sessionLabel}?</AlertDialogTitle>

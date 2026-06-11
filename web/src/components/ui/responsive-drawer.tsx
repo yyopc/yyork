@@ -10,8 +10,6 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogOverlay,
-  DialogPortal,
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
@@ -23,8 +21,6 @@ import {
   DrawerDescription,
   DrawerFooter,
   DrawerHeader,
-  DrawerOverlay,
-  DrawerPortal,
   DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer';
@@ -33,44 +29,27 @@ const BREAKPOINT = 640;
 
 export const ResponsiveDrawer = ({
   ...props
-}: Overwrite<ComponentProps<typeof Dialog>, ComponentProps<typeof Drawer>>) =>
-  useIsMobile(BREAKPOINT) ? <Drawer {...props} /> : <Dialog {...props} />;
+}: Overwrite<ComponentProps<typeof Dialog>, ComponentProps<typeof Drawer>>) => {
+  const isMobile = useIsMobile(BREAKPOINT);
+
+  return isMobile ? <Drawer {...props} /> : <Dialog {...props} />;
+};
 
 export const ResponsiveDrawerTrigger = ({
   ...props
-}: ComponentProps<typeof DrawerTrigger | typeof DialogTrigger>) =>
-  useIsMobile(BREAKPOINT) ? (
-    <DrawerTrigger {...props} />
-  ) : (
-    <DialogTrigger {...props} />
-  );
+}: ComponentProps<typeof DrawerTrigger | typeof DialogTrigger>) => {
+  const isMobile = useIsMobile(BREAKPOINT);
 
-export const ResponsiveDrawerPortal = (
-  props: ComponentProps<typeof DrawerPortal | typeof DialogPortal>
-) =>
-  useIsMobile(BREAKPOINT) ? (
-    <DrawerPortal {...props} />
-  ) : (
-    <DialogPortal {...props} />
-  );
+  return isMobile ? <DrawerTrigger {...props} /> : <DialogTrigger {...props} />;
+};
 
 export const ResponsiveDrawerClose = (
   props: ComponentProps<typeof DrawerClose | typeof DialogClose>
-) =>
-  useIsMobile(BREAKPOINT) ? (
-    <DrawerClose {...props} />
-  ) : (
-    <DialogClose {...props} />
-  );
+) => {
+  const isMobile = useIsMobile(BREAKPOINT);
 
-export const ResponsiveDrawerOverlay = (
-  props: ComponentProps<typeof DrawerOverlay | typeof DialogOverlay>
-) =>
-  useIsMobile(BREAKPOINT) ? (
-    <DrawerOverlay {...props} />
-  ) : (
-    <DialogOverlay {...props} />
-  );
+  return isMobile ? <DrawerClose {...props} /> : <DialogClose {...props} />;
+};
 
 export const ResponsiveDrawerContent = ({
   hideCloseButton,
@@ -84,54 +63,56 @@ export const ResponsiveDrawerContent = ({
   className?: string;
   // Only for DialogContent
   hideCloseButton?: boolean;
-}) =>
-  useIsMobile(BREAKPOINT) ? (
+}) => {
+  const isMobile = useIsMobile(BREAKPOINT);
+
+  return isMobile ? (
     <DrawerContent {...props} />
   ) : (
     <DialogContent hideCloseButton={hideCloseButton} {...props} />
   );
+};
 
 export const ResponsiveDrawerHeader = (
   props: ComponentProps<typeof DrawerHeader | typeof DialogHeader>
-) =>
-  useIsMobile(BREAKPOINT) ? (
-    <DrawerHeader {...props} />
-  ) : (
-    <DialogHeader {...props} />
-  );
+) => {
+  const isMobile = useIsMobile(BREAKPOINT);
+
+  return isMobile ? <DrawerHeader {...props} /> : <DialogHeader {...props} />;
+};
 
 export const ResponsiveDrawerBody = (
   props: ComponentProps<typeof DrawerBody | typeof DialogBody>
-) =>
-  useIsMobile(BREAKPOINT) ? (
-    <DrawerBody {...props} />
-  ) : (
-    <DialogBody {...props} />
-  );
+) => {
+  const isMobile = useIsMobile(BREAKPOINT);
+
+  return isMobile ? <DrawerBody {...props} /> : <DialogBody {...props} />;
+};
 
 export const ResponsiveDrawerFooter = (
   props: ComponentProps<typeof DrawerFooter | typeof DialogFooter>
-) =>
-  useIsMobile(BREAKPOINT) ? (
-    <DrawerFooter {...props} />
-  ) : (
-    <DialogFooter {...props} />
-  );
+) => {
+  const isMobile = useIsMobile(BREAKPOINT);
+
+  return isMobile ? <DrawerFooter {...props} /> : <DialogFooter {...props} />;
+};
 
 export const ResponsiveDrawerTitle = (
   props: ComponentProps<typeof DrawerTitle | typeof DialogTitle>
-) =>
-  useIsMobile(BREAKPOINT) ? (
-    <DrawerTitle {...props} />
-  ) : (
-    <DialogTitle {...props} />
-  );
+) => {
+  const isMobile = useIsMobile(BREAKPOINT);
+
+  return isMobile ? <DrawerTitle {...props} /> : <DialogTitle {...props} />;
+};
 
 export const ResponsiveDrawerDescription = (
   props: ComponentProps<typeof DrawerDescription | typeof DialogDescription>
-) =>
-  useIsMobile(BREAKPOINT) ? (
+) => {
+  const isMobile = useIsMobile(BREAKPOINT);
+
+  return isMobile ? (
     <DrawerDescription {...props} />
   ) : (
     <DialogDescription {...props} />
   );
+};

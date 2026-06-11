@@ -49,8 +49,16 @@ export const SearchInput = ({
   const internalRef = useRef<HTMLInputElement>(null);
   const inputRef = mergeRefs([ref, internalRef]);
 
-  const [search, setSearch] = useState<string>(value ?? defaultValue ?? '');
-  const previousValueRef = useRef(value);
+  const [searchState, setSearchState] = useState(() => ({
+    draft: defaultValue ?? '',
+    valueProp: undefined as string | undefined,
+    hasValueProp: false,
+  }));
+  const search =
+    (searchState.hasValueProp && searchState.valueProp === value) ||
+    (!searchState.hasValueProp && value === undefined)
+      ? searchState.draft
+      : (value ?? '');
 
   const onChangeEvent = useEffectEvent((s: string) => {
     onChange?.(s);
@@ -64,21 +72,20 @@ export const SearchInput = ({
     return () => clearTimeout(timeoutId);
   }, [search, delay]);
 
-  useEffect(() => {
-    if (previousValueRef.current === value) {
-      return;
-    }
-
-    previousValueRef.current = value;
-    setSearch(value ?? '');
-  }, [value]);
-
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearch(event.target.value);
+    setSearchState({
+      draft: event.target.value,
+      hasValueProp: true,
+      valueProp: value,
+    });
   };
 
   const handleClear = () => {
-    setSearch('');
+    setSearchState({
+      draft: '',
+      hasValueProp: true,
+      valueProp: value,
+    });
     internalRef.current?.focus();
   };
 
