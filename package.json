@@ -76,7 +76,7 @@
     "portless": "0.14.0"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "packageManager": "pnpm@10.28.0",
   "pnpm": {

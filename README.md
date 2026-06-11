@@ -31,7 +31,7 @@ npm i -g @yyopc/yyork
 go install github.com/yyopc/yyork@latest
 ```
 
-Requirements: Go 1.25+, Node.js 22+ / pnpm for dashboard development, Zellij,
+Requirements: Go 1.25+, Node.js 24+ / pnpm for dashboard development, Zellij,
 git, and an agent CLI on your `PATH`.
 
 ## Basic flow
