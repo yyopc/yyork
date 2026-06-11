@@ -9,9 +9,6 @@ web-dev:
 web-build:
     pnpm web:build
 
-backend-dev:
-    pnpm backend:dev
-
 backend-test:
     go test ./...
 
