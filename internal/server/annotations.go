@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/yyovil/yyork/internal/durabilityprovider"
-	"github.com/yyovil/yyork/internal/session"
-	"github.com/yyovil/yyork/internal/store"
+	"github.com/yyopc/yyork/internal/durabilityprovider"
+	"github.com/yyopc/yyork/internal/session"
+	"github.com/yyopc/yyork/internal/store"
 )
 
 type annotationsRequest struct {

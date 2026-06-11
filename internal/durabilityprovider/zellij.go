@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/yyovil/yyork/internal/session"
+	"github.com/yyopc/yyork/internal/session"
 )
 
 const zellijRuntimeName = "zellij"

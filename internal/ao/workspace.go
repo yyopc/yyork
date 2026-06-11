@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yyovil/yyork/internal/session"
+	"github.com/yyopc/yyork/internal/session"
 )
 
 const runningFileName = "running.json"

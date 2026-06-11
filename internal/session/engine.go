@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yyovil/yyork/internal/events"
-	"github.com/yyovil/yyork/internal/plugin"
-	"github.com/yyovil/yyork/internal/plugin/agent"
-	"github.com/yyovil/yyork/internal/store"
-	"github.com/yyovil/yyork/internal/worktree"
+	"github.com/yyopc/yyork/internal/events"
+	"github.com/yyopc/yyork/internal/plugin"
+	"github.com/yyopc/yyork/internal/plugin/agent"
+	"github.com/yyopc/yyork/internal/store"
+	"github.com/yyopc/yyork/internal/worktree"
 )
 
 // CreateOpts describes a durability-provider session the engine wants to

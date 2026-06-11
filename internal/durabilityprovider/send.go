@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yyovil/yyork/internal/session"
+	"github.com/yyopc/yyork/internal/session"
 )
 
 // ErrSessionNotFound is returned when no session matches the request.

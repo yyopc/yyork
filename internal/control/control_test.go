@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yyovil/yyork/internal/events"
+	"github.com/yyopc/yyork/internal/events"
 )
 
 // isolateHome points HOME at a temp dir so Path() resolves to a per-test

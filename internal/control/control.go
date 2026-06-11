@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/yyovil/yyork/internal/events"
+	"github.com/yyopc/yyork/internal/events"
 )
 
 const (

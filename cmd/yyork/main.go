@@ -15,8 +15,8 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/fang"
 
-	"github.com/yyovil/yyork/internal/app"
-	"github.com/yyovil/yyork/internal/durabilityprovider"
+	"github.com/yyopc/yyork/internal/app"
+	"github.com/yyopc/yyork/internal/durabilityprovider"
 )
 
 var version = "0.0.1"

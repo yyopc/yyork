@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/yyovil/yyork/internal/store"
+	"github.com/yyopc/yyork/internal/store"
 )
 
 // StoreWorkspaceSource adapts the SQLite-backed session store into the

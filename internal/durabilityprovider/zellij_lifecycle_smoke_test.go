@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yyovil/yyork/internal/durabilityprovider"
-	"github.com/yyovil/yyork/internal/session"
+	"github.com/yyopc/yyork/internal/durabilityprovider"
+	"github.com/yyopc/yyork/internal/session"
 )
 
 func TestZellijProviderCreateAndKill_Smoke(t *testing.T) {

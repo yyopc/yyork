@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/yyovil/yyork/internal/session"
+	"github.com/yyopc/yyork/internal/session"
 )
 
 func TestWorkspaceProviderReadsLiveAOWorkerSessions(t *testing.T) {

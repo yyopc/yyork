@@ -1,4 +1,4 @@
-module github.com/yyovil/yyork
+module github.com/yyopc/yyork
 
 go 1.25.7
 

@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/yyovil/yyork/internal/plugin/agent"
+	"github.com/yyopc/yyork/internal/plugin/agent"
 )
 
 func TestGetLaunchCommandBypassWithPrompt(t *testing.T) {

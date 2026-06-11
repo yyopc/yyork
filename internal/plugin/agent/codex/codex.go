@@ -15,9 +15,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/yyovil/yyork/internal/plugin"
-	"github.com/yyovil/yyork/internal/plugin/agent"
-	"github.com/yyovil/yyork/internal/utils"
+	"github.com/yyopc/yyork/internal/plugin"
+	"github.com/yyopc/yyork/internal/plugin/agent"
+	"github.com/yyopc/yyork/internal/utils"
 )
 
 const (

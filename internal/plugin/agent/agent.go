@@ -3,7 +3,7 @@ package agent
 import (
 	"context"
 
-	"github.com/yyovil/yyork/internal/config"
+	"github.com/yyopc/yyork/internal/config"
 )
 
 // Agent defines the behavior every CLI coding agent plugin must provide.

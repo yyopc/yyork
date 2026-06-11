@@ -14,12 +14,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/yyovil/yyork/internal/durabilityprovider"
-	"github.com/yyovil/yyork/internal/events"
-	"github.com/yyovil/yyork/internal/plugin"
-	"github.com/yyovil/yyork/internal/session"
-	"github.com/yyovil/yyork/internal/store"
-	"github.com/yyovil/yyork/internal/terminal"
+	"github.com/yyopc/yyork/internal/durabilityprovider"
+	"github.com/yyopc/yyork/internal/events"
+	"github.com/yyopc/yyork/internal/plugin"
+	"github.com/yyopc/yyork/internal/session"
+	"github.com/yyopc/yyork/internal/store"
+	"github.com/yyopc/yyork/internal/terminal"
 )
 
 // SessionStopper terminates a running session. The session.Engine satisfies

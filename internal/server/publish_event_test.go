@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yyovil/yyork/internal/control"
-	"github.com/yyovil/yyork/internal/events"
+	"github.com/yyopc/yyork/internal/control"
+	"github.com/yyopc/yyork/internal/events"
 )
 
 const testControlToken = "test-token"

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yyovil/yyork/internal/app"
+	"github.com/yyopc/yyork/internal/app"
 )
 
 // execCLI builds the cobra command tree (the same tree main() hands to fang)

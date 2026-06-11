@@ -6,7 +6,7 @@ package durabilityprovider
 import (
 	"context"
 
-	"github.com/yyovil/yyork/internal/session"
+	"github.com/yyopc/yyork/internal/session"
 )
 
 // Provider delivers a message into the runtime backing a session's agent.

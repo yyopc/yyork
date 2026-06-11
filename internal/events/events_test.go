@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yyovil/yyork/internal/events"
+	"github.com/yyopc/yyork/internal/events"
 )
 
 func TestPublishDeliversToAllSubscribers(t *testing.T) {

@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yyovil/yyork/internal/events"
-	"github.com/yyovil/yyork/internal/plugin"
-	pluginagent "github.com/yyovil/yyork/internal/plugin/agent"
-	"github.com/yyovil/yyork/internal/session"
-	"github.com/yyovil/yyork/internal/store"
+	"github.com/yyopc/yyork/internal/events"
+	"github.com/yyopc/yyork/internal/plugin"
+	pluginagent "github.com/yyopc/yyork/internal/plugin/agent"
+	"github.com/yyopc/yyork/internal/session"
+	"github.com/yyopc/yyork/internal/store"
 )
 
 // -- Fakes ---------------------------------------------------------------

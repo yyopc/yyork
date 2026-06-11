@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yyovil/yyork/internal/events"
-	"github.com/yyovil/yyork/internal/server"
-	"github.com/yyovil/yyork/internal/store"
+	"github.com/yyopc/yyork/internal/events"
+	"github.com/yyopc/yyork/internal/server"
+	"github.com/yyopc/yyork/internal/store"
 )
 
 func openTestStore(t *testing.T) store.Store {

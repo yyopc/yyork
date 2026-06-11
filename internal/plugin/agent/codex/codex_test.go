@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yyovil/yyork/internal/plugin/agent"
+	"github.com/yyopc/yyork/internal/plugin/agent"
 )
 
 func TestGetLaunchCommandBuildsCrossPlatformArgv(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/yyovil/yyork/internal/session"
+	"github.com/yyopc/yyork/internal/session"
 )
 
 func TestServerWithoutWorkspaceSourceReturnsEmptyWorkspace(t *testing.T) {

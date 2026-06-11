@@ -10,11 +10,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/yyovil/yyork/internal/control"
-	"github.com/yyovil/yyork/internal/events"
-	"github.com/yyovil/yyork/internal/plugin/agent/claudecode"
-	"github.com/yyovil/yyork/internal/plugin/agent/codex"
-	"github.com/yyovil/yyork/internal/store"
+	"github.com/yyopc/yyork/internal/control"
+	"github.com/yyopc/yyork/internal/events"
+	"github.com/yyopc/yyork/internal/plugin/agent/claudecode"
+	"github.com/yyopc/yyork/internal/plugin/agent/codex"
+	"github.com/yyopc/yyork/internal/store"
 )
 
 const (

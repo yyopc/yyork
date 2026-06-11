@@ -14,7 +14,7 @@ import (
 
 	"github.com/aymanbagabas/go-pty"
 
-	"github.com/yyovil/yyork/internal/session"
+	"github.com/yyopc/yyork/internal/session"
 )
 
 // CreateSession brings up a new zellij session named opts.Name running

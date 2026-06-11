@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yyovil/yyork/internal/worktree"
+	"github.com/yyopc/yyork/internal/worktree"
 )
 
 func TestIsGitRepo(t *testing.T) {

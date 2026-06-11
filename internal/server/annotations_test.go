@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yyovil/yyork/internal/durabilityprovider"
-	"github.com/yyovil/yyork/internal/session"
-	"github.com/yyovil/yyork/internal/store"
+	"github.com/yyopc/yyork/internal/durabilityprovider"
+	"github.com/yyopc/yyork/internal/session"
+	"github.com/yyopc/yyork/internal/store"
 )
 
 type recordingProvider struct {

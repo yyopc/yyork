@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yyovil/yyork/internal/control"
-	"github.com/yyovil/yyork/internal/events"
-	"github.com/yyovil/yyork/internal/store"
+	"github.com/yyopc/yyork/internal/control"
+	"github.com/yyopc/yyork/internal/events"
+	"github.com/yyopc/yyork/internal/store"
 )
 
 // sessionDTO is the JSON shape /api/sessions returns. It mirrors

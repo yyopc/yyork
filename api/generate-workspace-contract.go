@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/yyovil/yyork/internal/session"
+	"github.com/yyopc/yyork/internal/session"
 )
 
 const outputPath = "web/src/features/home/domain/session-workspace-contract.generated.ts"

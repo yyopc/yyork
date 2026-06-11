@@ -11,18 +11,18 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/yyovil/yyork/internal/ao"
-	"github.com/yyovil/yyork/internal/app"
-	"github.com/yyovil/yyork/internal/control"
-	"github.com/yyovil/yyork/internal/durabilityprovider"
-	"github.com/yyovil/yyork/internal/logging"
-	"github.com/yyovil/yyork/internal/plugin"
-	pluginagent "github.com/yyovil/yyork/internal/plugin/agent"
-	"github.com/yyovil/yyork/internal/plugin/agent/claudecode"
-	"github.com/yyovil/yyork/internal/plugin/agent/codex"
-	"github.com/yyovil/yyork/internal/session"
-	"github.com/yyovil/yyork/internal/store"
-	"github.com/yyovil/yyork/internal/worktree"
+	"github.com/yyopc/yyork/internal/ao"
+	"github.com/yyopc/yyork/internal/app"
+	"github.com/yyopc/yyork/internal/control"
+	"github.com/yyopc/yyork/internal/durabilityprovider"
+	"github.com/yyopc/yyork/internal/logging"
+	"github.com/yyopc/yyork/internal/plugin"
+	pluginagent "github.com/yyopc/yyork/internal/plugin/agent"
+	"github.com/yyopc/yyork/internal/plugin/agent/claudecode"
+	"github.com/yyopc/yyork/internal/plugin/agent/codex"
+	"github.com/yyopc/yyork/internal/session"
+	"github.com/yyopc/yyork/internal/store"
+	"github.com/yyopc/yyork/internal/worktree"
 )
 
 // defaultAgentPlugin is the agent used when `spawn` is run without --agent.

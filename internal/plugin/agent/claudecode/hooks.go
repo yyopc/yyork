@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/yyovil/yyork/internal/plugin/agent"
+	"github.com/yyopc/yyork/internal/plugin/agent"
 )
 
 const (

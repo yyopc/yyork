@@ -3,7 +3,7 @@ package session
 import (
 	"testing"
 
-	"github.com/yyovil/yyork/internal/store"
+	"github.com/yyopc/yyork/internal/store"
 )
 
 func TestToLegacySessionTitlePrecedence(t *testing.T) {
