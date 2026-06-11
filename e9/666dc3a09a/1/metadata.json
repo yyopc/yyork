@@ -1,0 +1,31 @@
+{
+  "cli_version": "0.7.5",
+  "checkpoint_id": "e9666dc3a09a",
+  "session_id": "019ea0fe-0228-7311-a998-1be6e0868206",
+  "strategy": "manual-commit",
+  "created_at": "2026-06-11T13:27:48.665204Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "api/generate-workspace-contract.go",
+    "internal/app/app.go",
+    "internal/server/sessions.go",
+    "internal/session/engine.go",
+    "internal/session/engine_test.go",
+    "internal/session/workspace_source.go",
+    "internal/session/workspace_source_test.go"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "758449a18062",
+  "token_usage": {
+    "input_tokens": 641160,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 18719104,
+    "output_tokens": 57493,
+    "api_call_count": 134
+  },
+  "session_metrics": {
+    "turn_count": 4
+  }
+}
