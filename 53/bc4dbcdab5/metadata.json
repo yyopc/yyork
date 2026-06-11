@@ -3,7 +3,7 @@
   "checkpoint_id": "53bc4dbcdab5",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 5,
+  "checkpoints_count": 6,
   "files_touched": [
     "internal/plugin/agent/claudecode/claudecode_test.go",
     "internal/plugin/agent/claudecode/hooks.go",
@@ -58,13 +58,19 @@
       "transcript": "/53/bc4dbcdab5/7/full.jsonl",
       "content_hash": "/53/bc4dbcdab5/7/content_hash.txt",
       "prompt": "/53/bc4dbcdab5/7/prompt.txt"
+    },
+    {
+      "metadata": "/53/bc4dbcdab5/8/metadata.json",
+      "transcript": "/53/bc4dbcdab5/8/full.jsonl",
+      "content_hash": "/53/bc4dbcdab5/8/content_hash.txt",
+      "prompt": "/53/bc4dbcdab5/8/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 8610244,
+    "input_tokens": 10107952,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 196830720,
-    "output_tokens": 617975,
-    "api_call_count": 1310
+    "cache_read_tokens": 223693184,
+    "output_tokens": 717583,
+    "api_call_count": 1519
   }
 }
