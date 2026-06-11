@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.7.5",
+  "checkpoint_id": "bb755cc58cac",
+  "session_id": "019ea678-c3e6-7221-92c7-d3121f3aac93",
+  "strategy": "manual-commit",
+  "created_at": "2026-06-11T13:48:49.680836Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "README.md",
+    "bin/install-yyork.mjs",
+    "bin/yyork.mjs",
+    "flake.nix",
+    "justfile",
+    "package.json"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "69b38e239f21",
+  "token_usage": {
+    "input_tokens": 672654,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 16503040,
+    "output_tokens": 64068,
+    "api_call_count": 119
+  },
+  "session_metrics": {
+    "turn_count": 3
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-06-11T13:48:49.555184Z",
+    "agent_lines": 205,
+    "agent_removed": 105,
+    "human_added": 2056,
+    "human_modified": 5,
+    "human_removed": 0,
+    "total_committed": 2266,
+    "total_lines_changed": 5146,
+    "agent_percentage": 6.024096385542169,
+    "metric_version": 2
+  }
+}
