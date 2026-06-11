@@ -212,7 +212,7 @@ All other entries in the current `plannedCommands` map are removed from help out
 
 ### Server: SQLite reads + SSE push, no polling
 
-The HTTP server's existing read endpoints (`/api/workspace`, etc.) are repointed to query SQLite via the new store package. The legacy `internal/ao/workspace.go` reader against `~/.agent-orchestrator/` is left compiling but deprecated; the dashboard does not call into it in v1.
+The HTTP server's existing read endpoints (`/api/workspace`, etc.) are repointed to query SQLite via the new store package. The legacy `internal/ao/workspace.go` reader against `~/.agent-orchestrator/` is deleted; yyork reads session state only from its own store.
 
 A new SSE endpoint, `GET /api/events`, streams session lifecycle events to subscribers. The dashboard subscribes once on connect; the initial render uses a regular `GET /api/sessions` for state, then the SSE stream drives updates. No HTTP polling anywhere.
 
@@ -248,9 +248,9 @@ The ~300 lines of session-file scanning in the Codex plugin (`findCodexSessionFi
 
 `GetLaunchCommand` (the load-bearing one) stays unchanged. `GetRestoreCommand` returns `nil, false, nil` — the existing fall-through to a fresh launch is acceptable v1 behavior if anyone ever calls it, but the engine doesn't.
 
-### Project paths and the `internal/ao` reader
+### The `internal/ao` reader is deleted
 
-`internal/ao/workspace.go` is not deleted in v1; it stays buildable for transitional reasons. The dashboard no longer calls it. A follow-up slice can either remove it entirely or convert it to a one-way migrator (`yyork import-from-ao`) that copies old AO state into our SQLite.
+`internal/ao/` is removed outright. Nothing imports it, the dashboard never calls it, and no migration from `~/.agent-orchestrator/` state is planned — yyork's only session store is its own SQLite database.
 
 ### Spawn is transactional
 
@@ -344,7 +344,7 @@ Existing test patterns in the codebase:
 
 - **Backup / export / migrate-storage.** The DB is at a known path; users can `cp` it. No tooling around this in v1.
 
-- **Removing `internal/ao/workspace.go`.** It stays compiling for transitional reasons. A follow-up slice can delete it or convert it into an import tool.
+- **Migration from `~/.agent-orchestrator/` state.** `internal/ao/workspace.go` is deleted, not converted into an import tool. No `yyork import-from-ao` is planned.
 
 ## Further Notes
 
@@ -374,7 +374,7 @@ The acceptance criterion for v1 isn't "all the planned commands work." It's "I c
 
 ### Migration path from existing AO state
 
-There is none in v1, deliberately. Users with existing `~/.agent-orchestrator/` state can keep using the original `ao` CLI in parallel; yyork writes to a separate location (`~/.yyork/state.db`) and reads only from there. A future slice can add `yyork import-from-ao` or similar — design space left open by the deprecated-but-compiling `internal/ao/workspace.go`.
+There is none, deliberately. Users with existing `~/.agent-orchestrator/` state can keep using the original `ao` CLI in parallel; yyork writes to a separate location (`~/.yyork/state.db`) and reads only from there. The legacy `internal/ao` reader is deleted rather than kept as a migrator — no `yyork import-from-ao` is planned.
 
 ### Forward compatibility for hooks
 

@@ -93,3 +93,6 @@ crush.json
 .codex
 opencode.json
 .cursor
+
+# playwright debug artifacts
+web/output/
