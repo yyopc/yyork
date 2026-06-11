@@ -1,0 +1,1 @@
+Audit the post-migration CLI hook flow end to end after the move to `internal/cli`: verify `yyork hooks <agent> <event>` still works for Codex and Claude Code, check install/uninstall + metadata merge behavior, add or tighten tests where the migration left gaps, and fix any regressions you find. Focus on the real dashboard/session metadata path, not just help text.
