@@ -3,7 +3,7 @@
   "checkpoint_id": "3da61bdc47fd",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 1,
+  "checkpoints_count": 2,
   "files_touched": [
     "web/vite.config.ts"
   ],
@@ -19,13 +19,19 @@
       "transcript": "/3d/a61bdc47fd/1/full.jsonl",
       "content_hash": "/3d/a61bdc47fd/1/content_hash.txt",
       "prompt": "/3d/a61bdc47fd/1/prompt.txt"
+    },
+    {
+      "metadata": "/3d/a61bdc47fd/2/metadata.json",
+      "transcript": "/3d/a61bdc47fd/2/full.jsonl",
+      "content_hash": "/3d/a61bdc47fd/2/content_hash.txt",
+      "prompt": "/3d/a61bdc47fd/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 5853982,
+    "input_tokens": 6943567,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 138380288,
-    "output_tokens": 394080,
-    "api_call_count": 894
+    "cache_read_tokens": 155125376,
+    "output_tokens": 474021,
+    "api_call_count": 1019
   }
 }
