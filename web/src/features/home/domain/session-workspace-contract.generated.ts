@@ -8,24 +8,21 @@ export const workerSessionStates = [
   'triage',
   'done',
 ] as const;
-export const workerSessionStateSchema = z.enum(workerSessionStates);
+const workerSessionStateSchema = z.enum(workerSessionStates);
 export type WorkerSessionState = z.infer<typeof workerSessionStateSchema>;
 
-export const terminalSessionKinds = [
-  'orchestrator',
-  'worker',
-] as const;
-export const terminalSessionKindSchema = z.enum(terminalSessionKinds);
+const terminalSessionKinds = ['orchestrator', 'worker'] as const;
+const terminalSessionKindSchema = z.enum(terminalSessionKinds);
 export type TerminalSessionKind = z.infer<typeof terminalSessionKindSchema>;
 
-export const projectOrchestratorSchema = z.object({
+const projectOrchestratorSchema = z.object({
   cwd: z.string().optional(),
   id: z.string(),
   name: z.string(),
 });
 export type ProjectOrchestrator = z.infer<typeof projectOrchestratorSchema>;
 
-export const workerSessionSchema = z.object({
+const workerSessionSchema = z.object({
   agent: z.string(),
   agentPluginId: z.string().optional(),
   cwd: z.string().optional(),
@@ -46,7 +43,7 @@ export const workerSessionSchema = z.object({
 export type WorkerSession = z.infer<typeof workerSessionSchema>;
 export type WorkerAgent = WorkerSession['agent'];
 
-export const sessionWorkspaceSchema = z.object({
+const sessionWorkspaceSchema = z.object({
   activeProjectId: z.string(),
   orchestrators: z.array(workerSessionSchema).optional(),
   projects: z.array(projectOrchestratorSchema),

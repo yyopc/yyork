@@ -3,11 +3,16 @@ import { describe, expect, it } from 'vitest';
 import {
   getActiveProject,
   getKanbanColumns,
+  getProjectIdFromSelectionKey,
+  getSessionIdFromSelectionKey,
+  getTerminalRouteTarget,
   getTerminalSession,
+  getTerminalSessionForRoute,
   getWorkerSessionGroups,
   getWorkerSessionNavLabel,
   getWorkerSessionSelectionKey,
   type SessionWorkspace,
+  terminalSessionIdRequiresProject,
   withSelectedWorkerSession,
   type WorkerSession,
 } from '@/features/home/domain/session-workspace';
@@ -122,7 +127,10 @@ describe('session workspace projection', () => {
 
   it('uses the resolved title as the sidebar nav label', () => {
     expect(
-      getWorkerSessionNavLabel({ id: 'v042rv', title: 'Address review feedback' })
+      getWorkerSessionNavLabel({
+        id: 'v042rv',
+        title: 'Address review feedback',
+      })
     ).toBe('Address review feedback');
   });
 
@@ -173,7 +181,7 @@ describe('session workspace projection', () => {
       ...workspace.sessions[0]!,
       id: 'ao-orchestrator',
       kind: 'orchestrator',
-      title: 'Project orchestrator',
+      title: 'Orchestrator',
       workerId: '[ORCHESTRATOR]',
     } satisfies WorkerSession;
 
@@ -184,6 +192,77 @@ describe('session workspace projection', () => {
     ).toMatchObject({
       id: 'ao-orchestrator',
       kind: 'orchestrator',
+    });
+  });
+
+  it('parses project-qualified selection keys', () => {
+    const selectionKey = getWorkerSessionSelectionKey({
+      id: 'ao-1',
+      project: '/Users/example/projects/yyork',
+    });
+
+    expect(getProjectIdFromSelectionKey(selectionKey)).toBe(
+      '/Users/example/projects/yyork'
+    );
+    expect(getSessionIdFromSelectionKey(selectionKey)).toBe('ao-1');
+  });
+
+  it('builds a pretty terminal route target from session id plus project search', () => {
+    expect(getTerminalRouteTarget('ao-1', 'project-b')).toEqual({
+      legacySelectionKey: false,
+      project: 'project-b',
+      selectionKey: 'project-b:ao-1',
+      sessionId: 'ao-1',
+    });
+  });
+
+  it('keeps legacy project-qualified terminal route params readable', () => {
+    const legacyKey = getWorkerSessionSelectionKey({
+      id: 'ao-1',
+      project: '/Users/example/projects/yyork',
+    });
+
+    expect(getTerminalRouteTarget(legacyKey, undefined)).toEqual({
+      legacySelectionKey: true,
+      project: '/Users/example/projects/yyork',
+      selectionKey: legacyKey,
+      sessionId: 'ao-1',
+    });
+  });
+
+  it('resolves a unique terminal route target without project search', () => {
+    expect(
+      getTerminalSessionForRoute(
+        workspace.sessions,
+        getTerminalRouteTarget('session-ao-2', undefined)
+      )
+    ).toMatchObject({
+      id: 'session-ao-2',
+      project: 'agent-orchestrator',
+    });
+  });
+
+  it('requires project search when terminal route session ids collide', () => {
+    const sessions = [
+      { ...workspace.sessions[0]!, id: 'ao-1', project: 'project-a' },
+      { ...workspace.sessions[1]!, id: 'ao-1', project: 'project-b' },
+    ];
+
+    expect(terminalSessionIdRequiresProject(sessions, 'ao-1')).toBe(true);
+    expect(
+      getTerminalSessionForRoute(
+        sessions,
+        getTerminalRouteTarget('ao-1', undefined)
+      )
+    ).toBeUndefined();
+    expect(
+      getTerminalSessionForRoute(
+        sessions,
+        getTerminalRouteTarget('ao-1', 'project-b')
+      )
+    ).toMatchObject({
+      id: 'ao-1',
+      project: 'project-b',
     });
   });
 });

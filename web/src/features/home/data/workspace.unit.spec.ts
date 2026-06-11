@@ -45,14 +45,18 @@ describe('renameSessionMutationOptions', () => {
     await expect(
       renameSessionMutationOptions().mutationFn({
         displayName: 'Renamed session',
+        projectId: '/repo/yyork',
         sessionId: 'v042rv',
       })
     ).resolves.toBeUndefined();
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/sessions/v042rv', {
-      body: JSON.stringify({ displayName: 'Renamed session' }),
-      headers: { 'Content-Type': 'application/json' },
-      method: 'PATCH',
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/sessions/v042rv?project=%2Frepo%2Fyyork',
+      {
+        body: JSON.stringify({ displayName: 'Renamed session' }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH',
+      }
+    );
   });
 });

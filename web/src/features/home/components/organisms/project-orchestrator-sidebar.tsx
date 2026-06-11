@@ -130,173 +130,29 @@ export function ProjectOrchestratorSidebar(props: {
 }) {
   const pinnedProjectIds = props.pinnedProjectIds ?? [];
   const pinnedTerminalSessionKeys = props.pinnedTerminalSessionKeys ?? [];
-  const pinnedProjects = props.projects.filter((project) =>
-    pinnedProjectIds.includes(project.id)
-  );
-  const pinnedTerminalSessions = getPinnedTerminalSessions({
-    orchestrators: props.orchestrators,
-    pinnedTerminalSessionKeys,
-    projects: props.projects,
-    workerSessionGroups: props.workerSessionGroups,
-  });
 
   return (
     <Sidebar collapsible="offcanvas">
       <SidebarHeaderToolbar />
 
       <SidebarContent className="gap-3 overflow-hidden p-3">
-        <SidebarGroup
-          role="navigation"
-          className="gap-1 px-0"
-          aria-label="Pinned"
-        >
-          <SidebarGroupLabel className="h-5 px-1 text-xs leading-4 font-medium opacity-60">
-            Pinned
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="min-w-0">
-              {pinnedProjects.length === 0 &&
-              pinnedTerminalSessions.length === 0 ? (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    render={<button type="button" disabled />}
-                    size="sm"
-                    className="h-7 w-full px-2 text-sidebar-foreground/60"
-                  >
-                    <span>No pinned sessions</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ) : null}
-              {pinnedProjects.map((project) => (
-                <SidebarMenuItem key={`project:${project.id}`}>
-                  <ActionTooltip
-                    label={`Open ${project.name}`}
-                    trigger={
-                      <SidebarMenuButton
-                        render={<button type="button" />}
-                        className="h-7 rounded-sm pr-3 text-sm leading-5"
-                        onClick={() =>
-                          props.onProjectOpenChange(project.id, true)
-                        }
-                      />
-                    }
-                  >
-                    <FolderIcon aria-hidden="true" />
-                    <span>{project.name}</span>
-                  </ActionTooltip>
-                  <PinToggleAction
-                    isPinned={true}
-                    label={`Unpin ${project.name}`}
-                    onToggle={() => props.onProjectPinToggle?.(project.id)}
-                    tooltipDevtoolActionsVisible={
-                      props.tooltipDevtoolActionsVisible
-                    }
-                  />
-                </SidebarMenuItem>
-              ))}
-              {pinnedTerminalSessions.map((session) => {
-                const openSession = () => {
-                  if (session.kind === 'worker') {
-                    props.onWorkerSessionSelect(session.selectionKey);
-                    return;
-                  }
-
-                  props.onOrchestratorSessionSelect(session.selectionKey);
-                };
-
-                return (
-                  <SidebarMenuItem
-                    key={session.selectionKey}
-                    className="group/session-row"
-                  >
-                    <SessionContextMenu
-                      isPinned={session.isPinned}
-                      onOpen={openSession}
-                      onPinToggle={
-                        props.onTerminalSessionPinToggle
-                          ? () =>
-                              props.onTerminalSessionPinToggle?.(
-                                session.selectionKey
-                              )
-                          : undefined
-                      }
-                      onRename={
-                        props.onTerminalSessionRename
-                          ? () =>
-                              props.onTerminalSessionRename?.(
-                                session.selectionKey,
-                                session.label
-                              )
-                          : undefined
-                      }
-                      onDelete={
-                        props.onTerminalSessionDelete
-                          ? () =>
-                              props.onTerminalSessionDelete?.(
-                                session.selectionKey,
-                                session.label
-                              )
-                          : undefined
-                      }
-                      onHide={
-                        props.onTerminalSessionHide
-                          ? () =>
-                              props.onTerminalSessionHide?.(
-                                session.selectionKey,
-                                session.label
-                              )
-                          : undefined
-                      }
-                    >
-                      <ActionTooltip
-                        label={getPinnedTerminalSessionActionLabel(session)}
-                        trigger={
-                          <SidebarMenuButton
-                            render={<button type="button" />}
-                            isActive={
-                              session.selectionKey ===
-                              props.selectedTerminalSessionKey
-                            }
-                            className="h-7 rounded-sm pe-3! text-sm leading-5 font-normal text-foreground hover:text-foreground active:text-foreground data-[active=true]:text-foreground [&>span:last-child]:pe-0!"
-                            onClick={openSession}
-                          />
-                        }
-                      >
-                        <WorkerSessionNavLabel
-                          elapsedLabel={session.elapsedLabel}
-                          hasRowActions={true}
-                          label={session.label}
-                          rowActionsAlwaysVisible={
-                            props.tooltipDevtoolActionsVisible
-                          }
-                        />
-                      </ActionTooltip>
-                      <WorkerSessionRowActions
-                        alwaysVisible={props.tooltipDevtoolActionsVisible}
-                        isPinned={true}
-                        label={session.label}
-                        onDelete={
-                          props.onTerminalSessionDelete
-                            ? () =>
-                                props.onTerminalSessionDelete?.(
-                                  session.selectionKey,
-                                  session.label
-                                )
-                            : undefined
-                        }
-                        onPinToggle={() =>
-                          props.onTerminalSessionPinToggle?.(
-                            session.selectionKey
-                          )
-                        }
-                      />
-                    </SessionContextMenu>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <PinnedSidebarGroup
+          onOrchestratorSessionSelect={props.onOrchestratorSessionSelect}
+          onProjectOpenChange={props.onProjectOpenChange}
+          onProjectPinToggle={props.onProjectPinToggle}
+          onTerminalSessionDelete={props.onTerminalSessionDelete}
+          onTerminalSessionHide={props.onTerminalSessionHide}
+          onTerminalSessionPinToggle={props.onTerminalSessionPinToggle}
+          onTerminalSessionRename={props.onTerminalSessionRename}
+          onWorkerSessionSelect={props.onWorkerSessionSelect}
+          orchestrators={props.orchestrators}
+          pinnedProjectIds={pinnedProjectIds}
+          pinnedTerminalSessionKeys={pinnedTerminalSessionKeys}
+          projects={props.projects}
+          selectedTerminalSessionKey={props.selectedTerminalSessionKey}
+          tooltipDevtoolActionsVisible={props.tooltipDevtoolActionsVisible}
+          workerSessionGroups={props.workerSessionGroups}
+        />
 
         <SidebarGroup
           role="navigation"
@@ -311,7 +167,7 @@ export function ProjectOrchestratorSidebar(props: {
               label="Add project"
               trigger={
                 <SidebarGroupAction
-                  render={<button type="button" />}
+                  render={<button type="button" aria-label="Add project" />}
                   aria-label="Add project"
                   className="static top-auto right-auto size-5 shrink-0 rounded-sm"
                   onClick={props.onAddProject}
@@ -384,6 +240,214 @@ export function ProjectOrchestratorSidebar(props: {
   );
 }
 
+function PinnedSidebarGroup(props: {
+  onOrchestratorSessionSelect: (selectionKey: string) => void;
+  onProjectOpenChange: (projectId: string, open: boolean) => void;
+  onProjectPinToggle?: (projectId: string) => void;
+  onTerminalSessionDelete?: (selectionKey: string, label: string) => void;
+  onTerminalSessionHide?: (selectionKey: string, label: string) => void;
+  onTerminalSessionPinToggle?: (selectionKey: string) => void;
+  onTerminalSessionRename?: (selectionKey: string, label: string) => void;
+  onWorkerSessionSelect: (selectionKey: string) => void;
+  orchestrators: WorkerSession[];
+  pinnedProjectIds: string[];
+  pinnedTerminalSessionKeys: string[];
+  projects: ProjectOrchestrator[];
+  selectedTerminalSessionKey?: string;
+  tooltipDevtoolActionsVisible?: boolean;
+  workerSessionGroups: WorkerSessionGroupData[];
+}) {
+  const pinnedProjects = props.projects.filter((project) =>
+    props.pinnedProjectIds.includes(project.id)
+  );
+  const pinnedTerminalSessions = getPinnedTerminalSessions({
+    orchestrators: props.orchestrators,
+    pinnedTerminalSessionKeys: props.pinnedTerminalSessionKeys,
+    projects: props.projects,
+    workerSessionGroups: props.workerSessionGroups,
+  });
+
+  return (
+    <SidebarGroup role="navigation" className="gap-1 px-0" aria-label="Pinned">
+      <SidebarGroupLabel className="h-5 px-1 text-xs leading-4 font-medium opacity-60">
+        Pinned
+      </SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu className="min-w-0">
+          {pinnedProjects.length === 0 &&
+          pinnedTerminalSessions.length === 0 ? (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                render={
+                  <button
+                    type="button"
+                    disabled
+                    aria-label="No pinned sessions"
+                  />
+                }
+                size="sm"
+                className="h-7 w-full px-2 text-sidebar-foreground/60"
+              >
+                <span>No pinned sessions</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ) : null}
+          {pinnedProjects.map((project) => (
+            <SidebarMenuItem key={`project:${project.id}`}>
+              <ActionTooltip
+                label={`Open ${project.name}`}
+                trigger={
+                  <SidebarMenuButton
+                    render={
+                      <button
+                        type="button"
+                        aria-label={`Open ${project.name}`}
+                      />
+                    }
+                    className="h-7 rounded-sm pr-3 text-sm leading-5"
+                    onClick={() => props.onProjectOpenChange(project.id, true)}
+                  />
+                }
+              >
+                <FolderIcon aria-hidden="true" />
+                <span>{project.name}</span>
+              </ActionTooltip>
+              <PinToggleAction
+                isPinned={true}
+                label={`Unpin ${project.name}`}
+                onToggle={() => props.onProjectPinToggle?.(project.id)}
+                tooltipDevtoolActionsVisible={
+                  props.tooltipDevtoolActionsVisible
+                }
+              />
+            </SidebarMenuItem>
+          ))}
+          {pinnedTerminalSessions.map((session) => (
+            <PinnedTerminalSessionNavItem
+              key={session.selectionKey}
+              onOrchestratorSessionSelect={props.onOrchestratorSessionSelect}
+              onTerminalSessionDelete={props.onTerminalSessionDelete}
+              onTerminalSessionHide={props.onTerminalSessionHide}
+              onTerminalSessionPinToggle={props.onTerminalSessionPinToggle}
+              onTerminalSessionRename={props.onTerminalSessionRename}
+              onWorkerSessionSelect={props.onWorkerSessionSelect}
+              selectedTerminalSessionKey={props.selectedTerminalSessionKey}
+              session={session}
+              tooltipDevtoolActionsVisible={props.tooltipDevtoolActionsVisible}
+            />
+          ))}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
+
+function PinnedTerminalSessionNavItem(props: {
+  onOrchestratorSessionSelect: (selectionKey: string) => void;
+  onTerminalSessionDelete?: (selectionKey: string, label: string) => void;
+  onTerminalSessionHide?: (selectionKey: string, label: string) => void;
+  onTerminalSessionPinToggle?: (selectionKey: string) => void;
+  onTerminalSessionRename?: (selectionKey: string, label: string) => void;
+  onWorkerSessionSelect: (selectionKey: string) => void;
+  selectedTerminalSessionKey?: string;
+  session: PinnedTerminalSessionItem;
+  tooltipDevtoolActionsVisible?: boolean;
+}) {
+  const { session } = props;
+  const openSession = () => {
+    if (session.kind === 'worker') {
+      props.onWorkerSessionSelect(session.selectionKey);
+      return;
+    }
+
+    props.onOrchestratorSessionSelect(session.selectionKey);
+  };
+
+  return (
+    <SidebarMenuItem key={session.selectionKey} className="group/session-row">
+      <SessionContextMenu
+        isPinned={session.isPinned}
+        onOpen={openSession}
+        onPinToggle={
+          props.onTerminalSessionPinToggle
+            ? () => props.onTerminalSessionPinToggle?.(session.selectionKey)
+            : undefined
+        }
+        onRename={
+          props.onTerminalSessionRename
+            ? () =>
+                props.onTerminalSessionRename?.(
+                  session.selectionKey,
+                  session.label
+                )
+            : undefined
+        }
+        onDelete={
+          props.onTerminalSessionDelete
+            ? () =>
+                props.onTerminalSessionDelete?.(
+                  session.selectionKey,
+                  session.label
+                )
+            : undefined
+        }
+        onHide={
+          props.onTerminalSessionHide
+            ? () =>
+                props.onTerminalSessionHide?.(
+                  session.selectionKey,
+                  session.label
+                )
+            : undefined
+        }
+      >
+        <ActionTooltip
+          label={getPinnedTerminalSessionActionLabel(session)}
+          trigger={
+            <SidebarMenuButton
+              render={
+                <button
+                  type="button"
+                  aria-label={getPinnedTerminalSessionActionLabel(session)}
+                />
+              }
+              isActive={
+                session.selectionKey === props.selectedTerminalSessionKey
+              }
+              className="h-7 rounded-sm pe-3! text-sm leading-5 font-normal text-foreground hover:text-foreground active:text-foreground data-[active=true]:text-foreground [&>span:last-child]:pe-0!"
+              onClick={openSession}
+            />
+          }
+        >
+          <WorkerSessionNavLabel
+            elapsedLabel={session.elapsedLabel}
+            hasRowActions={true}
+            label={session.label}
+            rowActionsAlwaysVisible={props.tooltipDevtoolActionsVisible}
+          />
+        </ActionTooltip>
+        <WorkerSessionRowActions
+          alwaysVisible={props.tooltipDevtoolActionsVisible}
+          isPinned={true}
+          label={session.label}
+          onDelete={
+            props.onTerminalSessionDelete
+              ? () =>
+                  props.onTerminalSessionDelete?.(
+                    session.selectionKey,
+                    session.label
+                  )
+              : undefined
+          }
+          onPinToggle={() =>
+            props.onTerminalSessionPinToggle?.(session.selectionKey)
+          }
+        />
+      </SessionContextMenu>
+    </SidebarMenuItem>
+  );
+}
+
 function SettingsMenu(props: { onSettingsOpen?: () => void }) {
   const { setTheme, theme } = useTheme();
   const hydrated = useHydrated();
@@ -394,7 +458,7 @@ function SettingsMenu(props: { onSettingsOpen?: () => void }) {
       <DropdownMenuTrigger
         render={
           <SidebarMenuButton
-            render={<button type="button" />}
+            render={<button type="button" aria-label="Settings" />}
             className="h-9 rounded-sm border border-sidebar-border bg-sidebar text-sm leading-5 text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-sidebar-foreground"
             onClick={props.onSettingsOpen}
           />
@@ -455,23 +519,23 @@ function SidebarHeaderToolbar() {
   const isExpanded = isMobile ? openMobile : state === 'expanded';
   const showCollapsedToggle = !isMobile && !isExpanded;
 
-  const toolbar = (
-    <div className="flex w-full min-w-0 items-center justify-between gap-2">
-      <SidebarToggleButton />
-      <HistoryNavigationButtons />
-    </div>
-  );
-
   return showCollapsedToggle ? (
     <div className="fixed top-0 left-0 z-30 flex h-15 w-15 items-center justify-center border-b border-sidebar-border bg-sidebar">
       <SidebarToggleButton />
     </div>
   ) : (
     <SidebarHeader className="flex h-15 shrink-0 flex-row items-center border-b border-sidebar-border p-0 px-3">
-      {toolbar}
+      {sidebarHeaderToolbarContent}
     </SidebarHeader>
   );
 }
+
+const sidebarHeaderToolbarContent = (
+  <div className="flex w-full min-w-0 items-center justify-between gap-2">
+    <SidebarToggleButton />
+    <HistoryNavigationButtons />
+  </div>
+);
 
 function SidebarToggleButton() {
   const { isMobile, openMobile, state } = useSidebar();
@@ -595,7 +659,16 @@ function ProjectNavItem(props: {
             }
             trigger={
               <CollapsibleTrigger
-                render={<button type="button" />}
+                render={
+                  <button
+                    type="button"
+                    aria-label={
+                      props.open
+                        ? `Collapse ${props.project.name} workers`
+                        : `Expand ${props.project.name} workers`
+                    }
+                  />
+                }
                 className="flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring [&>svg]:size-4 [&>svg]:opacity-60"
               />
             }
@@ -606,7 +679,12 @@ function ProjectNavItem(props: {
             label={`Open ${props.project.name} board`}
             trigger={
               <SidebarMenuButton
-                render={<button type="button" />}
+                render={
+                  <button
+                    type="button"
+                    aria-label={`Open ${props.project.name} board`}
+                  />
+                }
                 isActive={props.isBoardActive}
                 size="sm"
                 className="h-7 min-w-0 flex-1 rounded-sm ps-2 pe-8 text-sm leading-5 font-normal [&>span:last-child]:pe-0!"
@@ -672,30 +750,38 @@ function ProjectWorkerSessionTree(props: {
   selectedTerminalSessionKey?: string;
   tooltipDevtoolActionsVisible?: boolean;
 }) {
+  const pinnedTerminalSessionKeys = new Set(props.pinnedTerminalSessionKeys);
   const projectOrchestrators = props.orchestrators.filter(
     (orchestrator) =>
       orchestrator.project === props.projectId &&
-      !props.pinnedTerminalSessionKeys.includes(
-        getWorkerSessionSelectionKey(orchestrator)
-      )
+      !pinnedTerminalSessionKeys.has(getWorkerSessionSelectionKey(orchestrator))
   );
-  const groupsWithSessions = props.groups
-    .map((group) => ({
-      ...group,
-      sessions: group.sessions.filter(
+
+  const groupsWithSessions = props.groups.reduce<WorkerSessionGroupData[]>(
+    (groups, group) => {
+      const sessions = group.sessions.filter(
         (session) =>
           session.project === props.projectId &&
-          !props.pinnedTerminalSessionKeys.includes(session.selectionKey)
-      ),
-    }))
-    .filter((group) => group.sessions.length > 0);
+          !pinnedTerminalSessionKeys.has(session.selectionKey)
+      );
+
+      if (sessions.length > 0) {
+        groups.push({ ...group, sessions });
+      }
+
+      return groups;
+    },
+    []
+  );
 
   if (groupsWithSessions.length === 0 && projectOrchestrators.length === 0) {
     return (
       <ul className="flex w-full min-w-0 flex-col gap-1">
         <SidebarMenuItem>
           <SidebarMenuButton
-            render={<button type="button" disabled />}
+            render={
+              <button type="button" disabled aria-label="No worker sessions" />
+            }
             size="sm"
             className="h-7 w-full ps-16 pe-2 text-sidebar-foreground/60"
           >
@@ -754,7 +840,12 @@ function ProjectWorkerSessionTree(props: {
                 label={`Open ${orchestratorLabel} terminal`}
                 trigger={
                   <SidebarMenuButton
-                    render={<button type="button" />}
+                    render={
+                      <button
+                        type="button"
+                        aria-label={`Open ${orchestratorLabel} terminal`}
+                      />
+                    }
                     isActive={selectionKey === props.selectedTerminalSessionKey}
                     size="sm"
                     className="h-7 w-full ps-10 pe-3! font-normal text-foreground hover:text-foreground active:text-foreground data-[active=true]:text-foreground [&>span:last-child]:pe-0!"
@@ -845,7 +936,16 @@ function ProjectWorkerSessionGroup(props: {
             <CollapsibleTrigger
               render={
                 <SidebarMenuButton
-                  render={<button type="button" />}
+                  render={
+                    <button
+                      type="button"
+                      aria-label={
+                        props.open
+                          ? `Collapse ${props.group.label} sessions`
+                          : `Expand ${props.group.label} sessions`
+                      }
+                    />
+                  }
                   size="sm"
                   className="h-7 w-full ps-9 pr-3 font-light text-muted-foreground/80 hover:text-muted-foreground active:text-muted-foreground data-[active=true]:text-muted-foreground"
                 />
@@ -917,13 +1017,18 @@ function ProjectWorkerSessionGroup(props: {
                       label={`Open ${sessionLabel} terminal`}
                       trigger={
                         <SidebarMenuButton
-                          render={<button type="button" />}
+                          render={
+                            <button
+                              type="button"
+                              aria-label={`Open ${sessionLabel} terminal`}
+                            />
+                          }
                           isActive={
                             session.selectionKey ===
                             props.selectedTerminalSessionKey
                           }
                           size="sm"
-                          className="h-6 w-full ps-16 pe-3! font-normal text-foreground hover:text-foreground active:text-foreground data-[active=true]:text-foreground [&>span:last-child]:pe-0!"
+                          className="h-7 w-full ps-16 pe-3! font-normal text-foreground hover:text-foreground active:text-foreground data-[active=true]:text-foreground [&>span:last-child]:pe-0!"
                           onClick={() =>
                             props.onWorkerSessionSelect(session.selectionKey)
                           }
@@ -955,9 +1060,7 @@ function ProjectWorkerSessionGroup(props: {
                           : undefined
                       }
                       onPinToggle={() =>
-                        props.onTerminalSessionPinToggle?.(
-                          session.selectionKey
-                        )
+                        props.onTerminalSessionPinToggle?.(session.selectionKey)
                       }
                     />
                   </SessionContextMenu>
@@ -1181,7 +1284,7 @@ function WorkerSessionNavLabel(props: {
       {props.elapsedLabel ? (
         <span
           className={cn(
-            'pointer-events-none absolute top-1/2 right-3 min-w-8 -translate-y-1/2 text-right tabular-nums text-xs leading-4 text-muted-foreground',
+            'pointer-events-none absolute top-1/2 right-3 min-w-8 -translate-y-1/2 text-right text-xs leading-4 text-muted-foreground tabular-nums',
             elapsedHiddenClass
           )}
         >
@@ -1282,6 +1385,7 @@ function getPinnedTerminalSessions(props: {
   workerSessionGroups: WorkerSessionGroupData[];
 }) {
   const terminalSessionsByKey = new Map<string, PinnedTerminalSessionItem>();
+  const pinnedTerminalSessionKeys = new Set(props.pinnedTerminalSessionKeys);
   const projectNames = new Map(
     props.projects.map((project) => [project.id, project.name])
   );
@@ -1289,7 +1393,7 @@ function getPinnedTerminalSessions(props: {
   for (const orchestrator of props.orchestrators) {
     const selectionKey = getWorkerSessionSelectionKey(orchestrator);
     terminalSessionsByKey.set(selectionKey, {
-      isPinned: props.pinnedTerminalSessionKeys.includes(selectionKey),
+      isPinned: pinnedTerminalSessionKeys.has(selectionKey),
       kind: 'orchestrator',
       label: projectNames.get(orchestrator.project) ?? 'Orchestrator',
       selectionKey,
@@ -1300,7 +1404,7 @@ function getPinnedTerminalSessions(props: {
     for (const session of group.sessions) {
       terminalSessionsByKey.set(session.selectionKey, {
         elapsedLabel: session.elapsedLabel,
-        isPinned: props.pinnedTerminalSessionKeys.includes(session.selectionKey),
+        isPinned: pinnedTerminalSessionKeys.has(session.selectionKey),
         kind: session.kind ?? 'worker',
         label: session.label,
         selectionKey: session.selectionKey,

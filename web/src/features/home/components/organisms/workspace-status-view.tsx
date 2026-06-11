@@ -77,18 +77,18 @@ function getWorkspaceStatusContent(
   switch (state) {
     case 'loading':
       return {
-        title: 'Loading AO workspace',
-        description: 'Reading the local Agent Orchestrator runtime.',
+        title: 'Loading workspace',
+        description: 'Reading the local yyork session store.',
       };
     case 'error':
       return {
         title: 'Workspace unavailable',
         description:
-          error ?? 'The local Agent Orchestrator runtime could not be read.',
+          error ?? 'The local yyork session store could not be read.',
       };
     case 'empty':
       return {
-        title: 'No AO workers detected',
+        title: 'No worker sessions detected',
         description: 'Start or resume a worker, then refresh this workspace.',
       };
   }

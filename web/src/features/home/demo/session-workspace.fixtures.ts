@@ -20,8 +20,7 @@ const workingClaudeSession = {
     activity: 'working',
     prompt:
       'Trace branch state and expose it consistently for dashboard state.',
-    recap:
-      'Reading branch metadata files and wiring the dashboard projection.',
+    recap: 'Reading branch metadata files and wiring the dashboard projection.',
     title: 'Trace branch metadata',
   }),
   project: 'agent-orchestrator',
@@ -59,7 +58,7 @@ const orchestratorSession = {
   metadata: '[codex/working]',
   project: 'agent-orchestrator',
   recap: 'Coordinates workers for the active project.',
-  title: 'Project orchestrator',
+  title: 'Orchestrator',
   workerId: '[ORCHESTRATOR]',
 } satisfies WorkerSession;
 
@@ -147,10 +146,6 @@ export const emptyKanbanColumns = getKanbanColumns([]);
 export const workingKanbanColumn = getKanbanColumn(
   demoHomeWorkspace.sessions,
   'working'
-);
-export const promptKanbanColumn = getKanbanColumn(
-  demoHomeWorkspace.sessions,
-  'prompt'
 );
 export const triageKanbanColumn = getKanbanColumn(
   demoHomeWorkspace.sessions,

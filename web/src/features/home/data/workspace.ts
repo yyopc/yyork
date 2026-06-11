@@ -3,78 +3,82 @@ import { z } from 'zod';
 
 import {
   type SessionWorkspace,
-  type WorkerSession,
-  type WorkerSessionRecord,
+  workerSessionStates,
 } from '@/features/home/domain/session-workspace';
-
-// ---------------------------------------------------------------------------
-// /api/sessions — the new SQLite-backed source of truth.
-//
-// The server returns a flat list of currently-running sessions (a row
-// exists in the database exactly when the session is alive). The dashboard
-// expects the legacy SessionWorkspace shape, so we adapt one to the other
-// here. Until activity capture lands, every session lands in the kanban's
-// "working" column by default — the prompt/triage/done columns are real
-// (the contract still includes them) but unreachable in v1.
-// ---------------------------------------------------------------------------
 
 export const homeWorkspaceQueryKey = ['home-workspace'] as const;
 
-const apiSessionSchema = z.object({
-  id: z.string(),
-  projectPath: z.string(),
-  projectName: z.string().optional().default(''),
-  agentPlugin: z.string(),
-  workspacePath: z.string(),
-  zellijSession: z.string(),
-  pid: z.number().optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
-  title: z.string().optional().default(''),
-  recap: z.string().optional().default(''),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-});
-type ApiSession = z.infer<typeof apiSessionSchema>;
+const workerSessionStateSchema = z.enum(workerSessionStates);
+const terminalSessionKindSchema = z.enum(['orchestrator', 'worker']);
 
-const apiSessionsResponseSchema = z.array(apiSessionSchema);
+const projectOrchestratorSchema = z.object({
+  cwd: z.string().optional(),
+  id: z.string(),
+  name: z.string(),
+});
+
+const workerSessionSchema = z
+  .object({
+    agent: z.string(),
+    agentPluginId: z.string().optional(),
+    createdAt: z.string().optional(),
+    cwd: z.string().optional(),
+    description: z.string(),
+    id: z.string(),
+    issue: z.string(),
+    kind: terminalSessionKindSchema.optional(),
+    metadata: z.string(),
+    project: z.string(),
+    recap: z.string(),
+    selected: z.boolean().optional(),
+    state: workerSessionStateSchema,
+    terminalSupported: z.boolean().optional(),
+    title: z.string(),
+    updatedAt: z.string().optional(),
+    workerId: z.string(),
+    zellijSession: z.string().optional(),
+  })
+  .passthrough();
+
+const sessionWorkspaceSchema = z.object({
+  activeProjectId: z.string(),
+  orchestrators: z.array(workerSessionSchema).optional(),
+  projects: z.array(projectOrchestratorSchema),
+  sessions: z.array(workerSessionSchema),
+});
 
 export function homeWorkspaceQueryOptions() {
   return queryOptions({
     enabled: typeof window !== 'undefined',
     queryFn: fetchHomeWorkspace,
     queryKey: homeWorkspaceQueryKey,
-    // SSE drives live updates — no polling.
-    refetchInterval: false,
+    // Orchestrator sessions can create workers from their own agent process,
+    // outside the dashboard's SSE bus. Poll lightly so those sessions appear
+    // without a manual refresh.
+    refetchInterval: 3_000,
     refetchOnWindowFocus: false,
     retry: false,
-    staleTime: Infinity,
+    staleTime: 1_000,
   });
 }
 
 async function fetchHomeWorkspace(): Promise<SessionWorkspace> {
-  const response = await fetch('/api/sessions', {
+  const response = await fetch('/api/workspace', {
     headers: { Accept: 'application/json' },
   });
   if (!response.ok) {
-    throw new Error(`Failed to load sessions: ${response.status}`);
+    throw new Error(`Failed to load workspace: ${response.status}`);
   }
-  const apiSessions = apiSessionsResponseSchema.parse(await response.json());
-  return toSessionWorkspace(apiSessions);
+  return sessionWorkspaceSchema.parse(await response.json());
 }
 
 // ---------------------------------------------------------------------------
 // SSE subscription
 //
 // subscribeToSessionEvents opens an EventSource against /api/events and
-// invalidates the workspace query whenever a session lifecycle or metadata
-// event arrives. Returns a cleanup function.
-//
-// Why invalidate instead of patching the cache directly? The event payload
-// only carries the session id; we still need to refetch /api/sessions to
-// get the new row's full shape (project, agent, prompt, created_at). This
-// is one round trip on each event — fine at the scale of one user spawning
-// agents a few times a minute. If we ever need lower-latency updates,
-// `session.created` events could carry the full DTO inline.
+// invalidates the workspace query whenever yyork itself emits lifecycle or
+// metadata events. Orchestrator-originated changes are picked up by the
+// query's light polling interval. Returns a cleanup function.
 // ---------------------------------------------------------------------------
 
 export function subscribeToSessionEvents(queryClient: QueryClient): () => void {
@@ -100,69 +104,6 @@ export function subscribeToSessionEvents(queryClient: QueryClient): () => void {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Adapter: ApiSession[] → SessionWorkspace
-// ---------------------------------------------------------------------------
-
-function toSessionWorkspace(rows: ApiSession[]): SessionWorkspace {
-  const sessions: WorkerSession[] = rows.map(toWorkerSession);
-  const projects = uniqueProjects(rows);
-  const activeProjectId = projects[0]?.id ?? '';
-  return {
-    activeProjectId,
-    orchestrators: [],
-    projects,
-    sessions,
-  };
-}
-
-function toWorkerSession(row: ApiSession): WorkerSessionRecord {
-  const title = row.title.trim() || `new agent: ${row.id}`;
-  const recap = row.recap.trim();
-
-  return {
-    agent: row.agentPlugin,
-    agentPluginId: row.agentPlugin,
-    createdAt: row.createdAt,
-    cwd: row.workspacePath,
-    description: recap,
-    id: row.id,
-    issue: '',
-    kind: 'worker',
-    metadata: row.metadata ? JSON.stringify(row.metadata) : '',
-    project: row.projectPath,
-    recap,
-    state: 'working',
-    terminalSupported: true,
-    title,
-    updatedAt: row.updatedAt,
-    workerId: row.id,
-    zellijSession: row.zellijSession,
-  };
-}
-
-function uniqueProjects(
-  rows: ApiSession[]
-): { id: string; name: string; cwd?: string }[] {
-  const seen = new Map<string, { id: string; name: string; cwd?: string }>();
-  for (const row of rows) {
-    if (seen.has(row.projectPath)) {
-      continue;
-    }
-    seen.set(row.projectPath, {
-      id: row.projectPath,
-      name: row.projectName || basename(row.projectPath),
-      cwd: row.projectPath,
-    });
-  }
-  return Array.from(seen.values());
-}
-
-function basename(path: string): string {
-  const idx = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
-  return idx === -1 ? path : path.slice(idx + 1);
-}
-
 export const fallbackHomeWorkspace: SessionWorkspace = {
   activeProjectId: '',
   orchestrators: [],
@@ -172,9 +113,15 @@ export const fallbackHomeWorkspace: SessionWorkspace = {
 
 export function stopSessionMutationOptions() {
   return {
-    mutationFn: async (sessionId: string) => {
+    mutationFn: async (input: { projectId?: string; sessionId: string }) => {
+      const params = new URLSearchParams();
+      if (input.projectId) {
+        params.set('project', input.projectId);
+      }
       const response = await fetch(
-        `/api/sessions/${encodeURIComponent(sessionId)}`,
+        `/api/sessions/${encodeURIComponent(input.sessionId)}${
+          params.size > 0 ? `?${params.toString()}` : ''
+        }`,
         {
           method: 'DELETE',
         }
@@ -193,9 +140,19 @@ export function stopSessionMutationOptions() {
 // caller patching the cache directly.
 export function renameSessionMutationOptions() {
   return {
-    mutationFn: async (input: { sessionId: string; displayName: string }) => {
+    mutationFn: async (input: {
+      displayName: string;
+      projectId?: string;
+      sessionId: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (input.projectId) {
+        params.set('project', input.projectId);
+      }
       const response = await fetch(
-        `/api/sessions/${encodeURIComponent(input.sessionId)}`,
+        `/api/sessions/${encodeURIComponent(input.sessionId)}${
+          params.size > 0 ? `?${params.toString()}` : ''
+        }`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -213,7 +170,7 @@ export function renameSessionMutationOptions() {
         );
       }
 
-      apiSessionSchema.parse(await response.json());
+      await response.json();
     },
   };
 }

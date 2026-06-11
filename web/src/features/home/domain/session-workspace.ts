@@ -5,9 +5,7 @@ import {
   type WorkerSessionRecord,
 } from '@/features/home/domain/kanban-card-model';
 import {
-  type ProjectOrchestrator,
   type SessionWorkspace,
-  sessionWorkspaceSchema,
   type TerminalSessionKind,
   type WorkerAgent,
   type WorkerSession,
@@ -23,7 +21,6 @@ export {
 export {
   type ProjectOrchestrator,
   type SessionWorkspace,
-  sessionWorkspaceSchema,
   type TerminalSessionKind,
   type WorkerAgent,
   type WorkerSession,
@@ -85,6 +82,13 @@ export interface WorkerSessionGroupData {
   sessions: WorkerSessionNavItem[];
 }
 
+export interface TerminalRouteTarget {
+  legacySelectionKey: boolean;
+  project?: string;
+  selectionKey?: string;
+  sessionId: string;
+}
+
 export const workerSessionStateLabels = {
   working: 'Working',
   prompt: 'Prompt',
@@ -105,7 +109,7 @@ export function toKanbanCard(session: WorkerSessionRecord): KanbanCardData {
 }
 
 export function getSelectedWorkerSession(sessions: WorkerSession[]) {
-  return sessions.find((session) => session.selected) ?? sessions[0];
+  return sessions.find((session) => session.selected);
 }
 
 export function withSelectedWorkerSession(
@@ -133,6 +137,64 @@ export function getWorkerSessionSelectionKey(
   return `${encodeURIComponent(session.project)}:${encodeURIComponent(session.id)}`;
 }
 
+export function getProjectIdFromSelectionKey(selectionKey: string) {
+  const separatorIndex = selectionKey.indexOf(':');
+  if (separatorIndex <= 0) {
+    return undefined;
+  }
+
+  try {
+    return decodeURIComponent(selectionKey.slice(0, separatorIndex));
+  } catch {
+    return undefined;
+  }
+}
+
+export function getSessionIdFromSelectionKey(selectionKey: string) {
+  const separatorIndex = selectionKey.indexOf(':');
+  if (separatorIndex === -1 || separatorIndex === selectionKey.length - 1) {
+    return undefined;
+  }
+
+  try {
+    return decodeURIComponent(selectionKey.slice(separatorIndex + 1));
+  } catch {
+    return undefined;
+  }
+}
+
+export function getTerminalRouteTarget(
+  sessionId: string | undefined,
+  project: string | undefined
+): TerminalRouteTarget | undefined {
+  if (!sessionId) {
+    return undefined;
+  }
+
+  const legacyProject = getProjectIdFromSelectionKey(sessionId);
+  const legacySessionId = getSessionIdFromSelectionKey(sessionId);
+  if (legacyProject && legacySessionId) {
+    return {
+      legacySelectionKey: true,
+      project: legacyProject,
+      selectionKey: getWorkerSessionSelectionKey({
+        id: legacySessionId,
+        project: legacyProject,
+      }),
+      sessionId: legacySessionId,
+    };
+  }
+
+  return {
+    legacySelectionKey: false,
+    project,
+    selectionKey: project
+      ? getWorkerSessionSelectionKey({ id: sessionId, project })
+      : undefined,
+    sessionId,
+  };
+}
+
 /**
  * Resolves the sidebar label for a worker session. `title` is already derived
  * with full precedence (displayName > title > prompt > "new agent: <id>") in
@@ -157,6 +219,52 @@ export function getTerminalSession(
   return sessions.find(
     (session) => getWorkerSessionSelectionKey(session) === selectionKey
   );
+}
+
+export function getTerminalSessionForRoute(
+  sessions: WorkerSession[],
+  target: TerminalRouteTarget | undefined
+) {
+  if (!target) {
+    return undefined;
+  }
+
+  if (target.project) {
+    return sessions.find(
+      (session) =>
+        session.id === target.sessionId && session.project === target.project
+    );
+  }
+
+  let matchedSession: WorkerSession | undefined;
+  let matchCount = 0;
+  for (const session of sessions) {
+    if (session.id !== target.sessionId) {
+      continue;
+    }
+    matchedSession = session;
+    matchCount += 1;
+  }
+
+  return matchCount === 1 ? matchedSession : undefined;
+}
+
+export function terminalSessionIdRequiresProject(
+  sessions: WorkerSession[],
+  sessionId: string
+) {
+  let matchCount = 0;
+  for (const session of sessions) {
+    if (session.id !== sessionId) {
+      continue;
+    }
+    matchCount += 1;
+    if (matchCount > 1) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export function getKanbanColumns(
