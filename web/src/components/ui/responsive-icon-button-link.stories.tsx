@@ -6,21 +6,19 @@ import {
   RouterProvider,
 } from '@tanstack/react-router';
 import { PlusIcon } from 'lucide-react';
-import { ReactNode, useMemo } from 'react';
+import { ReactNode } from 'react';
 
 import { ResponsiveIconButtonLink } from '@/components/ui/responsive-icon-button-link';
 
 const RouterWrapper = ({ children }: { children: ReactNode }) => {
-  const router = useMemo(() => {
-    const rootRoute = createRootRoute({
-      component: () => <>{children}</>,
-    });
-    const routeTree = rootRoute.addChildren([]);
-    return createRouter({
-      routeTree,
-      history: createMemoryHistory({ initialEntries: ['/'] }),
-    });
-  }, [children]);
+  const rootRoute = createRootRoute({
+    component: () => <>{children}</>,
+  });
+  const routeTree = rootRoute.addChildren([]);
+  const router = createRouter({
+    routeTree,
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  });
 
   return <RouterProvider router={router} />;
 };

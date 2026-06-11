@@ -30,12 +30,6 @@ export const Sonner = ({ ...props }: ToasterProps) => {
   const { resolvedTheme, theme } = useTheme();
   const sonnerTheme = (resolvedTheme ?? theme) === 'dark' ? 'dark' : 'light';
 
-  // TODO(temporary): disabled to unblock viewing the canvas-tabs transition.
-  // Remove this early-return to restore toasts.
-  if (import.meta.env.DEV) {
-    return null;
-  }
-
   return (
     <Toaster
       theme={sonnerTheme}

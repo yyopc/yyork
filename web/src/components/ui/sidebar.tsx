@@ -90,42 +90,36 @@ function SidebarProvider({
 
   const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen);
   const open = openProp ?? uncontrolledOpen;
-  const setOpen = React.useCallback(
-    (value: boolean | ((value: boolean) => boolean)) => {
-      const openState = typeof value === 'function' ? value(open) : value;
-      if (setOpenProp) {
-        setOpenProp(openState);
-      } else {
-        setUncontrolledOpen(openState);
-      }
+  const setOpen = (value: boolean | ((value: boolean) => boolean)) => {
+    const openState = typeof value === 'function' ? value(open) : value;
+    if (setOpenProp) {
+      setOpenProp(openState);
+    } else {
+      setUncontrolledOpen(openState);
+    }
 
-      // This sets the cookie to keep the sidebar state.
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
-    },
-    [setOpenProp, open]
-  );
+    // This sets the cookie to keep the sidebar state.
+    document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+  };
 
   // Helper to toggle the sidebar.
-  const toggleSidebar = React.useCallback(() => {
+  const toggleSidebar = () => {
     return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open);
-  }, [isMobile, setOpen, setOpenMobile]);
+  };
 
   const [uncontrolledWidth, setUncontrolledWidth] = React.useState<
     number | undefined
   >(defaultWidth !== undefined ? clampSidebarWidth(defaultWidth) : undefined);
   const sidebarWidthPx = widthProp ?? uncontrolledWidth;
   const [sidebarWidthResizing, setSidebarWidthResizing] = React.useState(false);
-  const setSidebarWidth = React.useCallback(
-    (width: number) => {
-      const clamped = Math.round(clampSidebarWidth(width));
-      if (setWidthProp) {
-        setWidthProp(clamped);
-      } else {
-        setUncontrolledWidth(clamped);
-      }
-    },
-    [setWidthProp]
-  );
+  const setSidebarWidth = (width: number) => {
+    const clamped = Math.round(clampSidebarWidth(width));
+    if (setWidthProp) {
+      setWidthProp(clamped);
+    } else {
+      setUncontrolledWidth(clamped);
+    }
+  };
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
@@ -136,44 +130,42 @@ function SidebarProvider({
         (event.metaKey || event.ctrlKey)
       ) {
         event.preventDefault();
-        toggleSidebar();
+        if (isMobile) {
+          setOpenMobile((open) => !open);
+          return;
+        }
+
+        const nextOpen = !open;
+        if (setOpenProp) {
+          setOpenProp(nextOpen);
+        } else {
+          setUncontrolledOpen(nextOpen);
+        }
+
+        document.cookie = `${SIDEBAR_COOKIE_NAME}=${nextOpen}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleSidebar]);
+  }, [isMobile, open, setOpenProp]);
 
   // We add a state so that we can do data-state="expanded" or "collapsed".
   // This makes it easier to style the sidebar with Tailwind classes.
   const state = open ? 'expanded' : 'collapsed';
 
-  const contextValue = React.useMemo<SidebarContextProps>(
-    () => ({
-      state,
-      open,
-      setOpen,
-      isMobile,
-      openMobile,
-      setOpenMobile,
-      toggleSidebar,
-      sidebarWidthResizing,
-      setSidebarWidthResizing,
-      setSidebarWidth,
-    }),
-    [
-      state,
-      open,
-      setOpen,
-      isMobile,
-      openMobile,
-      setOpenMobile,
-      toggleSidebar,
-      sidebarWidthResizing,
-      setSidebarWidthResizing,
-      setSidebarWidth,
-    ]
-  );
+  const contextValue: SidebarContextProps = {
+    state,
+    open,
+    setOpen,
+    isMobile,
+    openMobile,
+    setOpenMobile,
+    toggleSidebar,
+    sidebarWidthResizing,
+    setSidebarWidthResizing,
+    setSidebarWidth,
+  };
   const sidebarStyle = style as SidebarProviderStyle | undefined;
 
   return (
@@ -380,7 +372,7 @@ function SidebarRail({
   const skipClickRef = React.useRef(false);
 
   React.useEffect(() => {
-    return () => cleanupResizeRef.current?.();
+    return () => cleanupSidebarResize(cleanupResizeRef);
   }, []);
 
   return (
@@ -927,6 +919,13 @@ function SidebarMenuSubButton({
     state: {},
     defaultTagName: 'a',
   });
+}
+
+function cleanupSidebarResize(
+  cleanupResizeRef: React.RefObject<(() => void) | null>
+) {
+  cleanupResizeRef.current?.();
+  cleanupResizeRef.current = null;
 }
 
 export {

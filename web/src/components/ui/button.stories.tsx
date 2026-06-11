@@ -41,6 +41,7 @@ export const Render = () => {
       render={
         <a
           href="https://start-ui.com/"
+          aria-label="Open Start UI"
           target="_blank"
           rel="noopener noreferrer"
         />

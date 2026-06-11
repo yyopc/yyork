@@ -70,7 +70,6 @@ function InputGroup({
   return (
     <div
       data-slot="input-group"
-      role="group"
       className={cn(inputGroupVariants({ size }), className)}
       {...props}
     />
@@ -105,30 +104,10 @@ function InputGroupAddon({
 }: React.ComponentProps<'div'> & VariantProps<typeof inputGroupAddonVariants>) {
   return (
     <div
-      role="group"
       data-slot="input-group-addon"
       data-align={align}
       className={cn(inputGroupAddonVariants({ align }), className)}
       {...props}
-      onClick={(e) => {
-        if ((e.target as HTMLElement).closest('button')) {
-          return;
-        }
-        e.currentTarget.parentElement
-          ?.querySelector<HTMLInputElement | HTMLTextAreaElement>(
-            'input, textarea'
-          )
-          ?.focus();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.currentTarget.parentElement
-            ?.querySelector<HTMLInputElement | HTMLTextAreaElement>(
-              'input, textarea'
-            )
-            ?.focus();
-        }
-      }}
     />
   );
 }
