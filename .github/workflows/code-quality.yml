@@ -31,8 +31,6 @@ jobs:
 
       - name: Setup pnpm
         uses: ./.github/actions/setup-pnpm
-        with:
-          node-version: 24
 
       - name: Run Typescript checker
         run: pnpm run lint:ts
@@ -50,8 +48,6 @@ jobs:
 
       - name: Setup pnpm
         uses: ./.github/actions/setup-pnpm
-        with:
-          node-version: 24
 
       - name: Setup Playwright
         uses: ./.github/actions/setup-playwright
