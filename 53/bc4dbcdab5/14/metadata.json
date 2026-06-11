@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.7.5",
+  "checkpoint_id": "53bc4dbcdab5",
+  "session_id": "019eaf89-9162-7093-9e1f-36cc25165af6",
+  "strategy": "manual-commit",
+  "created_at": "2026-06-11T13:41:41.272047Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "internal/plugin/agent/claudecode/claudecode_test.go",
+    "internal/plugin/agent/claudecode/hooks.go",
+    "internal/plugin/agent/codex/codex_test.go",
+    "internal/plugin/agent/codex/hooks.go"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.3-codex-spark",
+  "turn_id": "18eb9a2baebd",
+  "token_usage": {
+    "input_tokens": 2584827,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 43313792,
+    "output_tokens": 161335,
+    "api_call_count": 358
+  },
+  "session_metrics": {
+    "turn_count": 19
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-06-11T13:41:40.971296Z",
+    "agent_lines": 107,
+    "agent_removed": 72,
+    "human_added": 153,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 260,
+    "total_lines_changed": 332,
+    "agent_percentage": 53.915662650602414,
+    "metric_version": 2
+  }
+}

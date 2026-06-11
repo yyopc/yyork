@@ -1,0 +1,177 @@
+I want to wire in orchestrator into yyork now that would spawn the worker agents for me instead of me running the `yyork spawn` cmd which was the original idea of agent orchestrator if you may remember.
+
+---
+
+yo `yyork` gots to be independent off of `agent-orchestrator`. We are ripping them off based on their concept because they don't have the engineering rigor as of us.
+
+---
+
+what's the purpose of yyork orchestrator cmd lil bro?
+Here's what the intended user experience was:
+User runs `yyork [projectPAth]` to start the app, they get an orchestrator agent (claude-code | code whatever is the default based on config) that they prompt to spawn agents like "I need these {tasks} done, delegate to your worker agents to accomplish them in isolation.", "spawn a worker agent to {task}" etc.
+propose a plan where do we stand right now in order to provide this experience to our users, then what engineering is required to do so.
+
+keep your plan concise. too much token fries my brain for no good.
+
+---
+
+I think we can reuse the spawn cmd for spawning the orchestrator agent. we can add a `--type` option whose's valid values are "orchestrator" | "worker". based on the passed arg, we can chose what should be the system prompt ƒor the spawned agent.
+
+---
+
+one thing that is left to design is how does user would get to know about this orchestrator?
+
+---
+
+1. not this "Terminal header: show Orchestrator • <project name> so the user understands they are talking to the coordinator."
+2. not this "Empty worker board: when no workers exist but orchestrator exists, show a compact “No workers yet” state with an Open Orchestrator action." as well.
+3. not this "Agent startup prompt: orchestrator should greet with a short actionable line like: Tell me the tasks to delegate, and I’ll spawn isolated workers." as well.
+
+update in the plan
+
+---
+
+PLEASE IMPLEMENT THIS PLAN:
+# Orchestrator Discovery UX
+
+## Summary
+- Users should not need to learn a separate “orchestrator command.”
+- In the app, the orchestrator should be discoverable as the project’s primary agent thread: created automatically, visible in the sidebar, and selected by default.
+
+## Current State
+- Backend can represent orchestrators via `workspace.orchestrators`.
+- Sidebar already renders an `Orchestrator` row when one exists.
+- Missing pieces: auto-selecting it and making it consistently visible as the first project session.
+
+## Key UX Changes
+- On `yyork [projectPath]`, auto-ensure the project orchestrator.
+- When the app opens with no explicit terminal/session route, select the orchestrator terminal by default.
+- Sidebar: show `Orchestrator` as the first row under the project, above worker groups.
+- Keep worker empty states generic; do not add an `Open Orchestrator` CTA.
+- Do not add special terminal-header labeling for the orchestrator.
+- Do not add a scripted greeting/startup prompt beyond the orchestrator’s normal task prompt/system instructions.
+
+## Engineering Changes
+- Workspace layout default-selection logic should prefer the active project’s orchestrator when no route-selected session exists.
+- Sidebar ordering should keep project orchestrator rows above worker groups.
+- Auto-spawn flow should store `kind=orchestrator`, `title=Orchestrator`, and project metadata so the existing UI can render it naturally.
+- `yyork spawn --type orchestrator` remains available for repair/manual use; the main discovery path is app auto-creation plus sidebar visibility.
+
+## Tests
+- First load with only an orchestrator selects its terminal.
+- Sidebar shows `Orchestrator` before worker groups.
+- Existing terminal/session routes still override default orchestrator selection.
+- Worker empty states remain unchanged.
+
+---
+
+# Selected text:
+
+## Selection 1
+The Playwright run still logs Vite proxy ECONNREFUSED noise for mocked API/files/events paths, but the targeted tests pass.
+
+## My request for Codex:
+fix this using another thread in codex.
+
+---
+
+now I want you to use the iab where you act as my chauffer and tell me what is the visual result of the code changes you have made.
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://127.0.0.1:5177/terminal/orchestrator-demo
+
+## My request for Codex:
+alright now run `yyork ~/Projects/skills` and show me around
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://127.0.0.1:5177/terminal/5pcyw3
+
+## My request for Codex:
+why it is not running on yyork.localhost. what am i doing wrong that you keep forgetting yar
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: https://yyork.localhost/terminal/h502hg
+
+## My request for Codex:
+look always remember to use the [$portless](/Users/tanishqpalandurkar/Projects/yyork/.agents/skills/portless/SKILL.md) skill and use yyork.localhost when working on yyork project
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: https://yyork.localhost/terminal/h502hg
+
+## My request for Codex:
+so what prompt are we passing to the orchestrator
+
+---
+
+# Files mentioned by the user:
+
+## codex-clipboard-3c4ce487-4b7d-4ebf-82d1-78871b5e163c.png: /var/folders/3k/f45nj0jn3b11jfvyvt0nxj4w0000gn/T/codex-clipboard-3c4ce487-4b7d-4ebf-82d1-78871b5e163c.png
+
+## codex-clipboard-35622b5f-f527-4f81-91f4-f5af09138d1d.png: /var/folders/3k/f45nj0jn3b11jfvyvt0nxj4w0000gn/T/codex-clipboard-35622b5f-f527-4f81-91f4-f5af09138d1d.png
+
+## My request for Codex:
+why does terminal for the orchestrator is rendered any differently than the worker?
+
+There shouldn't be no difference right?
+
+---
+
+also what happened to the colors? All of sudden it(terminal rendering) all looks monochromatic.
+
+---
+
+so what you are gonna do about it then?
+
+---
+
+# Files mentioned by the user:
+
+## codex-clipboard-dd3b5c1a-c5c8-492a-b6d6-b3c2fc1915e8.png: /var/folders/3k/f45nj0jn3b11jfvyvt0nxj4w0000gn/T/codex-clipboard-dd3b5c1a-c5c8-492a-b6d6-b3c2fc1915e8.png
+
+## codex-clipboard-298bd85e-0c5f-4dfb-a7cb-d832f7a934ff.png: /var/folders/3k/f45nj0jn3b11jfvyvt0nxj4w0000gn/T/codex-clipboard-298bd85e-0c5f-4dfb-a7cb-d832f7a934ff.png
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: https://yyork.localhost/terminal/h502hg
+
+## My request for Codex:
+why does the project list is diff here? you see in one ss, yyork comes before skills dir and in another ss, skills comes before yyork's dir? why is that?
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: https://yyork.localhost/terminal/h502hg
+
+## My request for Codex:
+retry with this model
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: https://yyork.localhost/terminal/h502hg
+
+## My request for Codex:
+what are my options to mk it ordered from the backend?
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: https://yyork.localhost/terminal/h502hg
+
+## My request for Codex:
+could backend sort it in the order of datetime the project was added?
