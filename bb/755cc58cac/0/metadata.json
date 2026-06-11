@@ -1,0 +1,45 @@
+{
+  "cli_version": "0.7.5",
+  "checkpoint_id": "bb755cc58cac",
+  "session_id": "019ea012-dfaa-79c2-b279-881a9712adfb",
+  "strategy": "manual-commit",
+  "created_at": "2026-06-11T13:43:56.109237Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "README.md",
+    "flake.nix",
+    "internal/cli/commands.go",
+    "internal/cli/hooks.go",
+    "internal/cli/hooks_test.go",
+    "internal/cli/main.go",
+    "internal/cli/main_test.go",
+    "main.go",
+    "package.json"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "2b60c0803ff7",
+  "token_usage": {
+    "input_tokens": 358139,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 19448832,
+    "output_tokens": 46990,
+    "api_call_count": 125
+  },
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-06-11T13:43:56.085117Z",
+    "agent_lines": 1738,
+    "agent_removed": 102,
+    "human_added": 523,
+    "human_modified": 5,
+    "human_removed": 0,
+    "total_committed": 2266,
+    "total_lines_changed": 5146,
+    "agent_percentage": 35.755926933540614,
+    "metric_version": 2
+  }
+}

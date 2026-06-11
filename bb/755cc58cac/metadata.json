@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.7.5",
+  "checkpoint_id": "bb755cc58cac",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "README.md",
+    "flake.nix",
+    "internal/cli/commands.go",
+    "internal/cli/hooks.go",
+    "internal/cli/hooks_test.go",
+    "internal/cli/main.go",
+    "internal/cli/main_test.go",
+    "main.go",
+    "package.json"
+  ],
+  "sessions": [
+    {
+      "metadata": "/bb/755cc58cac/0/metadata.json",
+      "transcript": "/bb/755cc58cac/0/full.jsonl",
+      "content_hash": "/bb/755cc58cac/0/content_hash.txt",
+      "prompt": "/bb/755cc58cac/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 358139,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 19448832,
+    "output_tokens": 46990,
+    "api_call_count": 125
+  }
+}
