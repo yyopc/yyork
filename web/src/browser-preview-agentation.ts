@@ -1,6 +1,6 @@
 import { Agentation, type AgentationProps, type Annotation } from 'agentation';
 import React from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, type Root } from 'react-dom/client';
 
 type PreviewConfig = {
   targetOrigin?: string;
@@ -12,6 +12,14 @@ type AnnotationPayload = {
 
 const config = readPreviewConfig();
 const AgentationComponent = Agentation as React.ComponentType<AgentationProps>;
+const darkSchemeQuery =
+  typeof window.matchMedia === 'function'
+    ? window.matchMedia('(prefers-color-scheme: dark)')
+    : null;
+
+function systemTheme(): 'dark' | 'light' {
+  return darkSchemeQuery?.matches === false ? 'light' : 'dark';
+}
 
 function readPreviewConfig(): PreviewConfig {
   const configElement = document.getElementById('__yyork-preview-config');
@@ -56,19 +64,19 @@ function post(type: string, payload: Record<string, unknown> = {}) {
   );
 }
 
-function mountAgentation() {
-  if (document.getElementById('__yyork-agentation-root')) {
-    return;
+function renderToolbar(root: Root) {
+  const theme = systemTheme();
+  try {
+    // Agentation has no theme prop; it reads this key once on mount.
+    localStorage.setItem('feedback-toolbar-theme', theme);
+  } catch {
+    // Without storage Agentation falls back to its dark default.
   }
 
-  const rootElement = document.createElement('div');
-  rootElement.id = '__yyork-agentation-root';
-  rootElement.setAttribute('data-yyork-browser-agentation', 'true');
-  document.documentElement.appendChild(rootElement);
-
-  const root = createRoot(rootElement);
   root.render(
     React.createElement(AgentationComponent, {
+      // Remount on system theme changes so Agentation re-reads the key.
+      key: theme,
       copyToClipboard: true,
       onAnnotationAdd(annotation: Annotation) {
         post('yyork:annotation-added', {
@@ -96,6 +104,21 @@ function mountAgentation() {
       },
     })
   );
+}
+
+function mountAgentation() {
+  if (document.getElementById('__yyork-agentation-root')) {
+    return;
+  }
+
+  const rootElement = document.createElement('div');
+  rootElement.id = '__yyork-agentation-root';
+  rootElement.setAttribute('data-yyork-browser-agentation', 'true');
+  document.documentElement.appendChild(rootElement);
+
+  const root = createRoot(rootElement);
+  renderToolbar(root);
+  darkSchemeQuery?.addEventListener('change', () => renderToolbar(root));
   post('yyork:agentation-ready');
 }
 
