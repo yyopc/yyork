@@ -184,7 +184,6 @@ export function ProjectOrchestratorSidebar(props: {
                   key={project.id}
                   project={project}
                   isBoardActive={project.id === props.activeBoardProjectId}
-                  isProjectPinned={pinnedProjectIds.includes(project.id)}
                   open={
                     props.openProjectIds
                       ? props.openProjectIds.includes(project.id)
@@ -196,7 +195,6 @@ export function ProjectOrchestratorSidebar(props: {
                   onProjectBoardSelect={props.onProjectBoardSelect}
                   onProjectDelete={props.onProjectDelete}
                   onProjectIdeOpen={props.onProjectIdeOpen}
-                  onProjectPinToggle={props.onProjectPinToggle}
                   onProjectRename={props.onProjectRename}
                   onTerminalSessionDelete={props.onTerminalSessionDelete}
                   onTerminalSessionHide={props.onTerminalSessionHide}
@@ -619,11 +617,9 @@ function AppShortcutHints() {
 
 function ProjectNavItem(props: {
   isBoardActive: boolean;
-  isProjectPinned: boolean;
   onProjectBoardSelect: (projectId: string) => void;
   onProjectDelete?: (projectId: string) => void;
   onProjectIdeOpen?: (project: ProjectOrchestrator) => void;
-  onProjectPinToggle?: (projectId: string) => void;
   onOrchestratorSessionSelect: (selectionKey: string) => void;
   onOpenChange: (open: boolean) => void;
   onProjectRename?: (projectId: string) => void;
@@ -695,11 +691,9 @@ function ProjectNavItem(props: {
             <span>{props.project.name}</span>
           </ActionTooltip>
           <ProjectActionsMenu
-            isPinned={props.isProjectPinned}
             onDelete={() => props.onProjectDelete?.(props.project.id)}
             onOpenKanban={() => props.onProjectBoardSelect(props.project.id)}
             onOpenProject={() => props.onProjectIdeOpen?.(props.project)}
-            onPinToggle={() => props.onProjectPinToggle?.(props.project.id)}
             onRename={() => props.onProjectRename?.(props.project.id)}
             projectCwd={props.project.cwd}
             projectName={props.project.name}
@@ -1075,11 +1069,9 @@ function ProjectWorkerSessionGroup(props: {
 }
 
 function ProjectActionsMenu(props: {
-  isPinned: boolean;
   onDelete: () => void;
   onOpenKanban: () => void;
   onOpenProject: () => void;
-  onPinToggle: () => void;
   onRename: () => void;
   projectCwd?: string;
   projectName: string;
@@ -1119,14 +1111,6 @@ function ProjectActionsMenu(props: {
           <DropdownMenuItem onClick={props.onOpenKanban}>
             <SquareKanbanIcon aria-hidden="true" />
             <span>Open Kanban</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={props.onPinToggle}>
-            {props.isPinned ? (
-              <PinOffIcon aria-hidden="true" />
-            ) : (
-              <PinIcon aria-hidden="true" />
-            )}
-            <span>{props.isPinned ? 'Unpin project' : 'Pin project'}</span>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={props.onRename}>
             <PencilIcon aria-hidden="true" />
