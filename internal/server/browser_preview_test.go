@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -247,6 +248,52 @@ func TestBrowserPreviewProxyBlocksExternalRedirects(t *testing.T) {
 
 	if response.Code != http.StatusBadGateway {
 		t.Fatalf("expected external redirect to be blocked, got %d", response.Code)
+	}
+}
+
+func TestBrowserPreviewProxyReusesPreviewHostOnRedirect(t *testing.T) {
+	// Simulate Portless upgrading the proxied target from http to https (the
+	// real failure: previewing http://yyork.localhost/ 302s to https). The proxy
+	// must keep the iframe on the preview host it already loaded — that host is
+	// routable to this server — instead of minting a new slug from the https
+	// origin, which in dev would route to the raw app with no injection.
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Location", "https://yyork.localhost/board")
+		w.WriteHeader(http.StatusFound)
+	}))
+	t.Cleanup(upstream.Close)
+
+	server := New(Config{})
+	previewURL := registerBrowserPreviewTarget(t, server, upstream.URL+"/")
+	parsedPreview, err := url.Parse(previewURL)
+	if err != nil {
+		t.Fatalf("parse preview URL: %v", err)
+	}
+	previewHost := parsedPreview.Hostname()
+
+	request := httptest.NewRequest(http.MethodGet, previewURL, nil)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusFound {
+		t.Fatalf("expected redirect passthrough, got %d: %s", response.Code, response.Body.String())
+	}
+	location := response.Header().Get("Location")
+	if !strings.Contains(location, previewHost) {
+		t.Fatalf("expected redirect to reuse preview host %q, got %q", previewHost, location)
+	}
+	if strings.Contains(location, "https-yyork-localhost-preview") {
+		t.Fatalf("redirect minted a new (unroutable) preview slug: %q", location)
+	}
+
+	// The reused preview host must now point at the redirected https origin so
+	// the follow-up request proxies https (with injection), not the stale http.
+	gotTarget, ok := server.browserPreviewTarget(previewHost)
+	if !ok {
+		t.Fatalf("expected preview host %q to stay registered after redirect", previewHost)
+	}
+	if gotTarget.Scheme != "https" || gotTarget.Host != "yyork.localhost" {
+		t.Fatalf("expected preview host repointed to https://yyork.localhost, got %s", gotTarget.String())
 	}
 }
 

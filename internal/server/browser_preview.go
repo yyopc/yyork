@@ -131,7 +131,7 @@ func (s *Server) writeBrowserPreviewResponse(
 	upstreamURL *url.URL,
 ) {
 	if isRedirectStatus(response.StatusCode) {
-		s.handleBrowserPreviewRedirect(w, r, response, targetOrigin, upstreamURL)
+		s.handleBrowserPreviewRedirect(w, r, response, upstreamURL)
 		return
 	}
 
@@ -551,7 +551,6 @@ func (s *Server) handleBrowserPreviewRedirect(
 	w http.ResponseWriter,
 	r *http.Request,
 	response *http.Response,
-	targetOrigin *url.URL,
 	upstreamURL *url.URL,
 ) {
 	location := strings.TrimSpace(response.Header.Get("Location"))
@@ -572,11 +571,14 @@ func (s *Server) handleBrowserPreviewRedirect(
 		return
 	}
 
+	// Keep the iframe on the preview host it already loaded. That host routed
+	// the current request in, so it is guaranteed to reach this server; a slug
+	// freshly derived from the redirect origin (e.g. after Portless upgrades
+	// http://yyork.localhost to https) may route to the raw upstream instead of
+	// the backend in dev, serving the page with no preview injection. Re-point
+	// the same host at the redirect origin so injection survives the redirect.
 	redirectOrigin := browserPreviewOrigin(redirectURL)
-	previewHost := browserPreviewHostForOrigin(redirectOrigin)
-	if redirectOrigin.Scheme == targetOrigin.Scheme && redirectOrigin.Host == targetOrigin.Host {
-		previewHost = normalizedRequestHostname(externalRequestHost(r))
-	}
+	previewHost := normalizedRequestHostname(externalRequestHost(r))
 	s.setBrowserPreviewTarget(previewHost, redirectOrigin)
 
 	copyBrowserPreviewResponseHeaders(w.Header(), response.Header)
