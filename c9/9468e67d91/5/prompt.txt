@@ -1,0 +1,23 @@
+# Context from my IDE setup:
+
+## Open tabs:
+- .gitignore: .gitignore
+- README.md: README.md
+- dashboard.go: dashboard.go
+- oxlint.config.ts: web/oxlint.config.ts
+
+## My request for Codex:
+I think the canvas resizable element could only tk 50% width of current viewport only. right?
+
+---
+
+# Context from my IDE setup:
+
+## Open tabs:
+- .gitignore: .gitignore
+- README.md: README.md
+- dashboard.go: dashboard.go
+- oxlint.config.ts: web/oxlint.config.ts
+
+## My request for Codex:
+yeah tomato tomato. I want users to drag the resizable handle upto 70% of the viewport's width
