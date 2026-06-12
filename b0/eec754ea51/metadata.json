@@ -3,10 +3,12 @@
   "checkpoint_id": "b0eec754ea51",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 1,
+  "checkpoints_count": 2,
   "files_touched": [
+    "web/src/features/home/components/molecules/canvas-web-preview.tsx",
     "web/src/features/home/components/organisms/canvas-panel.tsx",
-    "web/src/features/home/components/organisms/main-topbar.tsx"
+    "web/src/features/home/components/organisms/main-topbar.tsx",
+    "web/src/features/home/components/organisms/terminal-panel.tsx"
   ],
   "sessions": [
     {
@@ -14,13 +16,19 @@
       "transcript": "/b0/eec754ea51/0/full.jsonl",
       "content_hash": "/b0/eec754ea51/0/content_hash.txt",
       "prompt": "/b0/eec754ea51/0/prompt.txt"
+    },
+    {
+      "metadata": "/b0/eec754ea51/1/metadata.json",
+      "transcript": "/b0/eec754ea51/1/full.jsonl",
+      "content_hash": "/b0/eec754ea51/1/content_hash.txt",
+      "prompt": "/b0/eec754ea51/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 1089585,
+    "input_tokens": 1762239,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 16745088,
-    "output_tokens": 79941,
-    "api_call_count": 125
+    "cache_read_tokens": 33248128,
+    "output_tokens": 144009,
+    "api_call_count": 244
   }
 }
