@@ -91,6 +91,14 @@ function usesDarkColorScheme(host: HTMLElement): boolean {
   return colorScheme.includes('dark');
 }
 
+// On the light theme, keep xterm's contrast correction so dim colors do not
+// disappear against white. On the dark theme, let the configured ANSI palette
+// render as-is; otherwise xterm pushes many colors toward foreground white and
+// Zellij/agent output starts looking monochrome.
+function minimumContrastRatioFor(usesDark: boolean): number {
+  return usesDark ? 1 : 4.5;
+}
+
 // Prefer the WebGL renderer, fall back to 2D canvas. Both rasterize box-drawing
 // glyphs themselves (customGlyphs) onto a fixed cell grid, so zellij's borders
 // stay crisp. The DOM renderer (no addon) does NOT, so we never rely on it.
@@ -131,6 +139,11 @@ export function XTermTerminal(props: XTermTerminalProps) {
       return undefined;
     }
 
+    // Tracks whether the app is currently on its dark theme. The terminal's
+    // palette and contrast correction both key off this, and it is re-read when
+    // the theme toggles (the MutationObserver below) so the live grid recolors.
+    let usesDark = usesDarkColorScheme(host);
+
     let term: XTerm;
     try {
       term = new XTerm({
@@ -152,11 +165,7 @@ export function XTermTerminal(props: XTermTerminalProps) {
         // 0 also stops FitAddon reserving ~14px on the right for a scrollbar
         // (an overlay/0px gutter on macOS), so the grid fills the panel width.
         scrollback: 0,
-        // On the light theme, keep xterm's contrast correction so dim colors do
-        // not disappear against white. On the dark theme, let the configured
-        // ANSI palette render as-is; otherwise xterm pushes many colors toward
-        // foreground white and Zellij/agent output starts looking monochrome.
-        minimumContrastRatio: usesDarkColorScheme(host) ? 1 : 4.5,
+        minimumContrastRatio: minimumContrastRatioFor(usesDark),
         rows: callbacksRef.current.rows,
         theme: buildTheme(host),
       });
@@ -173,6 +182,28 @@ export function XTermTerminal(props: XTermTerminalProps) {
 
     term.open(host);
     loadRenderer(term);
+
+    // React to app theme toggles. next-themes flips a light/dark class on the
+    // document root, swapping the --terminal-* custom properties — but xterm
+    // captured its palette once, at construction, so without this the grid kept
+    // the old colors until a manual refresh remounted it. Re-resolve and
+    // re-apply on each flip. theme is an object option that xterm
+    // reference-compares, so it only takes effect when assigned a fresh object;
+    // buildTheme always returns one.
+    const themeObserver = new MutationObserver(() => {
+      const nextUsesDark = usesDarkColorScheme(host);
+      // Unrelated root-class changes don't touch the terminal palette; only the
+      // light/dark flip does, so skip the (full-grid) recolor otherwise.
+      if (nextUsesDark === usesDark) {
+        return;
+      }
+      usesDark = nextUsesDark;
+      term.options.theme = buildTheme(host);
+      term.options.minimumContrastRatio = minimumContrastRatioFor(usesDark);
+    });
+    themeObserver.observe(document.documentElement, {
+      attributeFilter: ['class'],
+    });
 
     // Expose the live instance for e2e: the WebGL/canvas renderers leave no
     // text in the DOM, so tests read the screen through term.buffer instead.
@@ -248,6 +279,7 @@ export function XTermTerminal(props: XTermTerminalProps) {
       for (const timer of settleTimers) {
         window.clearTimeout(timer);
       }
+      themeObserver.disconnect();
       observer.disconnect();
       dataDisposable.dispose();
       resizeDisposable.dispose();
