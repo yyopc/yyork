@@ -515,7 +515,7 @@ function FileTreeSidebarToggle(props: {
             type="button"
             variant="ghost"
             size="icon"
-            className="size-9 rounded-sm text-muted-foreground hover:text-foreground"
+            className="size-7 rounded-sm text-muted-foreground hover:text-foreground"
             aria-label={label}
             aria-pressed={props.fileTreeOpen}
             onClick={() => {
@@ -558,7 +558,7 @@ function FileTreeExpansionToggle(props: {
             type="button"
             variant="ghost"
             size="icon"
-            className="size-9 rounded-sm text-muted-foreground hover:text-foreground"
+            className="size-7 rounded-sm text-muted-foreground hover:text-foreground"
             aria-label={label}
             aria-pressed={props.expansionState.allExpanded}
             disabled={disabled}

@@ -127,7 +127,7 @@ export function MainTopbar() {
             />
           </>
         ) : (
-          <div aria-hidden="true" className="size-9" />
+          <div aria-hidden="true" className="size-7" />
         )}
       </div>
     </header>
@@ -147,7 +147,7 @@ function CanvasToggleButton(props: {
             type="button"
             variant="secondary"
             size="icon"
-            className="size-9 rounded-sm border-sidebar-border bg-sidebar shadow-none"
+            className="size-7 rounded-sm border-sidebar-border bg-sidebar shadow-none"
             aria-label={props.canvasButtonLabel}
             aria-pressed={props.canvasOpen}
             onClick={props.onToggle}

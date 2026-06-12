@@ -35,7 +35,7 @@ export const ThemeSwitcher = (props: {
   const hydrated = useHydrated();
 
   if (!hydrated) {
-    return <div className={cn('size-9', props.triggerClassName)} />;
+    return <div className={cn('size-7', props.triggerClassName)} />;
   }
 
   return (

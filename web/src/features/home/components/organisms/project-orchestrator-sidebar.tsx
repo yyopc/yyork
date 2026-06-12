@@ -550,7 +550,7 @@ function SidebarToggleButton() {
           <SidebarTrigger
             variant="secondary"
             size="icon"
-            className="size-9 rounded-sm border-sidebar-border bg-sidebar shadow-none"
+            className="size-7 rounded-sm border-sidebar-border bg-sidebar shadow-none"
             icon={<SidebarToggleIcon />}
             aria-label={label}
           />

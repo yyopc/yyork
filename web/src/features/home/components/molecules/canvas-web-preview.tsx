@@ -473,7 +473,7 @@ function BrowserMenuButton() {
           <Button
             type="button"
             variant="ghost"
-            size="icon-sm"
+            size="icon"
             className="rounded-sm shadow-none"
             aria-label="Browser options"
           />
@@ -737,7 +737,7 @@ function AnnotationTray(props: {
             <Button
               type="button"
               variant="ghost"
-              size="icon-sm"
+              size="icon"
               className="rounded-sm"
               aria-label="Remove annotation"
               disabled={props.pending}
@@ -777,7 +777,7 @@ function WebPreviewNavigationButton({
           <Button
             type="button"
             variant="ghost"
-            size="icon-sm"
+            size="icon"
             className={cn('rounded-sm shadow-none', className)}
             aria-label={tooltip}
             {...props}

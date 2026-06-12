@@ -16,7 +16,7 @@ const toggleVariants = cva(
       size: {
         default: 'h-9 px-3',
         sm: 'h-8 px-2',
-        icon: 'size-9 max-w-none',
+        icon: 'size-7 max-w-none',
         'icon-sm': 'size-8 max-w-none',
       },
     },

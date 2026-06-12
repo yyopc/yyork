@@ -54,7 +54,7 @@ export function OpenIdeButton(props: {
           onClick={() => {
             handleOpenIDE();
           }}
-          className="h-9 cursor-pointer rounded-none border-r-0 shadow-none disabled:cursor-not-allowed"
+          className="h-7 cursor-pointer rounded-none border-r-0 shadow-none disabled:cursor-not-allowed"
         >
           <span
             data-icon="inline-start"

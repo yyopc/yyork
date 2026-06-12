@@ -613,7 +613,7 @@ function IconButton(props: {
             type="button"
             variant="secondary"
             size="icon"
-            className={cn('size-9 rounded-none shadow-none', props.className)}
+            className={cn('size-7 rounded-none shadow-none', props.className)}
             aria-label={props.label}
             onClick={props.onClick}
           />
