@@ -1,0 +1,18 @@
+{
+  "cli_version": "0.7.5",
+  "checkpoint_id": "e80cae4ca96d",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "web/src/features/home/components/molecules/canvas-web-preview.browser.spec.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/e8/0cae4ca96d/0/metadata.json",
+      "transcript": "/e8/0cae4ca96d/0/full.jsonl",
+      "content_hash": "/e8/0cae4ca96d/0/content_hash.txt",
+      "prompt": "/e8/0cae4ca96d/0/prompt.txt"
+    }
+  ]
+}
