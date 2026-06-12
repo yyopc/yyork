@@ -1,0 +1,65 @@
+{
+  "cli_version": "0.7.5",
+  "checkpoint_id": "1d3331ab3d77",
+  "session_id": "019eba74-4907-7e81-83ab-5fb718682fee",
+  "strategy": "manual-commit",
+  "created_at": "2026-06-12T09:36:19.753526Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "internal/server/browser_preview.go",
+    "internal/server/browser_preview_test.go"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "4bb24013126d",
+  "token_usage": {
+    "input_tokens": 25572,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 2432,
+    "output_tokens": 51,
+    "api_call_count": 1
+  },
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-06-12T09:36:19.748072Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 6,
+    "total_committed": 0,
+    "total_lines_changed": 6,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 192,
+      "user_lines_removed": 33,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "internal/server/browser_preview.go": 8,
+        "internal/server/browser_preview_test.go": 47,
+        "internal/session/engine.go": 23,
+        "internal/session/engine_test.go": 25,
+        "internal/session/prompts.go": 38,
+        "internal/session/prompts/orchestrator.md": 1,
+        "internal/session/prompts/worker.md": 3,
+        "internal/session/prompts_test.go": 47
+      },
+      "user_removed_per_file": {
+        "internal/server/browser_preview.go": 6,
+        "internal/session/engine.go": 10,
+        "internal/session/engine_test.go": 4,
+        "internal/session/prompts.go": 10,
+        "internal/session/prompts/orchestrator.md": 1,
+        "internal/session/prompts/worker.md": 2
+      }
+    }
+  ]
+}
