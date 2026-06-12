@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cross-Process Event Publishing — yyork</title>
+<style>
+  :root{
+    --bg:#0b0d10; --bg2:#0e1116; --panel:#14181f; --panel2:#181d26;
+    --border:#262d38; --border2:#323b49;
+    --text:#dce3ec; --muted:#8b95a5; --faint:#5c6675;
+    --accent:#ff6a5a; --accent-d:#c9483a;
+    --teal:#3ad8a4; --amber:#f6c453; --violet:#a78bfa; --blue:#5db4ff;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(91,180,255,.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 10%, rgba(255,106,90,.06), transparent 55%),
+      var(--bg);
+    color:var(--text); font-family:var(--sans);
+    font-size:17px; line-height:1.65; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:860px; margin:0 auto; padding:0 22px 120px}
+
+  /* ---- hero ---- */
+  header.hero{padding:72px 0 40px; border-bottom:1px solid var(--border)}
+  .kicker{display:inline-flex; align-items:center; gap:8px; font-family:var(--mono);
+    font-size:12.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted);
+    border:1px solid var(--border2); border-radius:999px; padding:5px 12px; background:var(--panel)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--blue);box-shadow:0 0 10px var(--blue)}
+  h1{font-size:46px; line-height:1.05; letter-spacing:-.02em; margin:22px 0 10px; font-weight:800}
+  h1 .grad{background:linear-gradient(90deg,#fff,var(--blue)); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .sub{font-size:19px; color:var(--muted); max-width:64ch; margin:0}
+  .meta{display:flex; flex-wrap:wrap; gap:10px 22px; margin-top:26px; font-family:var(--mono); font-size:13px; color:var(--faint)}
+  .meta b{color:var(--muted); font-weight:500}
+
+  /* ---- type ---- */
+  h2{font-size:13px; font-family:var(--mono); letter-spacing:.14em; text-transform:uppercase;
+    color:var(--blue); margin:64px 0 4px; font-weight:600}
+  h2 .n{color:var(--faint); margin-right:10px}
+  h3{font-size:26px; letter-spacing:-.01em; margin:6px 0 14px; font-weight:700}
+  p{margin:14px 0}
+  a{color:var(--blue); text-decoration:none}
+  a:hover{text-decoration:underline}
+  strong{color:#fff}
+  em{color:var(--text)}
+  code{font-family:var(--mono); font-size:.86em; background:var(--panel2); border:1px solid var(--border);
+    padding:1.5px 6px; border-radius:6px; color:#e7c9a0}
+  .file{color:var(--blue); background:rgba(91,180,255,.08); border-color:rgba(91,180,255,.25)}
+  ul.lede{margin:14px 0; padding-left:20px}
+  ul.lede li{margin:7px 0}
+
+  /* ---- TL;DR ---- */
+  .tldr{margin-top:34px; background:linear-gradient(180deg,var(--panel),var(--bg2));
+    border:1px solid var(--border2); border-radius:16px; padding:24px 26px; position:relative; overflow:hidden}
+  .tldr::before{content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:linear-gradient(var(--blue),#2a6fb0)}
+  .tldr h4{margin:0 0 8px; font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--blue)}
+  .tldr p{margin:8px 0; font-size:16px; color:var(--text)}
+
+  /* ---- callouts ---- */
+  .call{border:1px solid var(--border); border-radius:14px; padding:18px 20px; margin:22px 0; background:var(--panel)}
+  .call .tag{font-family:var(--mono); font-size:11.5px; letter-spacing:.12em; text-transform:uppercase; font-weight:600; display:inline-flex; align-items:center; gap:8px; margin-bottom:6px}
+  .call p{margin:6px 0; font-size:15.5px}
+  .call.finding{border-color:rgba(58,216,164,.3); background:linear-gradient(180deg,rgba(58,216,164,.07),transparent)}
+  .call.finding .tag{color:var(--teal)}
+  .call.warn{border-color:rgba(246,196,83,.3); background:linear-gradient(180deg,rgba(246,196,83,.06),transparent)}
+  .call.warn .tag{color:var(--amber)}
+  .call.sec{border-color:rgba(167,139,250,.35); background:linear-gradient(180deg,rgba(167,139,250,.08),transparent)}
+  .call.sec .tag{color:var(--violet)}
+  .call.cause{border-color:rgba(255,106,90,.4); background:linear-gradient(180deg,rgba(255,106,90,.09),transparent)}
+  .call.cause .tag{color:var(--accent)}
+
+  /* ---- terminal / code ---- */
+  .term{margin:20px 0; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#0a0c10; box-shadow:0 18px 40px -24px rgba(0,0,0,.8)}
+  .term .bar{display:flex; align-items:center; gap:8px; padding:10px 14px; background:var(--panel2); border-bottom:1px solid var(--border)}
+  .term .bar .lights{display:flex; gap:7px}
+  .term .bar .lights i{width:11px;height:11px;border-radius:50%;display:block}
+  .l1{background:#ff5f57}.l2{background:#febc2e}.l3{background:#28c840}
+  .term .bar .ttl{font-family:var(--mono); font-size:12px; color:var(--faint); margin-left:6px}
+  .term pre{margin:0; padding:16px 18px; overflow-x:auto; font-family:var(--mono); font-size:13px; line-height:1.62; color:#cdd6e2}
+  pre .pr{color:var(--teal)} /* prompt */
+  pre .cm{color:var(--faint)} /* comment */
+  pre .ok{color:var(--teal)}
+  pre .bad{color:var(--accent)}
+  pre .hl{color:var(--amber)}
+  pre .di{color:var(--blue)}
+  pre .kw{color:var(--violet)}
+  pre .st{color:#e7c9a0}
+
+  /* ---- diagrams ---- */
+  .diagram{margin:26px 0; border:1px solid var(--border); border-radius:14px; background:linear-gradient(180deg,var(--panel),var(--bg2)); padding:24px}
+  .diagram .cap{font-family:var(--mono); font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); margin-bottom:18px; text-align:center}
+  .lane{display:flex; align-items:stretch; gap:0; margin:14px 0}
+  .node{flex:1; border:1px solid var(--border2); border-radius:10px; padding:13px 15px; background:var(--panel2); min-width:0}
+  .node .nh{font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin-bottom:5px}
+  .node .nb{font-size:14px; color:var(--text)}
+  .node .nb code{font-size:.84em}
+  .node.src{border-color:rgba(91,180,255,.3)}
+  .node.good{border-color:rgba(58,216,164,.35); background:linear-gradient(180deg,rgba(58,216,164,.06),var(--panel2))}
+  .node.proc{border-color:rgba(167,139,250,.35); background:linear-gradient(180deg,rgba(167,139,250,.06),var(--panel2))}
+  .node.fail{border-color:rgba(255,106,90,.4); background:linear-gradient(180deg,rgba(255,106,90,.08),var(--panel2))}
+  .arrow{display:flex; flex-direction:column; justify-content:center; align-items:center; min-width:128px; padding:0 6px; color:var(--faint)}
+  .arrow .lab{font-family:var(--mono); font-size:10.5px; color:var(--muted); text-align:center; margin-bottom:3px; line-height:1.3}
+  .arrow .ln{font-size:20px; color:var(--border2)}
+  .arrow.good .ln{color:var(--teal)}
+  .arrow.fail .ln{color:var(--accent)}
+  @media(max-width:680px){
+    .lane{flex-direction:column; gap:8px}
+    .arrow{min-width:0; padding:2px 0; flex-direction:row; gap:8px}
+    .arrow .ln{transform:rotate(90deg)}
+  }
+
+  /* ---- flow (vertical numbered steps) ---- */
+  .flow{margin:24px 0; display:grid; gap:0}
+  .step{display:grid; grid-template-columns:42px 1fr; gap:16px; position:relative; padding-bottom:22px}
+  .step:not(:last-child)::before{content:""; position:absolute; left:20px; top:40px; bottom:-2px; width:2px; background:linear-gradient(var(--border2),transparent)}
+  .step .bub{width:40px;height:40px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:15px; font-weight:700; color:var(--blue); border:1px solid rgba(91,180,255,.3); background:rgba(91,180,255,.07); z-index:1}
+  .step .body h4{margin:7px 0 3px; font-size:16px}
+  .step .body p{margin:3px 0; font-size:14.5px; color:var(--muted)}
+  .step .body .where{font-family:var(--mono); font-size:12px; color:var(--faint)}
+
+  /* ---- two-col split ---- */
+  .split{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0}
+  .split .col{border:1px solid var(--border2); border-radius:12px; padding:17px 18px; background:var(--panel2)}
+  .split .col h6{margin:0 0 4px; font-size:15px; color:#fff; display:flex; align-items:center; gap:8px}
+  .split .col .path{font-family:var(--mono); font-size:11.5px; color:var(--blue); word-break:break-all; display:block; margin-bottom:10px}
+  .split .col ul{margin:0; padding-left:18px; font-size:13.5px; color:var(--muted)}
+  .split .col ul li{margin:5px 0}
+  .badge{font-family:var(--mono); font-size:10px; letter-spacing:.06em; text-transform:uppercase; padding:2px 7px; border-radius:999px; font-weight:600}
+  .badge.in{color:var(--teal); background:rgba(58,216,164,.12); border:1px solid rgba(58,216,164,.3)}
+  .badge.out{color:var(--violet); background:rgba(167,139,250,.12); border:1px solid rgba(167,139,250,.3)}
+  @media(max-width:600px){.split{grid-template-columns:1fr}}
+
+  /* ---- table ---- */
+  .tbl{width:100%; border-collapse:collapse; margin:20px 0; font-size:14.5px; border:1px solid var(--border); border-radius:12px; overflow:hidden}
+  .tbl th{background:var(--panel2); text-align:left; padding:11px 14px; font-family:var(--mono); font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border)}
+  .tbl td{padding:11px 14px; border-bottom:1px solid var(--border); color:var(--text); vertical-align:top}
+  .tbl tr:last-child td{border-bottom:0}
+  .tbl td.k{font-family:var(--mono); color:#e7c9a0; white-space:nowrap}
+
+  hr.soft{border:0; border-top:1px solid var(--border); margin:50px 0}
+  footer{color:var(--faint); font-size:13px; font-family:var(--mono); padding-top:24px; border-top:1px solid var(--border); display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px}
+  .status{display:inline-flex;align-items:center;gap:8px;color:var(--blue)}
+  ::selection{background:rgba(91,180,255,.3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="kicker"><span class="dot"></span> yyork · architecture brief</span>
+    <h1>Cross-Process <span class="grad">Event Publishing</span></h1>
+    <p class="sub">How a <code>yyork spawn</code> fired from your terminal lights up a dashboard board that's already open in the browser — with no polling, no shared memory, and no socket left dangling between two unrelated processes.</p>
+    <div class="meta">
+      <span><b>mechanism</b> &nbsp;runfile + localhost control endpoint</span>
+      <span><b>branch</b> main</span>
+      <span><b>date</b> 2026-05-31</span>
+    </div>
+  </header>
+
+  <div class="tldr">
+    <h4>TL;DR</h4>
+    <p>The event bus in <code class="file">internal/events</code> is <strong>in-process only</strong>. The long-lived server's bus fans out to the dashboard's SSE stream; a one-shot CLI <code>spawn</code> runs in a <strong>different process</strong> whose bus has no subscribers, so its events would fire into the void.</p>
+    <p>The bridge: the server advertises its <strong>address + a shared secret</strong> in a <code>0600</code> runfile at <code>~/.yyork/server.json</code>. The CLI swaps in a <strong>ForwardingPublisher</strong> that reads the runfile and <code>POST</code>s the event to the server's <code>/api/events</code> control endpoint, which <strong>republishes it on the in-process bus</strong> — and the SSE fan-out already there delivers it to open boards.</p>
+    <p>The secret is the whole security story: a <code>0600</code> file a browser page <em>cannot read</em> means a malicious page <em>cannot forge</em> a publish. SQLite stays the source of truth; SSE is just the live-update shortcut.</p>
+  </div>
+
+  <!-- 1 -->
+  <h2><span class="n">01</span> The problem</h2>
+  <h3>An in-process bus has no reach across processes</h3>
+  <p>The pub/sub bus is a deliberately tiny in-memory thing: subscribers register a buffered channel, <code>Publish</code> fans out to them, and a full channel <em>drops</em> rather than blocks (so a slow board never stalls the engine). There is no persistence and no replay.</p>
+  <div class="term">
+    <div class="bar"><div class="lights"><i class="l1"></i><i class="l2"></i><i class="l3"></i></div><span class="ttl">internal/events/events.go — the contract</span></div>
+<pre><span class="cm">// The engine depends on this interface, not on *Bus, so different</span>
+<span class="cm">// processes can supply different implementations.</span>
+<span class="kw">type</span> Publisher <span class="kw">interface</span> {
+    Publish(Event)
+}
+
+<span class="cm">// Publish never blocks: a subscriber whose buffer is full has the</span>
+<span class="cm">// event dropped silently. Late subscribers see no past events.</span>
+<span class="kw">func</span> (b *Bus) Publish(e Event) { <span class="cm">/* RLock → fan out to channels */</span> }</pre>
+  </div>
+  <p>That's perfect <em>inside</em> the server: the engine publishes <code>session.created</code>, the SSE handler is a subscriber, the board updates. But yyork has two kinds of process:</p>
+  <ul class="lede">
+    <li><strong>The server</strong> (<code class="file">internal/app/app.go</code>) — long-lived, owns the bus, serves the dashboard and its SSE stream.</li>
+    <li><strong>The CLI</strong> (<code class="file">cmd/yyork</code>) — <code>spawn</code> / <code>stop</code> run, mutate state, and <em>exit immediately</em>. They build their own engine, with their own bus, with <strong>zero subscribers</strong>.</li>
+  </ul>
+
+  <div class="diagram">
+    <div class="cap">without a bridge: the CLI's event has nowhere to go</div>
+    <div class="lane">
+      <div class="node src"><div class="nh">yyork spawn</div><div class="nb">engine inserts row, then <code>bus.Publish(session.created)</code></div></div>
+      <div class="arrow fail"><span class="lab">in-process bus<br>0 subscribers</span><span class="ln">→</span></div>
+      <div class="node fail"><div class="nb">event dropped — process exits. The open board never hears about it.</div></div>
+    </div>
+  </div>
+  <p>The row <em>does</em> land in the shared SQLite store, so a fresh page load would show it. But an <em>already-open</em> board would sit stale until you reloaded — or until something polled. The whole point of the bridge is to avoid polling.</p>
+
+  <!-- 2 -->
+  <h2><span class="n">02</span> The bridge</h2>
+  <h3>One interface, two implementations</h3>
+  <p>Because the engine only knows the <code>events.Publisher</code> interface, swapping behavior per process is a one-line change at construction. The server uses the real fan-out bus; the CLI uses a forwarder.</p>
+
+  <div class="split">
+    <div class="col">
+      <h6><span class="badge in">server</span> *events.Bus</h6>
+      <span class="path">internal/app/app.go:61</span>
+      <ul>
+        <li>Real in-memory bus.</li>
+        <li>SSE handler subscribes to it.</li>
+        <li><code>Publish</code> → fans out to every open board.</li>
+        <li>Lives for the whole server lifetime.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h6><span class="badge out">cli</span> ForwardingPublisher</h6>
+      <span class="path">cmd/yyork/commands.go:63</span>
+      <ul>
+        <li>Implements the same <code>Publish(Event)</code>.</li>
+        <li>Reads the runfile to find the server.</li>
+        <li><code>Publish</code> → HTTP POST to the server.</li>
+        <li>Best-effort: no server → no-op.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="bar"><div class="lights"><i class="l1"></i><i class="l2"></i><i class="l3"></i></div><span class="ttl">cmd/yyork/commands.go — buildEngine() for one-shot commands</span></div>
+<pre>eng, err := session.NewEngine(session.EngineConfig{
+    Repo:     dataStore.Sessions(),
+    Worktree: worktree.New(),
+    Provider: durabilityprovider.NewZellijProvider(),
+    Plugins:  registry,
+    Bus:      control.<span class="hl">NewForwardingPublisher()</span>, <span class="cm">// ← the swap</span>
+})</pre>
+  </div>
+
+  <h3 style="margin-top:34px">The runfile is the rendezvous</h3>
+  <p>For the CLI to reach the server, the server has to <em>announce itself</em>. On boot it generates a fresh 256-bit token and writes a small JSON file next to <code>state.db</code>, then cleans it up on shutdown.</p>
+
+  <div class="term">
+    <div class="bar"><div class="lights"><i class="l1"></i><i class="l2"></i><i class="l3"></i></div><span class="ttl">~/.yyork/server.json — written 0600 by internal/app/app.go</span></div>
+<pre>{
+  <span class="di">"addr"</span>:  <span class="st">"127.0.0.1:7331"</span>,   <span class="cm">// where to POST</span>
+  <span class="di">"pid"</span>:   <span class="hl">48213</span>,              <span class="cm">// who owns this runfile</span>
+  <span class="di">"token"</span>: <span class="st">"a3f1…&lt;64 hex chars&gt;"</span> <span class="cm">// shared secret for the control endpoint</span>
+}</pre>
+  </div>
+
+  <div class="call warn">
+    <div class="tag">⚠ shutdown race — RemoveIfOwnedBy(pid)</div>
+    <p>The runfile is a single shared file keyed to one port. When a server is replaced, the old process may still be draining connections while the new one has already written <em>its</em> runfile. An unconditional delete in the old process's shutdown path would wipe the new server's advertisement. So removal is gated on the advertised PID — a stale server leaves a runfile it no longer owns alone.</p>
+  </div>
+
+  <!-- 3 -->
+  <h2><span class="n">03</span> The journey of one event</h2>
+  <h3>From <code>spawn</code> in the terminal to a pixel in the browser</h3>
+
+  <div class="flow">
+    <div class="step">
+      <div class="bub">1</div>
+      <div class="body">
+        <h4>Engine mutates state, then publishes</h4>
+        <p>On success the engine <strong>inserts the session row into the shared SQLite store first</strong>, then publishes — so the durable source of truth is committed before anyone is told.</p>
+        <p class="where">internal/session/engine.go:319 — <code>e.bus.Publish(events.NewSessionCreated(id))</code></p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="bub">2</div>
+      <div class="body">
+        <h4>ForwardingPublisher reads the runfile</h4>
+        <p>No runfile, or an empty addr? Return silently — there's no open board to update. Otherwise flatten the event into an <code>Envelope{type, id}</code>.</p>
+        <p class="where">internal/control/control.go — <code>Publish()</code> reads <code>~/.yyork/server.json</code></p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="bub">3</div>
+      <div class="body">
+        <h4>POST to the localhost control endpoint</h4>
+        <p>Sends the envelope to <code>http://&lt;addr&gt;/api/events</code> with the secret in the <code>X-yyork-Token</code> header, under a <strong>750 ms timeout</strong>. It <em>blocks</em> (no detached goroutine) because the CLI process is about to exit — a goroutine would race the exit and lose the event. Every error is swallowed.</p>
+        <p class="where">control.forwardTimeout = 750ms · header X-yyork-Token</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="bub">4</div>
+      <div class="body">
+        <h4>Server verifies, validates, republishes</h4>
+        <p>The handler rejects an empty/wrong token (constant-time compare), caps the body at 4&nbsp;KB, rejects unknown event types, then calls <code>eventBus.Publish(event)</code> on the <em>server's</em> in-process bus.</p>
+        <p class="where">internal/server/sessions.go — <code>handlePublishEvent</code></p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="bub">5</div>
+      <div class="body">
+        <h4>SSE fan-out delivers to every open board</h4>
+        <p>The republished event hits the same fan-out the engine would have used in-process. Each subscribed <code>GET /api/events</code> stream writes <code>event: session.created\ndata: {…}</code> and flushes. The browser's <code>EventSource</code> wakes up and re-queries <code>/api/sessions</code> for fresh state.</p>
+        <p class="where">internal/server/sessions.go — <code>handleEventsStream</code> · 30s keepalive</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="diagram">
+    <div class="cap">the full loop — two processes, bridged over localhost</div>
+    <div class="lane">
+      <div class="node src"><div class="nh">cli process</div><div class="nb"><code>spawn</code> → INSERT row → <code>Publish</code> → ForwardingPublisher</div></div>
+      <div class="arrow good"><span class="lab">POST /api/events<br>+ token (750ms)</span><span class="ln">→</span></div>
+      <div class="node proc"><div class="nh">server process</div><div class="nb">verify token → validate type → <code>eventBus.Publish</code></div></div>
+    </div>
+    <div class="lane">
+      <div class="node proc"><div class="nh">server bus</div><div class="nb">fan out to every SSE subscriber</div></div>
+      <div class="arrow good"><span class="lab">text/event-stream<br>GET /api/events</span><span class="ln">→</span></div>
+      <div class="node good"><div class="nh">browser board</div><div class="nb">EventSource fires → re-query <code>/api/sessions</code> → live update</div></div>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <h2><span class="n">04</span> The trust boundary</h2>
+  <h3>Why a 0600 file is the entire CSRF defense</h3>
+  <p>The control endpoint listens on localhost. That alone is <strong>not</strong> safe: any web page in the user's browser can fire a <code>POST</code> at <code>127.0.0.1</code>. If the endpoint accepted unauthenticated publishes, a malicious page could inject phantom sessions onto every open board.</p>
+
+  <div class="call sec">
+    <div class="tag">◆ the defense</div>
+    <p>The token lives only in a file written with <code>0600</code> permissions. A browser page can issue the request but <strong>cannot read the file</strong>, so it cannot present a valid token. Only processes the user already trusts — a real <code>yyork</code> CLI invocation — can. The localhost surface stays closed to the web.</p>
+  </div>
+
+  <p>Three more guards stack on top of the token check, so even a request that <em>somehow</em> reaches the handler can't do damage:</p>
+  <table class="tbl">
+    <tr><th>Guard</th><th>What it stops</th><th>Where</th></tr>
+    <tr>
+      <td class="k">constant-time compare</td>
+      <td>Timing side-channels that could leak the token byte by byte. An empty server token rejects <em>everything</em> — a server with no runfile never accepts publishes.</td>
+      <td class="k">subtle.ConstantTimeCompare</td>
+    </tr>
+    <tr>
+      <td class="k">type allowlist</td>
+      <td>A caller injecting arbitrary event types onto the bus. <code>ToEvent</code> maps only the known lifecycle types; anything else is a 400.</td>
+      <td class="k">control.ToEvent</td>
+    </tr>
+    <tr>
+      <td class="k">4 KB body cap</td>
+      <td>A malicious or buggy client streaming an unbounded body into the decoder.</td>
+      <td class="k">http.MaxBytesReader</td>
+    </tr>
+  </table>
+
+  <!-- 5 -->
+  <h2><span class="n">05</span> What this buys (and what it deliberately doesn't)</h2>
+  <h3>Guarantees, by design</h3>
+  <table class="tbl">
+    <tr><th>Property</th><th>Behavior</th></tr>
+    <tr><td class="k">source of truth</td><td>The shared <strong>SQLite store</strong>, not the bus. A spawn's row is committed before any event fires; a board that missed the live event simply re-reads <code>/api/sessions</code> and is correct.</td></tr>
+    <tr><td class="k">events are a shortcut</td><td>SSE exists to avoid polling. It is <strong>best-effort and lossy on purpose</strong> — the bus drops on full buffers, the forwarder swallows errors, and there is no replay buffer for late subscribers.</td></tr>
+    <tr><td class="k">no server → no-op</td><td>If nothing is listening, the forwarder reads no runfile and returns. The CLI still works; the row still lands; the next board load picks it up. Zero coupling between "did a server happen to be open."</td></tr>
+    <tr><td class="k">bounded blocking</td><td>The CLI blocks at most 750 ms on a dead/stale endpoint, so <code>spawn</code> never hangs the terminal waiting on a server that isn't there.</td></tr>
+    <tr><td class="k">process-agnostic engine</td><td>The engine code is identical in both worlds. It publishes to an interface and never learns whether its events stayed in-process or crossed a socket.</td></tr>
+  </table>
+
+  <div class="call finding">
+    <div class="tag">✓ the payoff</div>
+    <p>You run <code>yyork spawn --prompt "…"</code> in a terminal. A board you opened ten minutes ago, in a tab you forgot about, sees the new session appear <strong>within milliseconds</strong> — no refresh, no polling loop, no persistent connection between the two processes. They never meet; they just both know the runfile.</p>
+  </div>
+
+  <hr class="soft" />
+  <footer>
+    <span class="status"><span class="dot"></span> yyork · cross-process event publishing</span>
+    <span>events · control · app · server · session</span>
+  </footer>
+
+</div>
+</body>
+</html>
