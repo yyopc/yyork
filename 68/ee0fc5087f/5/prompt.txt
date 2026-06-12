@@ -1,0 +1,31 @@
+I want to improve the project's branding. There's no fucking image in the project's README.md. We got to put an image right there. What you say?
+
+---
+
+hold on that ain't gonna work. I want to put yyork's screenshot but I want to tk the screenshot using an app and mk the screenshot look very polished and aesthetically pleasing
+
+---
+
+hold on. I'll tk the screenshot as I don't trust AI doing this for me
+
+---
+
+I need your recommendation with what to use to tk the screenshot bro
+
+---
+
+they both are really shit. I've got screenstudio with me btw
+
+---
+
+alright so I've got the screenshots with me now. use [yyork-light.png](yyork-light.png) when the markdown is rendered in the light theme and [yyork-dark.png](yyork-dark.png) when the markdown is rendered in the dark theme.
+
+This should look exclusively good in the [README.md](.agents/skills/vercel-react-view-transitions/README.md) file on GitHub.com
+
+---
+
+push the changes we made in the [README.md](.agents/skills/vercel-react-view-transitions/README.md) to the upstream real quick
+
+---
+
+Now we need to mk the [README.md](.agents/skills/vercel-react-view-transitions/README.md) look very simplistic now. We also need to explicitly warn users that the software is still building.
