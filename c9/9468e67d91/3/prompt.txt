@@ -1,0 +1,165 @@
+I want to know the status of our in-app browser (IAB). What are the things left to do so that I can mark the annotations and send it to my agents as a user message end to end.
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://localhost:4204/terminal/%252FUsers%252Ftanishqpalandurkar%252FProjects%252Fyyork%3A5pcyw3
+
+## My request for Codex:
+I remember that I used to have agitation component appearing at the bottom right corner of my app of York, but it is not appearing on the app that I have opened in the IAB. Could you tell me why? I guess it is running on some other port.
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://localhost:4204/terminal/%252FUsers%252Ftanishqpalandurkar%252FProjects%252Fyyork%3A5pcyw3
+
+## My request for Codex:
+All right then, get me the latest one.
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: http://localhost:4204/terminal/%252FUsers%252Ftanishqpalandurkar%252FProjects%252Fyyork%3A5pcyw3
+
+## My request for Codex:
+yo why its not running on yyork.localhost bro? then what's the point of using portless then? use the[$portless](/Users/tanishqpalandurkar/Projects/yyork/.agents/skills/portless/SKILL.md) skill and let that shit get into your artificial head.
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: https://yyork.localhost/terminal/%252FUsers%252Ftanishqpalandurkar%252FProjects%252Fyyork%3A5pcyw3
+
+## My request for Codex:
+Now, are we sure that agents won't branch yyork on any other URL than yyork.localhost?
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: https://yyork.localhost/terminal/%252FUsers%252Ftanishqpalandurkar%252FProjects%252Fyyork%3A5pcyw3
+## My request for Codex:
+Now, are we sure that agents won't branch yyork on any other URL than yyork.localhost?
+
+---
+
+# Context from my IDE setup:
+
+## Open tabs:
+- .gitignore: .gitignore
+- README.md: README.md
+- dashboard.go: dashboard.go
+- oxlint.config.ts: web/oxlint.config.ts
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: https://yyork.localhost/terminal/%252FUsers%252Ftanishqpalandurkar%252FProjects%252Fyyork%3A5pcyw3
+
+## My request for Codex:
+So why does yyork-preview.yyork.localhost does not resolve as expected and currently shows 502 bad gateway?
+
+---
+
+# Context from my IDE setup:
+
+## Open tabs:
+- .gitignore: .gitignore
+- README.md: README.md
+- dashboard.go: dashboard.go
+- oxlint.config.ts: web/oxlint.config.ts
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: https://yyork.localhost/terminal/%252FUsers%252Ftanishqpalandurkar%252FProjects%252Fyyork%3A5pcyw3
+
+## My request for Codex:
+what does this "yyork Browser preview URLs cannot be used as preview targets" means?
+
+---
+
+# Context from my IDE setup:
+
+## Open tabs:
+- .gitignore: .gitignore
+- README.md: README.md
+- dashboard.go: dashboard.go
+- oxlint.config.ts: web/oxlint.config.ts
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: https://yyork.localhost/terminal/%252FUsers%252Ftanishqpalandurkar%252FProjects%252Fyyork%3A5pcyw3
+
+## My request for Codex:
+alright. lots has been said and done in between accomplishing our main goal of this thread. We kinda digressed from our og point.
+
+---
+
+# Context from my IDE setup:
+
+## Open tabs:
+- .gitignore: .gitignore
+- README.md: README.md
+- dashboard.go: dashboard.go
+- oxlint.config.ts: web/oxlint.config.ts
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: https://yyork.localhost/terminal/%252FUsers%252Ftanishqpalandurkar%252FProjects%252Fyyork%3A5pcyw3
+
+## My request for Codex:
+#1 yes agentation ui appears in yyork's iab preview.
+#2 don't know yet.
+#3 Where's this button?
+#4 don't know yet.
+#5 yeah this is important.
+
+this is the current SOTA.
+
+---
+
+# Context from my IDE setup:
+
+## Open tabs:
+- .gitignore: .gitignore
+- README.md: README.md
+- dashboard.go: dashboard.go
+- oxlint.config.ts: web/oxlint.config.ts
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: https://yyork.localhost/terminal/%252FUsers%252Ftanishqpalandurkar%252FProjects%252Fyyork%3A5pcyw3
+
+## My request for Codex:
+alright tell me what to expect now?
+
+---
+
+# Context from my IDE setup:
+
+## Active file: dashboard.go
+
+## Open tabs:
+- dashboard.go: dashboard.go
+- .gitkeep: cmd/yyork/dashboard/.gitkeep
+- .gitignore: .gitignore
+- README.md: README.md
+- oxlint.config.ts: web/oxlint.config.ts
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: https://yyork.localhost/terminal/%252FUsers%252Ftanishqpalandurkar%252FProjects%252Fyyork%3A5pcyw3
+
+## My request for Codex:
+how close are we to accomplish our goal?
+
+---
+
+# In app browser:
+- The user has the in-app browser open.
+- Current URL: https://yyork.localhost/terminal/%252FUsers%252Ftanishqpalandurkar%252FProjects%252Fyyork%3A5pcyw3
+
+## My request for Codex:
+end to end verification is done already.
