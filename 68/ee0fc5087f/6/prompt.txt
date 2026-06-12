@@ -1,0 +1,13 @@
+what's the size of yyork bin that contains the embedded frontend in MB?
+
+---
+
+and what about after stripping off the symbol table from the bin?
+
+---
+
+what else we can strip it off of? I want to get production grade bin
+
+---
+
+That's great.
