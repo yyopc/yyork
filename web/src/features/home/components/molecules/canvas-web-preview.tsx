@@ -48,7 +48,6 @@ import {
   type BrowserPreviewAgentationMessage,
   type BrowserPreviewAnnotation,
   type BrowserPreviewMessage,
-  type BrowserPreviewUrlResult,
   isBrowserPreviewMessage,
   registerBrowserPreviewTarget,
   validatePreviewUrlInput,
@@ -59,10 +58,10 @@ interface WebPreviewContextValue {
   canGoForward: boolean;
   currentUrl: string;
   error: string | null;
-  iframeKey: number;
   iframeRef: React.RefObject<HTMLIFrameElement | null>;
   loading: boolean;
   navigateTo: (url: string) => void;
+  navigation: PreviewNavigation;
   previewName?: string;
   recordFrameNavigation: (url: string) => void;
   reloadPreview: (
@@ -72,10 +71,20 @@ interface WebPreviewContextValue {
   runHistory: (direction: 'back' | 'forward') => void;
   setError: (error: string | null) => void;
   setLoading: (loading: boolean) => void;
-  updateCurrentUrlFromFrame: () => void;
 }
 
 type HistoryEntry = {
+  url: string;
+};
+
+/**
+ * The last user-driven navigation (address bar, back/forward, reload). The
+ * iframe binds to this — and only this — so frame-originated location changes
+ * reported by the preview bridge can update history and the address bar
+ * without remounting the iframe and reloading the app inside it.
+ */
+type PreviewNavigation = {
+  id: number;
   url: string;
 };
 
@@ -84,6 +93,7 @@ interface PreviewState {
   history: HistoryEntry[];
   historyIndex: number;
   loading: boolean;
+  navigation: PreviewNavigation;
   sourceDefaultUrl?: string;
 }
 
@@ -105,7 +115,6 @@ export function CanvasWebPreview(props: {
   const [previewState, setPreviewState] = useState(() =>
     createPreviewState(props.defaultUrl)
   );
-  const [iframeKey, setIframeKey] = useState(0);
   const [annotations, setAnnotations] = useState<StagedAnnotation[]>([]);
   const annotationKeyRef = useRef(0);
   const sendMutation = useMutation(sendAnnotationsMutationOptions());
@@ -113,7 +122,8 @@ export function CanvasWebPreview(props: {
     previewState,
     props.defaultUrl
   );
-  const { error, history, historyIndex, loading } = activePreviewState;
+  const { error, history, historyIndex, loading, navigation } =
+    activePreviewState;
 
   function updatePreviewState(update: (current: PreviewState) => PreviewState) {
     setPreviewState((current) =>
@@ -143,13 +153,17 @@ export function CanvasWebPreview(props: {
     return `annotation-${annotationKeyRef.current}`;
   }
 
-  function commitNavigation(result: BrowserPreviewUrlResult) {
+  function navigateTo(nextUrl: string) {
+    const result = validatePreviewUrlInput(nextUrl);
     if (!result.url) {
       updatePreviewState((current) => ({
         ...current,
         error: result.error ?? null,
         loading: false,
       }));
+      if (result.error) {
+        toast.error(result.error);
+      }
       return;
     }
 
@@ -162,33 +176,42 @@ export function CanvasWebPreview(props: {
         history: [...current.history.slice(0, nextIndex), { url: result.url }],
         historyIndex: nextIndex,
         loading: true,
+        navigation: { id: current.navigation.id + 1, url: result.url },
       };
     });
     props.onUrlChange?.(result.url);
   }
 
-  function navigateTo(nextUrl: string) {
-    const result = validatePreviewUrlInput(nextUrl);
-    commitNavigation(result);
-    if (result.error) {
-      toast.error(result.error);
+  function runHistory(direction: 'back' | 'forward') {
+    const nextIndex =
+      direction === 'back'
+        ? Math.max(0, historyIndex - 1)
+        : Math.min(history.length - 1, historyIndex + 1);
+    const nextEntry = history[nextIndex];
+    if (!nextEntry || nextIndex === historyIndex) {
+      return;
     }
+
+    updatePreviewState((current) => ({
+      ...current,
+      error: null,
+      historyIndex: nextIndex,
+      loading: true,
+      navigation: { id: current.navigation.id + 1, url: nextEntry.url },
+    }));
+    props.onUrlChange?.(nextEntry.url);
   }
 
-  function runHistory(direction: 'back' | 'forward') {
-    updatePreviewState((current) => {
-      const nextIndex =
-        direction === 'back'
-          ? Math.max(0, current.historyIndex - 1)
-          : Math.min(current.history.length - 1, current.historyIndex + 1);
-
-      return {
-        ...current,
-        error: null,
-        historyIndex: nextIndex,
-        loading: true,
-      };
-    });
+  function rebindFrame() {
+    updatePreviewState((current) => ({
+      ...current,
+      error: null,
+      loading: true,
+      navigation: {
+        id: current.navigation.id + 1,
+        url: current.history[current.historyIndex]?.url ?? '',
+      },
+    }));
   }
 
   function reloadPreview(
@@ -198,34 +221,46 @@ export function CanvasWebPreview(props: {
     if (!currentUrl) {
       return;
     }
-    setPreviewError(null);
-    setPreviewLoading(true);
     if (hard) {
       void clearCurrentFrameStorage(iframeRef.current, storageScope).finally(
-        () => {
-          setIframeKey((current) => current + 1);
-        }
+        rebindFrame
       );
       return;
     }
-    setIframeKey((current) => current + 1);
+    rebindFrame();
   }
 
+  // The preview bridge reports the frame's logical location (initial load,
+  // link clicks, SPA pushState/replaceState, popstate, hash changes). It is
+  // the source of truth for the address bar and history; it never rebinds
+  // the iframe. A change matching the adjacent history entry is the frame's
+  // own back/forward, so the index moves instead of pushing a duplicate.
   function recordFrameNavigation(nextUrl: string) {
     const result = validatePreviewUrlInput(nextUrl);
     if (!result.url) {
       return;
     }
 
-    if (result.url === currentUrl) {
-      setPreviewLoading(false);
-      return;
-    }
-
     updatePreviewState((current) => {
       const activeUrl = current.history[current.historyIndex]?.url;
       if (activeUrl === result.url) {
-        return { ...current, loading: false };
+        return current.loading ? { ...current, loading: false } : current;
+      }
+
+      if (current.history[current.historyIndex - 1]?.url === result.url) {
+        return {
+          ...current,
+          historyIndex: current.historyIndex - 1,
+          loading: false,
+        };
+      }
+
+      if (current.history[current.historyIndex + 1]?.url === result.url) {
+        return {
+          ...current,
+          historyIndex: current.historyIndex + 1,
+          loading: false,
+        };
       }
 
       const nextIndex = Math.max(0, current.historyIndex + 1);
@@ -237,20 +272,9 @@ export function CanvasWebPreview(props: {
         loading: false,
       };
     });
-    props.onUrlChange?.(result.url);
-  }
-
-  function updateCurrentUrlFromFrame() {
-    const frameUrl = readableFrameURL(iframeRef.current);
-    if (!frameUrl || frameUrl === currentUrl) {
-      return;
+    if (result.url !== currentUrl) {
+      props.onUrlChange?.(result.url);
     }
-
-    const result = validatePreviewUrlInput(frameUrl);
-    if (!result.url) {
-      return;
-    }
-    commitNavigation(result);
   }
 
   function sendAnnotationsToAgent(items: StagedAnnotation[] = annotations) {
@@ -334,17 +358,16 @@ export function CanvasWebPreview(props: {
     canGoForward,
     currentUrl,
     error,
-    iframeKey,
     iframeRef,
     loading,
     navigateTo,
+    navigation,
     previewName: props.previewName,
     recordFrameNavigation,
     reloadPreview,
     runHistory,
     setError: setPreviewError,
     setLoading: setPreviewLoading,
-    updateCurrentUrlFromFrame,
   };
 
   return (
@@ -500,17 +523,16 @@ function BrowserViewport(props: {
   const {
     currentUrl,
     error,
-    iframeKey,
     iframeRef,
     loading,
+    navigation,
     previewName,
     recordFrameNavigation,
     setError,
     setLoading,
-    updateCurrentUrlFromFrame,
   } = useWebPreview();
   const frameUrl =
-    frameState.sourceUrl === currentUrl ? frameState.frameUrl : '';
+    frameState.sourceUrl === navigation.url ? frameState.frameUrl : '';
   const handlePreviewRegistrationError = useEffectEvent(
     (errorValue: unknown) => {
       const message =
@@ -523,7 +545,6 @@ function BrowserViewport(props: {
   );
   const handleFrameLoad = useEffectEvent(() => {
     setLoading(false);
-    updateCurrentUrlFromFrame();
   });
   const handleFrameError = useEffectEvent(() => {
     setLoading(false);
@@ -550,21 +571,24 @@ function BrowserViewport(props: {
     }
   );
 
+  // Bind the iframe to user-driven navigations only. Bridge-reported
+  // location changes update `currentUrl` but not `navigation`, so an SPA
+  // navigating inside the preview never re-registers or remounts the frame.
   useEffect(() => {
-    if (!currentUrl) {
+    if (!navigation.url) {
       return;
     }
 
     const controller = new AbortController();
 
-    void registerBrowserPreviewTarget(currentUrl, {
+    void registerBrowserPreviewTarget(navigation.url, {
       previewName,
       signal: controller.signal,
     })
       .then((target) => {
         setFrameState({
           frameUrl: target.previewUrl,
-          sourceUrl: currentUrl,
+          sourceUrl: navigation.url,
         });
       })
       .catch((errorValue: unknown) => {
@@ -575,7 +599,7 @@ function BrowserViewport(props: {
       });
 
     return () => controller.abort();
-  }, [currentUrl, previewName]);
+  }, [navigation.id, navigation.url, previewName]);
 
   useEffect(() => {
     const frame = iframeRef.current;
@@ -598,7 +622,7 @@ function BrowserViewport(props: {
       activeFrame.removeEventListener('load', handleLoad);
       activeFrame.removeEventListener('error', handleError);
     };
-  }, [frameUrl, iframeKey, iframeRef]);
+  }, [frameUrl, navigation.id, iframeRef]);
 
   useEffect(() => {
     function handleBridgeMessage(event: MessageEvent) {
@@ -620,7 +644,7 @@ function BrowserViewport(props: {
     <div className="relative min-h-0 w-full flex-1 bg-muted/20">
       {currentUrl && frameUrl ? (
         <iframe
-          key={`${iframeKey}:${frameUrl}`}
+          key={`${navigation.id}:${frameUrl}`}
           ref={iframeRef}
           title="Browser preview"
           src={frameUrl}
@@ -821,6 +845,7 @@ function createPreviewState(defaultUrl: string | undefined): PreviewState {
       history: [],
       historyIndex: -1,
       loading: false,
+      navigation: { id: 0, url: '' },
       sourceDefaultUrl: defaultUrl,
     };
   }
@@ -830,6 +855,7 @@ function createPreviewState(defaultUrl: string | undefined): PreviewState {
     history: [{ url: result.url }],
     historyIndex: 0,
     loading: false,
+    navigation: { id: 0, url: result.url },
     sourceDefaultUrl: defaultUrl,
   };
 }
@@ -840,6 +866,15 @@ function getActivePreviewState(
 ) {
   if (current.sourceDefaultUrl === defaultUrl) {
     return current;
+  }
+
+  // Navigations report through onUrlChange, get persisted as the target's
+  // preview URL, and echo back here as a new defaultUrl. When the echo
+  // matches where the preview already is, adopt it without resetting state —
+  // resetting would remount the iframe mid-navigation and wipe history.
+  const result = validateInitialUrl(defaultUrl);
+  if (result.url && result.url === current.history[current.historyIndex]?.url) {
+    return { ...current, sourceDefaultUrl: defaultUrl };
   }
 
   return createPreviewState(defaultUrl);
@@ -963,14 +998,6 @@ function postPreviewStorageCommand(
 
 function waitForPreviewStorageCommand() {
   return new Promise((resolve) => window.setTimeout(resolve, 120));
-}
-
-function readableFrameURL(frame: HTMLIFrameElement | null) {
-  try {
-    return frame?.contentWindow?.location.href ?? '';
-  } catch {
-    return '';
-  }
 }
 
 function useWebPreview() {

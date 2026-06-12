@@ -273,12 +273,27 @@ Acceptance:
 
 ### B5. History and Navigation
 
-- [ ] Use bridge `location-changed` messages as the source of truth.
-- [ ] Track back/forward state from yyork Browser history entries.
-- [ ] Implement toolbar back/forward against iframe history or Browser history.
-- [ ] Keep address input synchronized with iframe navigation.
-- [ ] Handle SPA navigation without a full iframe reload.
-- [ ] Avoid toolbar flicker during scroll or unrelated DOM events.
+- [x] Use bridge `location-changed` messages as the source of truth.
+- [x] Track back/forward state from yyork Browser history entries.
+- [x] Implement toolbar back/forward against iframe history or Browser history.
+- [x] Keep address input synchronized with iframe navigation.
+- [x] Handle SPA navigation without a full iframe reload.
+- [x] Avoid toolbar flicker during scroll or unrelated DOM events.
+
+Implementation notes (landed):
+
+- The iframe binds to a `navigation {id, url}` value that only changes on
+  user-driven navigation (address bar, back/forward, reload). Bridge
+  `location-changed` messages update history and the address bar but never
+  rebind the iframe, so SPA navigation inside the preview does not reload it.
+- The on-load `contentWindow.location.href` read is gone; the bridge is the
+  only frame-side truth source. (It was cross-origin garbage behind the
+  preview proxy and double-pushed history entries.)
+- A frame-originated change matching the adjacent history entry (in-frame
+  popstate back/forward) moves the index instead of pushing a duplicate.
+- Toolbar back/forward navigates by rebinding the frame to the recorded
+  entry — a reload of that URL, not in-frame history traversal, which a
+  cross-origin parent cannot drive without new bridge commands.
 
 Acceptance:
 
