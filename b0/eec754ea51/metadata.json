@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.7.5",
+  "checkpoint_id": "b0eec754ea51",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "web/src/features/home/components/organisms/canvas-panel.tsx",
+    "web/src/features/home/components/organisms/main-topbar.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/b0/eec754ea51/0/metadata.json",
+      "transcript": "/b0/eec754ea51/0/full.jsonl",
+      "content_hash": "/b0/eec754ea51/0/content_hash.txt",
+      "prompt": "/b0/eec754ea51/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1089585,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 16745088,
+    "output_tokens": 79941,
+    "api_call_count": 125
+  }
+}
