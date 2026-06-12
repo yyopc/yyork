@@ -1,0 +1,25 @@
+{
+  "cli_version": "0.7.5",
+  "checkpoint_id": "c99468e67d91",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/c9/9468e67d91/0/metadata.json",
+      "transcript": "/c9/9468e67d91/0/full.jsonl",
+      "content_hash": "/c9/9468e67d91/0/content_hash.txt",
+      "prompt": "/c9/9468e67d91/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 672654,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 16503040,
+    "output_tokens": 64068,
+    "api_call_count": 119
+  }
+}
