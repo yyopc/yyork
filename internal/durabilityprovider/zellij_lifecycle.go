@@ -342,25 +342,21 @@ func waitForSessionUp(ctx context.Context, run commandRunner, binary, target str
 // writeLaunchLayout renders launchCmd into a temp KDL layout file. Caller
 // owns the file and must remove it.
 //
-// The agent pane is wrapped with zellij's built-in tab-bar and status-bar
-// plugin panes (each one row, borderless) so a yyork session looks like a
-// default zellij session rather than a bare single pane. These bars are not
-// implicit in zellij — a custom layout only shows them if it includes the
-// plugin panes explicitly, which is exactly what the built-in "default"
-// layout does. They render in the yyork theme colors (see internal/zellijconfig).
+// The layout is a single full-screen agent pane and nothing else: zellij's
+// tab-bar and status-bar are not implicit — a custom layout only shows them
+// if it includes the plugin panes explicitly — so omitting them leaves no
+// multiplexer chrome at all. The user must not be able to tell the agent is
+// running inside zellij (see internal/zellijconfig for the matching config).
+// borderless=true keeps the pane frame-free even if the managed config (which
+// also sets pane_frames false) failed to write and zellij fell back to the
+// user's own.
 func writeLaunchLayout(launchCmd []string, cwd string) (string, error) {
 	quoted := shellQuoteArgs(launchCmd)
 	bashCmd := quoted + `; exec "${SHELL:-/bin/bash}" -i`
 
 	const layoutTemplate = `layout {
-    pane size=1 borderless=true {
-        plugin location="tab-bar"
-    }
-    pane command="bash" cwd=%s {
+    pane command="bash" cwd=%s borderless=true {
         args "-c" %s
-    }
-    pane size=1 borderless=true {
-        plugin location="status-bar"
     }
 }
 `

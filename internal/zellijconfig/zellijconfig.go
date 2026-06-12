@@ -1,18 +1,25 @@
 // Package zellijconfig manages the zellij config file yyork hands to the
 // zellij sessions it launches.
 //
-// The file lives at ~/.yyork/zellij/config.kdl and selects a "yyork" color
-// theme. Everything else falls back to zellij's built-in defaults — the layout
-// and keybindings are unchanged. The point is to color zellij's chrome (tab bar,
-// status bar, pane frame borders) to match yyork while preserving Zellij's
-// native segmented UI.
+// The file lives at ~/.yyork/zellij/config.kdl. Its job is to make zellij
+// invisible: a yyork session must look like a bare terminal running the agent
+// CLI, not like a multiplexer. To that end the config clears every default
+// keybinding (all keystrokes pass through to the agent; nothing can switch
+// zellij modes, detach, or kill the session from the keyboard), turns off pane
+// frames, and suppresses the startup-tips / release-notes floating panes and
+// mouse hover effects. The launch layout (internal/durabilityprovider)
+// completes the picture by omitting the tab-bar and status-bar plugin panes.
+// Session control stays fully available to yyork itself via `zellij action`
+// CLI commands, which do not depend on keybindings.
 //
-// The theme is defined in terms of ANSI palette indices (0-15) rather than RGB
-// values. yyork's web terminal remaps those indices to its own light/dark
-// palette (see web/src/styles/app.css, --terminal-color-*), so zellij's chrome
-// follows the active yyork theme automatically, from a single source of truth.
+// The "yyork" theme covers whatever little zellij still draws (the brief
+// loading screen, search prompts). It is defined in terms of ANSI palette
+// indices (0-15) rather than RGB values. yyork's web terminal remaps those
+// indices to its own light/dark palette (see web/src/styles/app.css,
+// --terminal-color-*), so any residual zellij-drawn UI follows the active
+// yyork theme automatically, from a single source of truth.
 //
-// zellij applies a theme from the *attaching* client's config and has no
+// zellij applies its config from the *attaching* client and has no
 // "merge onto the user's config" flag (--config replaces the config file,
 // merged only over zellij's defaults). So yyork passes --config pointing at
 // this file on both the create and the attach invocations.
@@ -26,14 +33,32 @@ import (
 
 // configKDL is the full contents of the managed config file. Bumping this
 // string causes Ensure to rewrite existing user files on the next call.
-const configKDL = `// yyork zellij theme — managed by yyork, do not edit.
+const configKDL = `// yyork zellij config — managed by yyork, do not edit.
 //
+// yyork sessions must be indistinguishable from a bare terminal running the
+// agent CLI. Everything zellij-shaped is switched off here; yyork drives the
+// session through "zellij action" CLI commands, which need no keybindings.
+
+// Pass every keystroke through to the agent. Also removes the footguns:
+// Ctrl+Q (kill session), Ctrl+O d (detach), and all mode switching.
+keybinds clear-defaults=true {
+}
+
+// No frame or title around the lone agent pane.
+pane_frames false
+
+// Zellij 0.42+ opens floating startup-tips / release-notes panes that would
+// instantly give the multiplexer away.
+show_startup_tips false
+show_release_notes false
+
+// No hover highlights or alt-click pane grouping (zellij 0.43+).
+advanced_mouse_actions false
+
 // Colors are ANSI palette indices (0-15), not RGB. yyork's web terminal
 // remaps 0-15 to its own light/dark palette (web/src/styles/app.css,
-// --terminal-color-*), so zellij's chrome follows the active yyork theme.
-// Everything else falls back to zellij defaults. simplified_ui is pinned false
-// so Zellij's native segmented tab/status UI is preserved even when yyork is
-// launched from a sparse environment.
+// --terminal-color-*), so anything zellij still draws (loading screen,
+// search prompts) follows the active yyork theme.
 themes {
     yyork {
         fg 15
@@ -51,8 +76,6 @@ themes {
 }
 
 theme "yyork"
-
-simplified_ui false
 `
 
 // Path returns the path to yyork's managed zellij config file
