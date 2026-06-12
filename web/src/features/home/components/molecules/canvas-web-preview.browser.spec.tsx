@@ -288,6 +288,131 @@ test('toolbar back and forward rebind the frame to the recorded entry', async ()
   });
 });
 
+// A cross-origin preview document that behaves like the injected bridge's
+// storage handler: it answers yyork-browser clear commands with the given
+// ack type. data: URLs get an opaque origin, so the parent cannot clear
+// storage directly and must go through the bridge protocol.
+function bridgeEchoPreviewUrl(
+  ackType: 'yyork:storage-cleared' | 'yyork:storage-clear-failed',
+  error?: string
+) {
+  const html = `<script>
+    window.addEventListener('message', (event) => {
+      const data = event.data;
+      if (!data || data.source !== 'yyork-browser') return;
+      const scope =
+        data.type === 'yyork:clear-cache'
+          ? 'cache'
+          : data.type === 'yyork:clear-cookies'
+            ? 'cookies'
+            : 'all';
+      parent.postMessage(
+        {
+          source: 'yyork-preview-bridge',
+          version: 1,
+          type: ${JSON.stringify(ackType)},
+          scope,
+          error: ${JSON.stringify(error ?? null)} ?? undefined,
+          url: 'http://localhost:3000/app',
+        },
+        '*'
+      );
+    });
+  </script>ready`;
+  return `data:text/html,${encodeURIComponent(html)}`;
+}
+
+function bridgePreviewFetchMock(previewUrl: string) {
+  return vi.fn(async (input: RequestInfo | URL) => {
+    if (String(input) === '/api/browser-preview/targets') {
+      return new Response(
+        JSON.stringify({ previewUrl, targetUrl: 'http://localhost:3000/app' })
+      );
+    }
+    return new Response('unexpected request', { status: 500 });
+  });
+}
+
+test('hard reload over a bridge preview waits for the ack and reloads once', async () => {
+  const user = setupUser();
+  const fetchMock = bridgePreviewFetchMock(
+    bridgeEchoPreviewUrl('yyork:storage-cleared')
+  );
+  vi.stubGlobal('fetch', fetchMock);
+
+  render(<CanvasWebPreview defaultUrl="http://localhost:3000/app" />);
+
+  const iframeLocator = page.getByTitle('Browser preview');
+  await expect.element(iframeLocator).toBeVisible();
+  const iframe = iframeLocator.element() as HTMLIFrameElement;
+
+  await user.click(page.getByRole('button', { name: 'Browser options' }));
+  await user.click(page.getByRole('menuitem', { name: 'Hard reload' }));
+
+  // The bridge acked, the frame rebinds exactly once: one extra target
+  // registration and a single remount.
+  await vi.waitFor(() => {
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  await vi.waitFor(() => {
+    expect(iframeLocator.element()).not.toBe(iframe);
+  });
+  expect(page.getByText(/Preview storage was not cleared/).query()).toBeNull();
+});
+
+test('a failed bridge storage clear surfaces a toast and still reloads', async () => {
+  const user = setupUser();
+  const fetchMock = bridgePreviewFetchMock(
+    bridgeEchoPreviewUrl('yyork:storage-clear-failed', 'quota exceeded')
+  );
+  vi.stubGlobal('fetch', fetchMock);
+
+  render(<CanvasWebPreview defaultUrl="http://localhost:3000/app" />);
+
+  const iframeLocator = page.getByTitle('Browser preview');
+  await expect.element(iframeLocator).toBeVisible();
+
+  await user.click(page.getByRole('button', { name: 'Browser options' }));
+  await user.click(page.getByRole('menuitem', { name: 'Clear cache' }));
+
+  await expect
+    .element(page.getByText('Preview storage was not cleared: quota exceeded'))
+    .toBeVisible();
+  // The reload still happens, exactly once.
+  await vi.waitFor(() => {
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+test('hard reload clears same-origin frame storage directly', async () => {
+  const user = setupUser();
+  const fetchMock = previewTargetsFetchMock();
+  vi.stubGlobal('fetch', fetchMock);
+
+  render(<CanvasWebPreview defaultUrl="http://localhost:3000/app" />);
+
+  const iframeLocator = page.getByTitle('Browser preview');
+  await expect.element(iframeLocator).toBeVisible();
+  const iframe = iframeLocator.element() as HTMLIFrameElement;
+
+  // about:blank inherits the parent origin, so this is the dogfood
+  // same-origin path: storage is shared with the test page.
+  iframe.contentWindow?.localStorage.setItem('b6-probe', '1');
+  if (iframe.contentWindow) {
+    iframe.contentWindow.document.cookie = 'b6cookie=1; path=/';
+  }
+
+  await user.click(page.getByRole('button', { name: 'Browser options' }));
+  await user.click(page.getByRole('menuitem', { name: 'Hard reload' }));
+
+  await vi.waitFor(() => {
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  expect(window.localStorage.getItem('b6-probe')).toBeNull();
+  expect(document.cookie).not.toContain('b6cookie=1');
+  expect(page.getByText(/Preview storage was not cleared/).query()).toBeNull();
+});
+
 test('a frame-originated return to the previous entry moves the index back', async () => {
   const fetchMock = previewTargetsFetchMock();
   vi.stubGlobal('fetch', fetchMock);

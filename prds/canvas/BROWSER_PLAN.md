@@ -306,12 +306,25 @@ Acceptance:
 
 ### B6. Reload, Hard Reload, Cache, and Cookies
 
-- [ ] Keep one normal reload button in the address bar.
-- [ ] Keep hard reload in the 3-dot menu.
-- [ ] Send storage-clearing commands through the bridge when proxied.
-- [ ] Fall back to same-origin direct clearing only for dogfood iframe access.
-- [ ] Show a small failure toast when storage cannot be cleared.
-- [ ] Confirm clear-cache and clear-cookies do not create duplicate reloads.
+- [x] Keep one normal reload button in the address bar.
+- [x] Keep hard reload in the 3-dot menu.
+- [x] Send storage-clearing commands through the bridge when proxied.
+- [x] Fall back to same-origin direct clearing only for dogfood iframe access.
+- [x] Show a small failure toast when storage cannot be cleared.
+- [x] Confirm clear-cache and clear-cookies do not create duplicate reloads.
+
+Implementation notes (landed):
+
+- Clear commands resolve before the single frame rebind: same-origin frames
+  are cleared directly; proxied previews go through the bridge and must
+  acknowledge with storage-cleared / storage-clear-failed (2s timeout).
+  The old blind 120ms wait could remount the frame mid-clear.
+- Failures (bridge error or no ack) surface as one toast; the reload still
+  proceeds. The viewport no longer routes clear failures into the inline
+  error banner.
+- Dogfooded on https://yyork.localhost: hard reload cleared localStorage +
+  cookies through the real bridge, and clear-cookies removed cookies while
+  preserving localStorage (scope check), one reload each.
 
 Acceptance:
 

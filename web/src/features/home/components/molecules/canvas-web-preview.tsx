@@ -48,6 +48,7 @@ import {
   type BrowserPreviewAgentationMessage,
   type BrowserPreviewAnnotation,
   type BrowserPreviewMessage,
+  isBrowserPreviewBridgeMessage,
   isBrowserPreviewMessage,
   registerBrowserPreviewTarget,
   validatePreviewUrlInput,
@@ -222,8 +223,20 @@ export function CanvasWebPreview(props: {
       return;
     }
     if (hard) {
-      void clearCurrentFrameStorage(iframeRef.current, storageScope).finally(
-        rebindFrame
+      // Clearing settles (ack, direct completion, or timeout) before the
+      // single rebind, so the remount cannot kill storage work mid-flight
+      // and clear actions never reload twice.
+      void clearCurrentFrameStorage(iframeRef.current, storageScope).then(
+        (result) => {
+          if (!result.ok) {
+            toast.error(
+              result.error
+                ? `Preview storage was not cleared: ${result.error}`
+                : 'Preview storage was not cleared.'
+            );
+          }
+          rebindFrame();
+        }
       );
       return;
     }
@@ -559,9 +572,8 @@ function BrowserViewport(props: {
         if (message.type === 'yyork:location-changed' && message.url) {
           recordFrameNavigation(message.url);
         }
-        if (message.type === 'yyork:storage-clear-failed') {
-          setError(message.error ?? 'Preview storage could not be cleared.');
-        }
+        // Storage-clear acks are consumed by clearCurrentFrameStorage, which
+        // owns the pending clear and surfaces failures as a toast.
         return;
       }
 
@@ -945,17 +957,49 @@ function toAnnotationRequestPayload(
   };
 }
 
+type StorageClearScope = 'cache' | 'cookies' | 'all';
+
+type StorageClearResult = {
+  error?: string;
+  ok: boolean;
+};
+
+// How long a bridge-enabled preview gets to acknowledge a storage-clear
+// command before the clear is reported as failed and the reload proceeds.
+const storageClearAckTimeoutMs = 2000;
+
 async function clearCurrentFrameStorage(
   frame: HTMLIFrameElement | null,
-  scope: 'cache' | 'cookies' | 'all' = 'all'
-) {
-  postPreviewStorageCommand(frame, scope);
+  scope: StorageClearScope = 'all'
+): Promise<StorageClearResult> {
+  const win = frame?.contentWindow;
+  if (!win) {
+    return { error: 'The preview frame is not available.', ok: false };
+  }
+
+  // Same-origin frames (dogfood iframe access) are cleared directly.
+  // Everything else is a proxied preview: the injected bridge does the
+  // clearing inside the preview origin and must acknowledge it.
+  if (canAccessFrameStorage(frame)) {
+    return clearFrameStorageDirectly(win, scope);
+  }
+
+  return clearFrameStorageViaBridge(frame, win, scope);
+}
+
+function canAccessFrameStorage(frame: HTMLIFrameElement | null) {
   try {
-    const win = frame?.contentWindow;
-    if (!win) {
-      await waitForPreviewStorageCommand();
-      return;
-    }
+    return Boolean(frame?.contentWindow?.document);
+  } catch {
+    return false;
+  }
+}
+
+async function clearFrameStorageDirectly(
+  win: Window,
+  scope: StorageClearScope
+): Promise<StorageClearResult> {
+  try {
     if (scope === 'cache' || scope === 'all') {
       const cacheKeys = await win.caches?.keys();
       await Promise.all(cacheKeys?.map((key) => win.caches.delete(key)) ?? []);
@@ -970,16 +1014,59 @@ async function clearCurrentFrameStorage(
         }
       }
     }
-  } catch {
-    // Cross-origin iframes can be live previews, but storage control needs the
-    // injected bridge to run inside the preview origin.
+    return { ok: true };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Storage access failed.',
+      ok: false,
+    };
   }
-  await waitForPreviewStorageCommand();
+}
+
+function clearFrameStorageViaBridge(
+  frame: HTMLIFrameElement,
+  win: Window,
+  scope: StorageClearScope
+): Promise<StorageClearResult> {
+  return new Promise((resolve) => {
+    let timer = 0;
+
+    function settle(result: StorageClearResult) {
+      window.clearTimeout(timer);
+      window.removeEventListener('message', handleAck);
+      resolve(result);
+    }
+
+    function handleAck(event: MessageEvent) {
+      if (event.source !== win || !isBrowserPreviewBridgeMessage(event.data)) {
+        return;
+      }
+      const message = event.data;
+      if (message.scope !== scope) {
+        return;
+      }
+      if (message.type === 'yyork:storage-cleared') {
+        settle({ ok: true });
+      }
+      if (message.type === 'yyork:storage-clear-failed') {
+        settle({ error: message.error, ok: false });
+      }
+    }
+
+    window.addEventListener('message', handleAck);
+    timer = window.setTimeout(() => {
+      settle({
+        error: 'The preview did not confirm storage clearing.',
+        ok: false,
+      });
+    }, storageClearAckTimeoutMs);
+    postPreviewStorageCommand(frame, scope);
+  });
 }
 
 function postPreviewStorageCommand(
   frame: HTMLIFrameElement | null,
-  scope: 'cache' | 'cookies' | 'all'
+  scope: StorageClearScope
 ) {
   const messageType =
     scope === 'cache'
@@ -994,10 +1081,6 @@ function postPreviewStorageCommand(
     },
     '*'
   );
-}
-
-function waitForPreviewStorageCommand() {
-  return new Promise((resolve) => window.setTimeout(resolve, 120));
 }
 
 function useWebPreview() {
