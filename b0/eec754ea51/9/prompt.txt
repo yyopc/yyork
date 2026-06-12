@@ -1,0 +1,21 @@
+# Context from my IDE setup:
+
+## Active file: package.json
+
+## Open tabs:
+- package.json: package.json
+- portless.json: portless.json
+- dashboard.go: dashboard.go
+- .gitkeep: cmd/yyork/dashboard/.gitkeep
+- .gitignore: .gitignore
+
+## My request for Codex:
+how does codex brings iab into view whenever user/situation demands it
+
+---
+
+don't check yyork side. there's nothing over there
+
+---
+
+pull out the interface for agent.browsers.get real quick in the side panel
