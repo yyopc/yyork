@@ -26,15 +26,15 @@ yyork is a local dashboard for supervising multiple AI coding agents at once.
 ## Install
 
 ```bash
-nix profile add github:yyopc/yyork
-# or
 npm i -g @yyopc/yyork
-# or
-go install github.com/yyopc/yyork@latest
 ```
 
-Requirements: Go 1.25+, Node.js 22+ / pnpm for dashboard development, Zellij,
-git, and an agent CLI on your `PATH`.
+The npm package ships the built dashboard and compiles the local `yyork` binary
+during install. It also installs the bundled `yyork-cli` agent skill into
+`~/.agents/skills/yyork-cli`.
+
+Requirements: Go 1.25+, Node.js 24+, Zellij, git, and an agent CLI on your
+`PATH`.
 
 ## Basic flow
 
@@ -68,5 +68,17 @@ pnpm test
 
 The Nix dev shell supplies the repo-local Go, Node.js, pnpm, and helper tooling.
 Inside that shell, `yyork` is a development shortcut for `pnpm dev`.
+
+## Release
+
+```bash
+nix develop
+pnpm release:check
+pnpm release:publish
+```
+
+`release:check` builds the dashboard, packs the npm tarball, installs it into an
+isolated temp prefix, and runs the installed `yyork` binary. `release:publish`
+publishes `@yyopc/yyork` publicly from `main`; run `npm login` first.
 
 MIT © [yyopc](https://github.com/yyopc)
