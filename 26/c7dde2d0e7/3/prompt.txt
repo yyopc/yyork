@@ -1,0 +1,5 @@
+$skill-creator create yyork skill for orchestrator agent to know how to use yyork's cli properly.
+
+---
+
+we are gonna ship this as separate skill for the agents and also a user installation should automatically install this cli skill globally as .agents skills
