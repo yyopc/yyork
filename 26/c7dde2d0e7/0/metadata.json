@@ -1,0 +1,171 @@
+{
+  "cli_version": "0.7.5",
+  "checkpoint_id": "26c7dde2d0e7",
+  "session_id": "019ec772-6667-7851-91e0-dadd6e8ef05d",
+  "strategy": "manual-commit",
+  "created_at": "2026-06-15T22:37:00.141834Z",
+  "branch": "main",
+  "checkpoints_count": 6,
+  "files_touched": [
+    "README.md"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "3921e67ffdba",
+  "token_usage": {
+    "input_tokens": 1273771,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 27066880,
+    "output_tokens": 92954,
+    "api_call_count": 218
+  },
+  "session_metrics": {
+    "turn_count": 6
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-06-15T22:37:00.063884Z",
+    "agent_lines": 18,
+    "agent_removed": 6,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 18,
+    "total_lines_changed": 24,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 1847,
+      "user_lines_removed": 117,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "api/generate-workspace-contract.go": 7,
+        "flake.nix": 28,
+        "internal/app/app.go": 14,
+        "internal/cli/commands.go": 63,
+        "internal/cli/dev.go": 27,
+        "internal/cli/dev_test.go": 17,
+        "internal/server/browser_preview.go": 55,
+        "internal/server/browser_preview_test.go": 155,
+        "internal/server/projects.go": 198,
+        "internal/server/projects_test.go": 312,
+        "internal/server/server.go": 65,
+        "internal/session/engine.go": 80,
+        "internal/session/engine_test.go": 92,
+        "internal/session/prompts.go": 8,
+        "internal/session/prompts/orchestrator.md": 2,
+        "internal/session/prompts/worker.md": 2,
+        "internal/session/prompts_test.go": 8,
+        "internal/session/session.go": 25,
+        "internal/session/workspace_source.go": 39,
+        "internal/session/workspace_source_test.go": 63,
+        "internal/store/migrations/0003_create_project_settings.sql": 9,
+        "internal/store/project_settings.go": 110,
+        "internal/store/store.go": 7,
+        "internal/store/store_test.go": 49,
+        "package.json": 1,
+        "pnpm-lock.yaml": 6,
+        "web/package.json": 2,
+        "web/src/features/home/components/organisms/canvas-panel.tsx": 21,
+        "web/src/features/home/components/organisms/main-topbar.tsx": 67,
+        "web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx": 2,
+        "web/src/features/home/data/workspace.ts": 97,
+        "web/src/features/home/demo/session-workspace.fixtures.ts": 11,
+        "web/src/features/home/domain/session-workspace-contract.generated.ts": 5,
+        "web/src/features/home/domain/session-workspace.ts": 4,
+        "web/src/features/home/domain/session-workspace.unit.spec.ts": 11,
+        "web/src/features/home/pages/workspace-context.ts": 5,
+        "web/src/features/home/pages/workspace-layout.tsx": 104,
+        "web/src/providers.tsx": 1,
+        "web/src/styles/app.css": 3,
+        "web/test-codeview-theme.mjs": 72
+      },
+      "user_removed_per_file": {
+        "flake.nix": 1,
+        "internal/app/app.go": 4,
+        "internal/cli/commands.go": 3,
+        "internal/cli/dev.go": 11,
+        "internal/server/browser_preview.go": 3,
+        "internal/session/engine.go": 17,
+        "internal/session/engine_test.go": 6,
+        "internal/session/prompts.go": 6,
+        "internal/session/prompts/worker.md": 2,
+        "internal/session/prompts_test.go": 6,
+        "internal/session/session.go": 3,
+        "internal/session/workspace_source.go": 6,
+        "package.json": 1,
+        "pnpm-lock.yaml": 6,
+        "web/package.json": 2,
+        "web/src/features/home/components/organisms/canvas-panel.tsx": 17,
+        "web/src/features/home/components/organisms/main-topbar.tsx": 2,
+        "web/src/features/home/components/organisms/project-orchestrator-sidebar.tsx": 2,
+        "web/src/features/home/demo/session-workspace.fixtures.ts": 3,
+        "web/src/features/home/domain/session-workspace.unit.spec.ts": 2,
+        "web/src/features/home/pages/workspace-layout.tsx": 10,
+        "web/src/providers.tsx": 1,
+        "web/src/styles/app.css": 3
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1942,
+      "agent_lines_removed": 124
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1942,
+      "agent_lines_removed": 124
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 101,
+      "user_lines_removed": 8,
+      "agent_lines_added": 2171,
+      "agent_lines_removed": 142,
+      "user_added_per_file": {
+        "web/src/features/home/components/molecules/kanban-card.tsx": 16,
+        "web/src/features/home/domain/kanban-card-model.ts": 84,
+        "web/src/features/home/domain/session-workspace.ts": 1
+      },
+      "user_removed_per_file": {
+        "web/src/features/home/components/molecules/kanban-card.tsx": 5,
+        "web/src/features/home/domain/kanban-card-model.ts": 3
+      }
+    },
+    {
+      "checkpoint_number": 5,
+      "user_lines_added": 12,
+      "user_lines_removed": 9,
+      "agent_lines_added": 2465,
+      "agent_lines_removed": 156,
+      "user_added_per_file": {
+        "internal/cli/commands.go": 1,
+        "internal/cli/hooks.go": 4,
+        "web/src/features/home/components/molecules/kanban-card.tsx": 3,
+        "web/src/features/home/demo/session-workspace.fixtures.ts": 2,
+        "web/src/features/home/domain/session-workspace.ts": 2
+      },
+      "user_removed_per_file": {
+        "internal/cli/commands.go": 1,
+        "internal/cli/hooks.go": 4,
+        "web/src/features/home/components/molecules/kanban-card.tsx": 1,
+        "web/src/features/home/demo/session-workspace.fixtures.ts": 1,
+        "web/src/features/home/domain/session-workspace.ts": 2
+      }
+    },
+    {
+      "checkpoint_number": 6,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 2660,
+      "agent_lines_removed": 175
+    }
+  ]
+}

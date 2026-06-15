@@ -1,0 +1,32 @@
+1. Mk "work locally" as the default value for the select menu.
+2. use the "split" icon rotated 90deg anti-clockwise and "laptop" icon for "new worktree" and "work locally" select options
+
+---
+
+what's the icon size used here?
+
+---
+
+lets do 16px for closed select trigger's workspace icon as well
+
+---
+
+# Files mentioned by the user:
+
+## codex-clipboard-0f7e1852-9ad4-4d70-866d-ccd60e754026.png: /var/folders/3k/f45nj0jn3b11jfvyvt0nxj4w0000gn/T/codex-clipboard-0f7e1852-9ad4-4d70-866d-ccd60e754026.png
+
+## My request for Codex:
+lets also increase the width of the select component so that the users gets to see the complete option as well
+
+---
+
+why it couldn't be auto? like just hug the child component.
+
+---
+
+# Files mentioned by the user:
+
+## codex-clipboard-c417dec3-b858-4a1a-b5bb-17ef953843cf.png: /var/folders/3k/f45nj0jn3b11jfvyvt0nxj4w0000gn/T/codex-clipboard-c417dec3-b858-4a1a-b5bb-17ef953843cf.png
+
+## My request for Codex:
+alright lets do it because I hate this extra space left in the right side of the select component
