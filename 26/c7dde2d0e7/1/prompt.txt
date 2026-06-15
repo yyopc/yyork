@@ -1,0 +1,17 @@
+I want to start releasing yyork through the said distribution cmd. I need you to take this task up next because one of my friends wanted to start using yyork as an end user.
+
+---
+
+so how do I cut a new release?
+
+---
+
+what does `pnpm release:check` cmd does?
+
+---
+
+and what does pnpm release:publish does?
+
+---
+
+alright do we really need [check-release.mjs](bin/check-release.mjs) ?
