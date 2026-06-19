@@ -19,7 +19,7 @@ const toasterStyle = {
 const toastStyle = {
   borderRadius: toastBorderRadius,
   boxShadow: 'none',
-  fontFamily: 'var(--font-mono)',
+  fontFamily: 'var(--font-sans)',
 } satisfies CSSProperties;
 
 const toastButtonStyle = {
@@ -33,7 +33,7 @@ export const Sonner = ({ ...props }: ToasterProps) => {
   return (
     <Toaster
       theme={sonnerTheme}
-      className="toaster group mt-safe-top font-mono"
+      className="toaster group mt-safe-top font-sans"
       closeButton
       position="top-center"
       style={toasterStyle}

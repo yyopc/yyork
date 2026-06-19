@@ -153,7 +153,7 @@ export function XTermTerminal(props: XTermTerminalProps) {
         cursorBlink: callbacksRef.current.cursorBlink ?? false,
         // Box glyphs are drawn by the renderer, so the font only styles text.
         fontFamily:
-          getComputedStyle(host).getPropertyValue('--font-mono').trim() ||
+          getComputedStyle(host).getPropertyValue('--font-terminal').trim() ||
           'ui-monospace, monospace',
         fontSize: 12,
         lineHeight: 1.35,

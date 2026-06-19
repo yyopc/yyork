@@ -5,9 +5,12 @@
 
 @theme {
   --font-sans:
-    'Inter Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
+    'Geist Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
     'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  --font-terminal:
     'JetBrainsMono Nerd Font Mono', 'JetBrainsMono Nerd Font',
     'FiraCode Nerd Font Mono', 'FiraCode Nerd Font', 'MesloLGS NF',
     'CaskaydiaCove Nerd Font Mono', 'CaskaydiaCove Nerd Font',
@@ -324,7 +327,7 @@
   align-items: center;
   gap: 0.5rem;
   border-bottom: 1px solid var(--border);
-  padding: 1.5rem;
+  padding-inline: 1rem;
   color: var(--foreground);
   font-size: 0.75rem;
   font-weight: 500;
@@ -332,14 +335,14 @@
 }
 
 .yyork-file-preview-header--with-action {
-  padding-right: 0;
+  padding-right: 0.5rem;
 }
 
-.yyork-file-preview-header-action {
-  position: absolute;
-  top: var(--yyork-files-toggle-top);
-  right: var(--yyork-files-toggle-right);
+.yyork-file-preview-header-controls {
   display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .yyork-file-preview-body {
@@ -370,10 +373,223 @@
   --diffs-line-height: 1.45;
 }
 
+.yyork-markdown-scroll {
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  flex: 1;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  background: var(--background);
+}
+
+.yyork-markdown {
+  box-sizing: border-box;
+  max-width: 48rem;
+  margin-inline: auto;
+  padding: 1.25rem 1.5rem 3rem;
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.yyork-markdown > :first-child {
+  margin-top: 0;
+}
+
+.yyork-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.yyork-markdown h1,
+.yyork-markdown h2,
+.yyork-markdown h3,
+.yyork-markdown h4,
+.yyork-markdown h5,
+.yyork-markdown h6 {
+  margin-top: 1.6em;
+  margin-bottom: 0.6em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.yyork-markdown h1 {
+  font-size: 1.5rem;
+}
+
+.yyork-markdown h2 {
+  font-size: 1.25rem;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border);
+}
+
+.yyork-markdown h3 {
+  font-size: 1.0625rem;
+}
+
+.yyork-markdown h4 {
+  font-size: 0.9375rem;
+}
+
+.yyork-markdown h5,
+.yyork-markdown h6 {
+  font-size: 0.8125rem;
+}
+
+.yyork-markdown h6 {
+  color: var(--muted-foreground);
+}
+
+.yyork-markdown p,
+.yyork-markdown ul,
+.yyork-markdown ol,
+.yyork-markdown blockquote,
+.yyork-markdown table {
+  margin-top: 0;
+  margin-bottom: 1em;
+}
+
+.yyork-markdown ul,
+.yyork-markdown ol {
+  padding-left: 1.5em;
+}
+
+.yyork-markdown ul {
+  list-style: disc;
+}
+
+.yyork-markdown ol {
+  list-style: decimal;
+}
+
+.yyork-markdown li {
+  margin-bottom: 0.25em;
+}
+
+.yyork-markdown li > ul,
+.yyork-markdown li > ol {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+}
+
+.yyork-markdown li::marker {
+  color: var(--muted-foreground);
+}
+
+.yyork-markdown a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.yyork-markdown a:hover {
+  text-decoration: none;
+}
+
+.yyork-markdown strong {
+  font-weight: 600;
+}
+
+.yyork-markdown code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--muted);
+  padding: 0.15em 0.35em;
+  border-radius: 0.25rem;
+}
+
+/* Fenced code blocks are highlighted with Pierre's shared Shiki highlighter
+   (same instance + pierre-dark/pierre-light themes as the file Code view), so
+   token colors stay identical across the Preview and Code views. Shiki emits a
+   `<pre class="shiki">` with inline-styled spans; the plain `--plain` variant is
+   the pre-highlight fallback. */
+.yyork-markdown-codeblock {
+  margin: 0 0 1em;
+}
+
+.yyork-markdown-codeblock .shiki,
+.yyork-markdown-codeblock--plain {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  tab-size: 2;
+}
+
+.yyork-markdown-codeblock--plain {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.yyork-markdown-codeblock .shiki code,
+.yyork-markdown-codeblock--plain code {
+  font-family: inherit;
+  font-size: inherit;
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.yyork-markdown blockquote {
+  padding-left: 1em;
+  border-left: 3px solid var(--border);
+  color: var(--muted-foreground);
+}
+
+.yyork-markdown hr {
+  margin: 1.5em 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+.yyork-markdown table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+
+.yyork-markdown th,
+.yyork-markdown td {
+  padding: 0.4em 0.75em;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+
+.yyork-markdown th {
+  background: var(--muted);
+  font-weight: 600;
+}
+
+.yyork-markdown img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.375rem;
+}
+
+.yyork-markdown input[type='checkbox'] {
+  margin-right: 0.4em;
+  vertical-align: middle;
+}
+
+.yyork-markdown ul:has(> li > input[type='checkbox']) {
+  list-style: none;
+  padding-left: 0.25em;
+}
+
 .yyork-file-tree-shell {
   box-sizing: border-box;
   gap: 0.375rem;
-  padding: 0.75rem;
+  padding: 0.25rem 0.75rem 0.75rem;
   background: var(--background);
 }
 

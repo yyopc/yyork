@@ -12,7 +12,7 @@ export function OrchestratorWorkspaceTemplate(props: {
   topbar: ReactNode;
 }) {
   return (
-    <div className="h-dvh overflow-hidden bg-background font-mono text-foreground">
+    <div className="h-dvh overflow-hidden bg-background font-sans text-foreground">
       <SidebarProvider
         defaultOpen={false}
         open={props.sidebarOpen}
