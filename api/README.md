@@ -8,5 +8,17 @@ Run this after changing exported workspace/session JSON fields:
 pnpm api:generate
 ```
 
-That command regenerates the web Zod/TypeScript contract at
-`web/src/features/home/domain/session-workspace-contract.generated.ts`.
+That command is a two-step pipeline:
+
+1. `pnpm api:generate:openapi` writes `api/openapi.generated.json` from the Go
+   structs.
+2. `pnpm api:generate:zod` runs `openapi-zod-client` with
+   `api/session-workspace-contract.hbs` to regenerate
+   `web/src/features/home/domain/session-workspace-contract.generated.ts`.
+
+If `openapi-zod-client` is not installed yet, install it as a dev dependency
+before running the full pipeline:
+
+```sh
+pnpm add -D openapi-zod-client
+```

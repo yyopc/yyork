@@ -1,0 +1,36 @@
+import { z } from 'zod';
+
+{{#each schemas}}
+const {{@key}} = {{{this}}};
+{{/each}}
+
+export const schemas = {
+{{#each schemas}}
+  {{@key}},
+{{/each}}
+};
+
+export const workerSessionStateSchema = WorkerSessionState;
+export const workerSessionStates = workerSessionStateSchema.options;
+export type WorkerSessionState = z.infer<typeof workerSessionStateSchema>;
+
+export const terminalSessionKindSchema = TerminalSessionKind;
+export type TerminalSessionKind = z.infer<typeof terminalSessionKindSchema>;
+
+export const workerWorkspaceModeSchema = WorkerWorkspaceMode;
+export const workerWorkspaceModes = workerWorkspaceModeSchema.options;
+export type WorkerWorkspaceMode = z.infer<typeof workerWorkspaceModeSchema>;
+
+export const projectOrchestratorSchema = Project;
+export type ProjectOrchestrator = z.infer<typeof projectOrchestratorSchema>;
+
+export const workerSessionSchema = Session.passthrough();
+export type WorkerSession = z.infer<typeof workerSessionSchema>;
+export type WorkerAgent = WorkerSession['agent'];
+
+export const sessionWorkspaceSchema = Workspace.omit({ $schema: true }).extend({
+  orchestrators: z.array(workerSessionSchema).optional(),
+  projects: z.array(projectOrchestratorSchema),
+  sessions: z.array(workerSessionSchema),
+});
+export type SessionWorkspace = z.infer<typeof sessionWorkspaceSchema>;
