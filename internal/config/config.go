@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/viper"
+	"github.com/yyopc/yyork/internal/paths"
 )
 
 const (
-	configDirName  = ".yyork"
 	configFileName = "config"
 	configFileType = "yaml"
 )
@@ -34,7 +34,7 @@ func Load() (Config, error) {
 	v := viper.New()
 	v.SetConfigName(configFileName)
 	v.SetConfigType(configFileType)
-	v.AddConfigPath(filepath.Join(homeDir, configDirName))
+	v.AddConfigPath(filepath.Join(homeDir, paths.DataDirName))
 
 	return load(v)
 }

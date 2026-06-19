@@ -16,6 +16,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/yyopc/yyork/internal/paths"
 )
 
 // ErrNotAGitRepo is returned by BaseRef and Create when the supplied
@@ -60,7 +62,7 @@ func DefaultBase() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve home directory: %w", err)
 	}
-	return filepath.Join(home, ".yyork", "worktrees"), nil
+	return filepath.Join(home, paths.DataDirName, "worktrees"), nil
 }
 
 // New returns the default Module backed by the `git` binary on PATH.

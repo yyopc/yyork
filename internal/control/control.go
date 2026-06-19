@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/yyopc/yyork/internal/events"
+	"github.com/yyopc/yyork/internal/paths"
 )
 
 const (
@@ -63,7 +64,7 @@ func Path() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve home directory: %w", err)
 	}
-	return filepath.Join(home, ".yyork", runfileName), nil
+	return filepath.Join(home, paths.DataDirName, runfileName), nil
 }
 
 // NewToken returns a fresh 256-bit hex secret for the runfile.
