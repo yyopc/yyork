@@ -11,7 +11,9 @@ import type {
 } from '@/features/home/data/workspace-preferences';
 import type {
   KanbanColumnData,
+  ProjectOrchestrator,
   WorkerSession,
+  WorkerWorkspaceMode,
 } from '@/features/home/domain/session-workspace';
 
 export interface WorkspaceContextValue {
@@ -21,6 +23,7 @@ export interface WorkspaceContextValue {
   canvasPreviewUrl?: string;
   canvasReviewPreferences?: HomeWorkspaceCanvasReviewPreferences;
   canvasResizing: boolean;
+  canvasSelectedFilePath?: string;
   canvasTab: CanvasTab;
   canvasTarget: CanvasTargetSummary;
   kanbanColumns: KanbanColumnData[];
@@ -31,12 +34,16 @@ export interface WorkspaceContextValue {
     preferences: HomeWorkspaceCanvasReviewPreferences
   ) => void;
   onCanvasResizingChange: (resizing: boolean) => void;
+  onCanvasSelectedFilePathChange: (path: string | null) => void;
   onCanvasTabChange: (tab: CanvasTab) => void;
+  onWorkerWorkspaceModeChange: (mode: WorkerWorkspaceMode) => void;
   onWorkerSessionSelect: (selectionKey: string) => void;
   onWorkspaceRefresh: () => void;
+  selectedProject?: ProjectOrchestrator;
   selectedTerminalSession?: WorkerSession;
   selectedTerminalSessionKey?: string;
   terminalSessions: WorkerSession[];
+  workerWorkspaceModePending: boolean;
   workspaceError?: string;
   workspaceState: WorkspacePanelState;
 }

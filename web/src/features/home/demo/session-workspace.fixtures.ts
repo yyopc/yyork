@@ -18,9 +18,16 @@ const workingClaudeSession = {
   issue: '[Issue #23]',
   metadata: JSON.stringify({
     activity: 'working',
+    currentToolCall:
+      'Running shell command: rg branch internal web/src/features/home',
     prompt:
       'Trace branch state and expose it consistently for dashboard state.',
     recap: 'Reading branch metadata files and wiring the dashboard projection.',
+    toolCallBulletins: [
+      'Running shell command: rg branch internal web/src/features/home',
+      'Reading file: internal/session/workspace_source.go',
+      'Finished file read: web/src/features/home/domain/session-workspace.ts',
+    ],
     title: 'Trace branch metadata',
   }),
   project: 'agent-orchestrator',
@@ -39,8 +46,13 @@ const workingCodexSession = {
   id: 'session-ao-2',
   metadata: JSON.stringify({
     activity: 'working',
+    currentToolCall: 'Reading file: README.md',
     prompt: 'Tell me about this project',
     recap: 'Scanning README and package manifests for an overview.',
+    toolCallBulletins: [
+      'Reading file: README.md',
+      'Finished shell command: pnpm --filter @yyork/web test:ci',
+    ],
     title: 'Tell me about this project',
   }),
   selected: true,
@@ -89,7 +101,15 @@ const promptClaudeSession = {
 const triageClaudeSession = {
   ...workingClaudeSession,
   id: 'session-ao-5',
+  metadata: JSON.stringify({
+    prompt: 'Review the generated migration plan',
+    title: 'Review migration plan',
+    triageReason:
+      'Needs approval for shell command: git push origin yyork/card-state',
+  }),
+  recap: 'Prepared a migration plan and paused before pushing changes.',
   state: 'triage',
+  title: 'Review migration plan',
   workerId: '[AO-5]',
 } satisfies WorkerSession;
 
@@ -118,9 +138,17 @@ export const demoHomeWorkspace = {
   activeProjectId: 'agent-orchestrator',
   orchestrators: [orchestratorSession],
   projects: [
-    { id: 'firered-vad', name: 'FireRedVAD' },
-    { id: 'agent-orchestrator', name: 'Agent Orchestrator' },
-    { id: 'ao-tui', name: 'AO TUI' },
+    {
+      id: 'firered-vad',
+      name: 'FireRedVAD',
+      workerWorkspaceMode: 'local',
+    },
+    {
+      id: 'agent-orchestrator',
+      name: 'Agent Orchestrator',
+      workerWorkspaceMode: 'local',
+    },
+    { id: 'ao-tui', name: 'AO TUI', workerWorkspaceMode: 'local' },
   ],
   sessions: [
     workingClaudeSession,

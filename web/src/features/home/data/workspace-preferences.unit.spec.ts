@@ -4,6 +4,8 @@ import {
   getCanvasPreviewTargetKey,
   getCanvasPreviewUrlForTarget,
   getCanvasPreviewUrlPreferenceUpdate,
+  getCanvasSelectedFilePathForTarget,
+  getCanvasSelectedFilePathPreferenceUpdate,
   type HomeWorkspacePreferences,
   readHomeWorkspacePreferences,
   writeHomeWorkspacePreferences,
@@ -132,6 +134,87 @@ describe('workspace preferences', () => {
       JSON.stringify({
         canvasOpen: true,
         canvasTab: 'terminal',
+        sidebarOpen: true,
+      })
+    );
+
+    expect(readHomeWorkspacePreferences()).toEqual({
+      canvasOpen: true,
+      sidebarOpen: true,
+    });
+  });
+
+  it('persists target-scoped canvas selected file paths and drops invalid values', () => {
+    const storage = new Map<string, string>();
+
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => storage.set(key, value),
+      },
+    });
+
+    writeHomeWorkspacePreferences({
+      canvasOpen: true,
+      canvasSelectedFilePaths: {
+        'session:yyork:kfg2sy': 'README.md',
+        'session:yyork:v042rv': 'web/package.json',
+      },
+      sidebarOpen: true,
+    });
+
+    expect(readHomeWorkspacePreferences()).toMatchObject({
+      canvasOpen: true,
+      canvasSelectedFilePaths: {
+        'session:yyork:kfg2sy': 'README.md',
+        'session:yyork:v042rv': 'web/package.json',
+      },
+      sidebarOpen: true,
+    });
+
+    expect(
+      getCanvasSelectedFilePathForTarget(
+        readHomeWorkspacePreferences(),
+        'session:yyork:kfg2sy'
+      )
+    ).toBe('README.md');
+
+    const update = getCanvasSelectedFilePathPreferenceUpdate(
+      readHomeWorkspacePreferences(),
+      'session:yyork:kfg2sy',
+      'go.mod'
+    );
+
+    expect(update).toEqual({
+      canvasSelectedFilePaths: {
+        'session:yyork:kfg2sy': 'go.mod',
+        'session:yyork:v042rv': 'web/package.json',
+      },
+    });
+
+    writeHomeWorkspacePreferences({
+      ...readHomeWorkspacePreferences(),
+      ...getCanvasSelectedFilePathPreferenceUpdate(
+        readHomeWorkspacePreferences(),
+        'session:yyork:kfg2sy',
+        null
+      ),
+    });
+
+    expect(readHomeWorkspacePreferences()).toMatchObject({
+      canvasSelectedFilePaths: {
+        'session:yyork:v042rv': 'web/package.json',
+      },
+    });
+
+    storage.set(
+      'yyork.home.workspace-preferences',
+      JSON.stringify({
+        canvasOpen: true,
+        canvasSelectedFilePaths: {
+          'session:yyork:kfg2sy': '  ',
+          'session:yyork:v042rv': 42,
+        },
         sidebarOpen: true,
       })
     );

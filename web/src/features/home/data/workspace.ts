@@ -3,49 +3,12 @@ import { z } from 'zod';
 
 import {
   type SessionWorkspace,
-  workerSessionStates,
+  sessionWorkspaceSchema,
+  type WorkerWorkspaceMode,
+  workerWorkspaceModeSchema,
 } from '@/features/home/domain/session-workspace';
 
 export const homeWorkspaceQueryKey = ['home-workspace'] as const;
-
-const workerSessionStateSchema = z.enum(workerSessionStates);
-const terminalSessionKindSchema = z.enum(['orchestrator', 'worker']);
-
-const projectOrchestratorSchema = z.object({
-  cwd: z.string().optional(),
-  id: z.string(),
-  name: z.string(),
-});
-
-const workerSessionSchema = z
-  .object({
-    agent: z.string(),
-    agentPluginId: z.string().optional(),
-    createdAt: z.string().optional(),
-    cwd: z.string().optional(),
-    description: z.string(),
-    id: z.string(),
-    issue: z.string(),
-    kind: terminalSessionKindSchema.optional(),
-    metadata: z.string(),
-    project: z.string(),
-    recap: z.string(),
-    selected: z.boolean().optional(),
-    state: workerSessionStateSchema,
-    terminalSupported: z.boolean().optional(),
-    title: z.string(),
-    updatedAt: z.string().optional(),
-    workerId: z.string(),
-    zellijSession: z.string().optional(),
-  })
-  .passthrough();
-
-const sessionWorkspaceSchema = z.object({
-  activeProjectId: z.string(),
-  orchestrators: z.array(workerSessionSchema).optional(),
-  projects: z.array(projectOrchestratorSchema),
-  sessions: z.array(workerSessionSchema),
-});
 
 export function homeWorkspaceQueryOptions() {
   return queryOptions({
@@ -110,6 +73,99 @@ export const fallbackHomeWorkspace: SessionWorkspace = {
   projects: [],
   sessions: [],
 };
+
+// createProject adds a project to the workspace by ensuring it has an
+// orchestrator session. The path may be any directory inside a git repo; the
+// backend resolves it to the repo root and returns the project's canonical id
+// (its path), name, and whether a new orchestrator was spawned. The spawn emits
+// a session.created event, so every open dashboard converges via the SSE
+// subscription without the caller patching the cache.
+const createProjectResponseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  created: z.boolean(),
+});
+
+export type CreateProjectResult = z.infer<typeof createProjectResponseSchema>;
+
+// chooseProjectDirectory opens the host machine's native folder picker and
+// returns the absolute path the user selected, or null when they cancel.
+// Browsers hide absolute paths from their own file APIs, so this round-trips to
+// the local yyork server, which pops the OS dialog (macOS Finder) and hands the
+// real path back.
+const chooseDirectoryResponseSchema = z.object({ path: z.string() });
+
+export function chooseProjectDirectoryMutationOptions() {
+  return {
+    mutationFn: async (): Promise<{ path: string } | null> => {
+      const response = await fetch('/api/projects/choose-directory', {
+        method: 'POST',
+      });
+      // 204 means the user dismissed the picker — a no-op, not an error.
+      if (response.status === 204) {
+        return null;
+      }
+      if (!response.ok) {
+        const detail = (await response.text()).trim();
+        throw new Error(
+          detail || `Failed to open folder picker: ${response.status}`
+        );
+      }
+      return chooseDirectoryResponseSchema.parse(await response.json());
+    },
+  };
+}
+
+export function createProjectMutationOptions() {
+  return {
+    mutationFn: async (input: {
+      path: string;
+    }): Promise<CreateProjectResult> => {
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: input.path }),
+      });
+      if (!response.ok) {
+        const detail = (await response.text()).trim();
+        throw new Error(detail || `Failed to add project: ${response.status}`);
+      }
+      return createProjectResponseSchema.parse(await response.json());
+    },
+  };
+}
+
+const updateProjectWorkerWorkspaceResponseSchema = z.object({
+  projectId: z.string(),
+  workerWorkspaceMode: workerWorkspaceModeSchema,
+});
+
+export function updateProjectWorkerWorkspaceMutationOptions() {
+  return {
+    mutationFn: async (input: {
+      projectId: string;
+      workerWorkspaceMode: WorkerWorkspaceMode;
+    }) => {
+      const response = await fetch('/api/projects/worker-workspace', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: input.projectId,
+          workerWorkspaceMode: input.workerWorkspaceMode,
+        }),
+      });
+      if (!response.ok) {
+        const detail = (await response.text()).trim();
+        throw new Error(
+          detail || `Failed to update worker workspace: ${response.status}`
+        );
+      }
+      return updateProjectWorkerWorkspaceResponseSchema.parse(
+        await response.json()
+      );
+    },
+  };
+}
 
 export function stopSessionMutationOptions() {
   return {

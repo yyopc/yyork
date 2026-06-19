@@ -17,6 +17,7 @@ export interface HomeWorkspacePreferences {
   canvasPreviewUrls?: Record<string, string>;
   canvasPreviewUrl?: string;
   canvasReview?: HomeWorkspaceCanvasReviewPreferences;
+  canvasSelectedFilePaths?: Record<string, string>;
   canvasTab?: CanvasTab;
   hiddenProjectIds?: string[];
   hiddenTerminalSessionKeys?: string[];
@@ -121,6 +122,33 @@ export function getCanvasPreviewUrlForTarget(
   );
 }
 
+export function getCanvasSelectedFilePathForTarget(
+  preferences: Pick<HomeWorkspacePreferences, 'canvasSelectedFilePaths'>,
+  targetKey: string
+) {
+  return preferences.canvasSelectedFilePaths?.[targetKey];
+}
+
+export function getCanvasSelectedFilePathPreferenceUpdate(
+  preferences: Pick<HomeWorkspacePreferences, 'canvasSelectedFilePaths'>,
+  targetKey: string,
+  path: string | null
+): Pick<HomeWorkspacePreferences, 'canvasSelectedFilePaths'> {
+  const nextPaths = { ...preferences.canvasSelectedFilePaths };
+  const normalizedPath = normalizeString(path);
+
+  if (normalizedPath) {
+    nextPaths[targetKey] = normalizedPath;
+  } else {
+    delete nextPaths[targetKey];
+  }
+
+  return {
+    canvasSelectedFilePaths:
+      Object.keys(nextPaths).length > 0 ? nextPaths : undefined,
+  };
+}
+
 export function getCanvasPreviewUrlPreferenceUpdate(
   preferences: Pick<
     HomeWorkspacePreferences,
@@ -198,6 +226,9 @@ function normalizeHomeWorkspacePreferences(
       preferences.canvasPreviewUrls
     ),
     canvasReview: normalizeCanvasReviewPreferences(preferences.canvasReview),
+    canvasSelectedFilePaths: normalizeStringRecord(
+      preferences.canvasSelectedFilePaths
+    ),
     canvasTab: isCanvasTab(preferences.canvasTab)
       ? preferences.canvasTab
       : undefined,

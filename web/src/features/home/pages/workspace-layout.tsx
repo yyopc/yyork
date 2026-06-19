@@ -10,7 +10,7 @@ import {
   PanelRightIcon,
   SquareTerminalIcon,
 } from 'lucide-react';
-import { useEffect, useMemo, useReducer } from 'react';
+import { useEffect, useReducer } from 'react';
 import { toast } from 'sonner';
 
 import {
@@ -40,16 +40,21 @@ import { ProjectOrchestratorSidebar } from '@/features/home/components/organisms
 import type { WorkspacePanelState } from '@/features/home/components/organisms/workspace-status-view';
 import { openProjectIdeMutationOptions } from '@/features/home/data/project-ide';
 import {
+  chooseProjectDirectoryMutationOptions,
+  createProjectMutationOptions,
   fallbackHomeWorkspace,
   homeWorkspaceQueryKey,
   homeWorkspaceQueryOptions,
   renameSessionMutationOptions,
   stopSessionMutationOptions,
+  updateProjectWorkerWorkspaceMutationOptions,
 } from '@/features/home/data/workspace';
 import {
   getCanvasPreviewTargetKey,
   getCanvasPreviewUrlForTarget,
   getCanvasPreviewUrlPreferenceUpdate,
+  getCanvasSelectedFilePathForTarget,
+  getCanvasSelectedFilePathPreferenceUpdate,
   type HomeWorkspaceCanvasLayout,
   type HomeWorkspaceCanvasReviewPreferences,
   type HomeWorkspacePreferences,
@@ -72,6 +77,7 @@ import {
   type WorkerSession,
   type WorkerSessionState,
   workerSessionStates,
+  type WorkerWorkspaceMode,
 } from '@/features/home/domain/session-workspace';
 import {
   WorkspaceContext,
@@ -213,6 +219,16 @@ function useWorkspaceLayout() {
   const { mutateAsync: renameSession } = useMutation(
     renameSessionMutationOptions()
   );
+  const { mutateAsync: createProject } = useMutation(
+    createProjectMutationOptions()
+  );
+  const { mutateAsync: chooseProjectDirectory } = useMutation(
+    chooseProjectDirectoryMutationOptions()
+  );
+  const {
+    isPending: workerWorkspaceModePending,
+    mutate: updateProjectWorkerWorkspace,
+  } = useMutation(updateProjectWorkerWorkspaceMutationOptions());
 
   const workspace = queriedWorkspace ?? fallbackHomeWorkspace;
   const hiddenProjectIdSet = new Set(hiddenProjectIds ?? []);
@@ -253,10 +269,7 @@ function useWorkspaceLayout() {
     routeSelectedWorkerSessionKey
   );
   const selectedWorkerSession = getSelectedWorkerSession(sessions);
-  const terminalSessions = useMemo(
-    () => [...workspaceOrchestrators, ...sessions],
-    [workspaceOrchestrators, sessions]
-  );
+  const terminalSessions = [...workspaceOrchestrators, ...sessions];
   const defaultProjectId =
     boardProjectIdParam ?? workspace.activeProjectId ?? projects[0]?.id;
   const defaultOrchestratorSession =
@@ -264,6 +277,14 @@ function useWorkspaceLayout() {
       ? workspaceOrchestrators.find(
           (session) => session.project === defaultProjectId
         )
+      : undefined;
+  const defaultOrchestratorSessionRouteProject =
+    defaultOrchestratorSession &&
+    terminalSessionIdRequiresProject(
+      terminalSessions,
+      defaultOrchestratorSession.id
+    )
+      ? defaultOrchestratorSession.project
       : undefined;
   const selectedTerminalSession = isTerminalRoute
     ? (getTerminalSessionForRoute(terminalSessions, terminalRouteTarget) ??
@@ -309,6 +330,10 @@ function useWorkspaceLayout() {
     homeWorkspacePreferences,
     canvasPreviewTargetKey
   );
+  const canvasSelectedFilePath = getCanvasSelectedFilePathForTarget(
+    homeWorkspacePreferences,
+    canvasPreviewTargetKey
+  );
   const defaultOpenProjectIds: string[] =
     selectedProjectId &&
     projects.some((project) => project.id === selectedProjectId)
@@ -341,17 +366,16 @@ function useWorkspaceLayout() {
     void navigate({
       to: '/terminal/$sessionId',
       params: { sessionId: defaultOrchestratorSession.id },
-      search: getTerminalRouteSearch(
-        terminalSessions,
-        defaultOrchestratorSession
-      ),
+      search: defaultOrchestratorSessionRouteProject
+        ? { project: defaultOrchestratorSessionRouteProject }
+        : {},
     });
   }, [
     boardProjectIdParam,
     defaultOrchestratorSession,
+    defaultOrchestratorSessionRouteProject,
     isTerminalRoute,
     navigate,
-    terminalSessions,
     workspaceQueryIsError,
     workspaceQueryIsPending,
   ]);
@@ -447,10 +471,45 @@ function useWorkspaceLayout() {
     );
   };
 
+  const handleCanvasSelectedFilePathChange = (path: string | null) => {
+    updateHomeWorkspacePreferences(
+      getCanvasSelectedFilePathPreferenceUpdate(
+        homeWorkspacePreferences,
+        canvasPreviewTargetKey,
+        path
+      )
+    );
+  };
+
   const handleCanvasReviewPreferencesChange = (
     preferences: HomeWorkspaceCanvasReviewPreferences
   ) => {
     updateHomeWorkspacePreferences({ canvasReview: preferences });
+  };
+
+  const handleWorkerWorkspaceModeChange = (mode: WorkerWorkspaceMode) => {
+    if (!selectedProject) {
+      return;
+    }
+
+    updateProjectWorkerWorkspace(
+      { projectId: selectedProject.id, workerWorkspaceMode: mode },
+      {
+        onError: (error) => {
+          toast.error('Could not update worker workspace', {
+            description:
+              error instanceof Error
+                ? error.message
+                : 'The project setting could not be saved.',
+          });
+        },
+        onSuccess: () => {
+          void queryClient.invalidateQueries({
+            queryKey: homeWorkspaceQueryKey,
+          });
+        },
+      }
+    );
   };
 
   const handleProjectOpenChange = (projectId: string, open: boolean) => {
@@ -630,6 +689,52 @@ function useWorkspaceLayout() {
     }
   };
 
+  const handleAddProject = async () => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      // Pop the host machine's native folder picker (macOS Finder) and let the
+      // server hand back the absolute path the browser itself can't read.
+      const picked = await chooseProjectDirectory();
+      if (!picked) {
+        return; // user dismissed the picker
+      }
+
+      const result = await createProject({ path: picked.path });
+
+      // Re-adding a path that was previously removed from the sidebar must
+      // bring it back and open it — otherwise the add silently no-ops behind
+      // the hidden filter.
+      updateHomeWorkspacePreferences({
+        hiddenProjectIds: (hiddenProjectIds ?? []).filter(
+          (projectId) => projectId !== result.id
+        ),
+        openProjectIds: updateOpenIds(
+          openProjectIds,
+          result.id,
+          true,
+          defaultOpenProjectIds
+        ),
+      });
+
+      // When the orchestrator already existed (created === false) no
+      // session.created event fires, so refresh explicitly instead of waiting
+      // on the light poll.
+      void queryClient.invalidateQueries({ queryKey: homeWorkspaceQueryKey });
+
+      void navigate({
+        to: '/board/$projectId',
+        params: { projectId: result.id },
+      });
+    } catch (error) {
+      window.alert(
+        error instanceof Error ? error.message : 'Failed to add project'
+      );
+    }
+  };
+
   const handleProjectRename = (projectId: string) => {
     if (typeof window === 'undefined') {
       return;
@@ -740,6 +845,7 @@ function useWorkspaceLayout() {
     canvasPreviewUrl,
     canvasReviewPreferences,
     canvasResizing,
+    canvasSelectedFilePath,
     canvasTab,
     canvasTarget,
     kanbanColumns,
@@ -749,12 +855,16 @@ function useWorkspaceLayout() {
     onCanvasReviewPreferencesChange: handleCanvasReviewPreferencesChange,
     onCanvasResizingChange: (canvasResizing) =>
       dispatchLayout({ canvasResizing, type: 'canvas-resizing' }),
+    onCanvasSelectedFilePathChange: handleCanvasSelectedFilePathChange,
     onCanvasTabChange: handleCanvasTabChange,
+    onWorkerWorkspaceModeChange: handleWorkerWorkspaceModeChange,
     onWorkerSessionSelect: handleTerminalSessionOpen,
     onWorkspaceRefresh: () => void refetchWorkspace(),
+    selectedProject,
     selectedTerminalSession,
     selectedTerminalSessionKey,
     terminalSessions,
+    workerWorkspaceModePending,
     workspaceError:
       workspaceQueryError instanceof Error
         ? workspaceQueryError.message
@@ -766,6 +876,7 @@ function useWorkspaceLayout() {
     activeBoardProjectId,
     canvasOpen,
     commandPaletteOpen,
+    handleAddProject,
     handleCanvasOpenChange,
     handleConfirmSessionStop,
     handleProjectBoardSelect,
@@ -815,6 +926,7 @@ function WorkspaceLayoutView(props: ReturnType<typeof useWorkspaceLayout>) {
         primarySidebar={
           <ProjectOrchestratorSidebar
             activeBoardProjectId={props.activeBoardProjectId}
+            onAddProject={props.handleAddProject}
             onOrchestratorSessionSelect={props.handleTerminalSessionOpen}
             onProjectBoardSelect={props.handleProjectBoardSelect}
             onProjectDelete={props.handleProjectDelete}

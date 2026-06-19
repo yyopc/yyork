@@ -1,9 +1,23 @@
-import { PanelRightCloseIcon, PanelRightOpenIcon } from 'lucide-react';
+import {
+  LaptopIcon,
+  type LucideIcon,
+  PanelRightCloseIcon,
+  PanelRightOpenIcon,
+  SplitIcon,
+} from 'lucide-react';
 import { useEffect, useEffectEvent } from 'react';
 
 import { cn } from '@/lib/tailwind/utils';
 
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useSidebar } from '@/components/ui/sidebar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -13,12 +27,28 @@ import {
 } from '@/components/ui/tooltip';
 
 import { isCanvasTab } from '@/features/home/domain/canvas-tabs';
+import type { WorkerWorkspaceMode } from '@/features/home/domain/session-workspace';
 import { useWorkspaceContext } from '@/features/home/pages/workspace-context';
 
 // 0.75rem (slot↔button gap) + 2.25rem (toggle button) + 0.75rem (header pe-3).
 // The slot's width = canvas pane width − these trailing offsets so its left
 // edge anchors exactly to the canvas pane's left edge below.
 const SLOT_TRAILING_PX = 60;
+const workerWorkspaceOptions = [
+  { icon: LaptopIcon, label: 'work locally', value: 'local' },
+  {
+    icon: SplitIcon,
+    iconClassName: '-rotate-90',
+    label: 'new worktree',
+    value: 'new-worktree',
+  },
+] satisfies Array<{
+  icon: LucideIcon;
+  iconClassName?: string;
+  label: string;
+  value: WorkerWorkspaceMode;
+}>;
+type WorkerWorkspaceOption = (typeof workerWorkspaceOptions)[number];
 
 export function MainTopbar() {
   const { isMobile, openMobile, state } = useSidebar();
@@ -28,6 +58,9 @@ export function MainTopbar() {
     canvasTab,
     onCanvasOpenChange,
     onCanvasTabChange,
+    onWorkerWorkspaceModeChange,
+    selectedProject,
+    workerWorkspaceModePending,
   } = useWorkspaceContext();
   const isSidebarOpen = isMobile ? openMobile : state === 'expanded';
   const canvasButtonLabel = canvasOpen
@@ -71,67 +104,139 @@ export function MainTopbar() {
     >
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <AppBrand />
+        {selectedProject ? (
+          <div className="ms-auto shrink-0">
+            <WorkerWorkspaceSelect
+              disabled={workerWorkspaceModePending}
+              value={selectedProject.workerWorkspaceMode}
+              onValueChange={onWorkerWorkspaceModeChange}
+            />
+          </div>
+        ) : null}
       </div>
 
-      <div className="flex shrink-0 items-center gap-3">
-        {canvasAvailable ? (
-          <>
+      {canvasAvailable && (
+        <div className="flex shrink-0 items-center gap-3">
+          <div
+            data-state={canvasOpen ? 'expanded' : 'collapsed'}
+            className="flex shrink-0 items-center justify-start overflow-hidden"
+            style={{
+              // Slot width tracks the canvas pane's actual rendered width
+              // (kept in sync by the ResizeObserver in TerminalLayout). The
+              // calc reflows in the same layout pass as the pane below, so
+              // the slot is immediately reactive — no React render, no
+              // transition lag — during sidebar collapse/expand, the resize
+              // rail drag, and the open/close animation of the pane itself.
+              width: `calc(var(--canvas-pane-width, 0px) - ${SLOT_TRAILING_PX}px)`,
+            }}
+            aria-hidden={!canvasOpen}
+          >
             <div
               data-state={canvasOpen ? 'expanded' : 'collapsed'}
-              className="flex shrink-0 items-center justify-start overflow-hidden"
-              style={{
-                // Slot width tracks the canvas pane's actual rendered width
-                // (kept in sync by the ResizeObserver in TerminalLayout). The
-                // calc reflows in the same layout pass as the pane below, so
-                // the slot is immediately reactive — no React render, no
-                // transition lag — during sidebar collapse/expand, the resize
-                // rail drag, and the open/close animation of the pane itself.
-                width: `calc(var(--canvas-pane-width, 0px) - ${SLOT_TRAILING_PX}px)`,
-              }}
-              aria-hidden={!canvasOpen}
+              className={cn(
+                'flex items-center transition-[transform,opacity] duration-200 ease-linear',
+                'data-[state=collapsed]:translate-x-3 data-[state=collapsed]:opacity-0'
+              )}
+              inert={!canvasOpen}
             >
-              <div
-                data-state={canvasOpen ? 'expanded' : 'collapsed'}
-                className={cn(
-                  'flex items-center transition-[transform,opacity] duration-200 ease-linear',
-                  'data-[state=collapsed]:translate-x-3 data-[state=collapsed]:opacity-0'
-                )}
-                inert={!canvasOpen}
+              <Tabs
+                value={canvasTab}
+                onValueChange={(value) => {
+                  if (isCanvasTab(value)) {
+                    onCanvasTabChange(value);
+                  }
+                }}
               >
-                <Tabs
-                  value={canvasTab}
-                  onValueChange={(value) => {
-                    if (isCanvasTab(value)) {
-                      onCanvasTabChange(value);
-                    }
-                  }}
-                >
-                  <TabsList className="rounded-sm">
-                    <TabsTrigger className="rounded-sm px-3" value="files">
-                      Files
-                    </TabsTrigger>
-                    <TabsTrigger className="rounded-sm px-3" value="review">
-                      Review
-                    </TabsTrigger>
-                    <TabsTrigger className="rounded-sm px-3" value="browser">
-                      Browser
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
+                <TabsList className="rounded-sm">
+                  <TabsTrigger className="rounded-sm px-3" value="files">
+                    Files
+                  </TabsTrigger>
+                  <TabsTrigger className="rounded-sm px-3" value="review">
+                    Review
+                  </TabsTrigger>
+                  <TabsTrigger className="rounded-sm px-3" value="browser">
+                    Browser
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
-            <CanvasToggleButton
-              canvasButtonLabel={canvasButtonLabel}
-              canvasOpen={canvasOpen}
-              onToggle={toggleCanvas}
-            />
-          </>
-        ) : (
-          <div aria-hidden="true" className="size-7" />
-        )}
-      </div>
+          </div>
+          <CanvasToggleButton
+            canvasButtonLabel={canvasButtonLabel}
+            canvasOpen={canvasOpen}
+            onToggle={toggleCanvas}
+          />
+        </div>
+      )}
     </header>
   );
+}
+
+function WorkerWorkspaceSelect(props: {
+  disabled: boolean;
+  onValueChange: (mode: WorkerWorkspaceMode) => void;
+  value: WorkerWorkspaceMode;
+}) {
+  const selectedOption = workerWorkspaceOptions.find(
+    (option) => option.value === props.value
+  );
+
+  return (
+    <Select
+      disabled={props.disabled}
+      items={workerWorkspaceOptions}
+      value={props.value}
+      onValueChange={(value) => {
+        if (isWorkerWorkspaceMode(value)) {
+          props.onValueChange(value);
+        }
+      }}
+    >
+      <SelectTrigger
+        aria-label="Worker workspace"
+        className="h-7 w-fit rounded-sm border-none bg-sidebar text-xs text-sidebar-foreground shadow-none hover:bg-sidebar-accent [&_svg:not([class*='size-'])]:size-4"
+        size="sm"
+      >
+        {selectedOption ? (
+          <WorkerWorkspaceOptionContent option={selectedOption} />
+        ) : (
+          <SelectValue />
+        )}
+      </SelectTrigger>
+      <SelectContent
+        align="start"
+        className="w-max min-w-[var(--anchor-width)]"
+      >
+        <SelectGroup>
+          {workerWorkspaceOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              <WorkerWorkspaceOptionContent option={option} />
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
+  );
+}
+
+function WorkerWorkspaceOptionContent(props: {
+  option: WorkerWorkspaceOption;
+}) {
+  const Icon = props.option.icon;
+
+  return (
+    <span className="flex min-w-0 flex-1 items-center gap-2">
+      <Icon
+        aria-hidden="true"
+        className={cn('text-muted-foreground', props.option.iconClassName)}
+      />
+      <span className="truncate">{props.option.label}</span>
+    </span>
+  );
+}
+
+function isWorkerWorkspaceMode(value: unknown): value is WorkerWorkspaceMode {
+  return value === 'new-worktree' || value === 'local';
 }
 
 function CanvasToggleButton(props: {
@@ -145,9 +250,9 @@ function CanvasToggleButton(props: {
         render={
           <Button
             type="button"
-            variant="secondary"
+            variant="ghost"
             size="icon"
-            className="size-7 rounded-sm border-sidebar-border bg-sidebar shadow-none"
+            className="size-7 rounded-sm text-muted-foreground shadow-none hover:text-sidebar-foreground"
             aria-label={props.canvasButtonLabel}
             aria-pressed={props.canvasOpen}
             onClick={props.onToggle}

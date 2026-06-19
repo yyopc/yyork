@@ -70,7 +70,7 @@ const meta = {
   },
   decorators: [
     (Story) => (
-      <div className="h-180 bg-background font-mono text-foreground">
+      <div className="h-180 bg-background font-sans text-foreground">
         <SidebarProvider className="[--sidebar-width:13rem]">
           <Story />
         </SidebarProvider>

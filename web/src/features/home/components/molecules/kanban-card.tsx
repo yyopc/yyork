@@ -14,9 +14,10 @@ export function KanbanCard(props: {
 }) {
   const { card } = props;
   const agentIconUrl = agentIconUrls[card.agent];
-  const ariaLabel = card.recap
-    ? `${card.agentLabel} session ${card.shortId}: ${card.task}. ${card.recap}`
+  const ariaLabel = card.description
+    ? `${card.agentLabel} session ${card.shortId}: ${card.task}. ${card.description}`
     : `${card.agentLabel} session ${card.shortId}: ${card.task}`;
+  const hasDescription = card.descriptionLines.length > 0;
 
   return (
     <button
@@ -30,12 +31,24 @@ export function KanbanCard(props: {
       aria-current={card.selected ? 'true' : undefined}
       onClick={() => props.onSelect?.(card.selectionKey)}
     >
-      <div className={cn('flex min-w-0 flex-col', card.recap && 'gap-1')}>
-        <p className="line-clamp-2 text-sm leading-5 font-medium">{card.task}</p>
-        {card.recap ? (
+      <div className={cn('flex min-w-0 flex-col', hasDescription && 'gap-1')}>
+        <p className="line-clamp-2 text-sm leading-5 font-medium">
+          {card.task}
+        </p>
+        {card.descriptionLines.length === 1 ? (
           <p className="line-clamp-2 text-xs leading-4 text-muted-foreground">
-            {card.recap}
+            {card.descriptionLines[0]}
           </p>
+        ) : null}
+        {card.descriptionLines.length > 1 ? (
+          <ul className="flex min-w-0 flex-col gap-0.5 text-xs leading-4 text-muted-foreground">
+            {card.descriptionLines.map((line) => (
+              <li key={line} className="flex min-w-0 items-start gap-1.5">
+                <span className="mt-[0.4375rem] size-1 shrink-0 rounded-full bg-muted-foreground/55" />
+                <span className="min-w-0 truncate">{line}</span>
+              </li>
+            ))}
+          </ul>
         ) : null}
       </div>
 

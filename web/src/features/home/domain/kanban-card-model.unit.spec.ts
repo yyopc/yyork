@@ -38,6 +38,9 @@ describe('kanban card model', () => {
     expect(card.task).toBe('Tell me about this project');
     expect(card.recap).toBe('Scanning README for project overview.');
     expect(card.currentLine).toBe(card.recap);
+    expect(card.descriptionLines).toEqual([
+      'Scanning README for project overview.',
+    ]);
     expect(card.agentLabel).toBe('Claude Code');
     expect(card.activity).toBe('working');
     expect(card.shortId).toBe('456789');
@@ -55,6 +58,63 @@ describe('kanban card model', () => {
 
     expect(card.activity).toBe('waiting-for-input');
     expect(card.recap).toBe('');
+    expect(card.description).toBe('Needs triage before it can continue.');
+  });
+
+  it('uses translated tool call bulletins for working cards', () => {
+    const card = toKanbanCardView({
+      ...baseSession,
+      metadata: JSON.stringify({
+        currentToolCall: 'Running shell command: pnpm test',
+        toolCallBulletins: [
+          'Running shell command: pnpm test',
+          'Reading file: web/src/features/home/domain/kanban-card-model.ts',
+          'Finished search: KanbanCard',
+          'Ignored fourth line',
+        ],
+      }),
+      state: 'working',
+    });
+
+    expect(card.recap).toBe('Scanning README for project overview.');
+    expect(card.descriptionLines).toEqual([
+      'Running shell command: pnpm test',
+      'Reading file: web/src/features/home/domain/kanban-card-model.ts',
+      'Finished search: KanbanCard',
+    ]);
+    expect(card.description).toBe(
+      'Running shell command: pnpm test\n' +
+        'Reading file: web/src/features/home/domain/kanban-card-model.ts\n' +
+        'Finished search: KanbanCard'
+    );
+  });
+
+  it('uses state-specific descriptions for prompt triage and done cards', () => {
+    expect(
+      toKanbanCardView({
+        ...baseSession,
+        metadata: JSON.stringify({
+          recap: 'metadata recap must not override backend recap',
+          triageReason: 'Needs approval for shell command: git push',
+        }),
+        state: 'triage',
+      }).description
+    ).toBe('Needs approval for shell command: git push');
+
+    expect(
+      toKanbanCardView({
+        ...baseSession,
+        state: 'prompt',
+      }).description
+    ).toBe('Scanning README for project overview.');
+
+    expect(
+      toKanbanCardView({
+        ...baseSession,
+        metadata: JSON.stringify({ doneSummary: 'Landed the full cleanup.' }),
+        state: 'done',
+      }).description
+    ).toBe('Landed the full cleanup.');
   });
 
   it('falls back to legacy session.description when recap is unavailable', () => {

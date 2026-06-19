@@ -546,9 +546,9 @@ function SidebarToggleButton() {
       <TooltipTrigger
         render={
           <SidebarTrigger
-            variant="secondary"
+            variant="ghost"
             size="icon"
-            className="size-7 rounded-sm border-sidebar-border bg-sidebar shadow-none"
+            className="size-7 rounded-sm text-muted-foreground shadow-none hover:text-sidebar-foreground"
             icon={<SidebarToggleIcon />}
             aria-label={label}
           />

@@ -20,8 +20,16 @@ import {
 const workspace = {
   activeProjectId: 'agent-orchestrator',
   projects: [
-    { id: 'firered-vad', name: 'FireRedVAD' },
-    { id: 'agent-orchestrator', name: 'Agent Orchestrator' },
+    {
+      id: 'firered-vad',
+      name: 'FireRedVAD',
+      workerWorkspaceMode: 'local',
+    },
+    {
+      id: 'agent-orchestrator',
+      name: 'Agent Orchestrator',
+      workerWorkspaceMode: 'local',
+    },
   ],
   sessions: [
     {
@@ -57,6 +65,7 @@ describe('session workspace projection', () => {
     expect(getActiveProject(workspace)).toEqual({
       id: 'agent-orchestrator',
       name: 'Agent Orchestrator',
+      workerWorkspaceMode: 'local',
     });
   });
 

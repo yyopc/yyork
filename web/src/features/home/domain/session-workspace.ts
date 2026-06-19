@@ -6,11 +6,15 @@ import {
 } from '@/features/home/domain/kanban-card-model';
 import {
   type SessionWorkspace,
+  sessionWorkspaceSchema,
   type TerminalSessionKind,
   type WorkerAgent,
   type WorkerSession,
   type WorkerSessionState,
   workerSessionStates,
+  type WorkerWorkspaceMode,
+  workerWorkspaceModes,
+  workerWorkspaceModeSchema,
 } from '@/features/home/domain/session-workspace-contract.generated';
 
 export {
@@ -21,11 +25,15 @@ export {
 export {
   type ProjectOrchestrator,
   type SessionWorkspace,
+  sessionWorkspaceSchema,
   type TerminalSessionKind,
   type WorkerAgent,
   type WorkerSession,
   type WorkerSessionState,
   workerSessionStates,
+  type WorkerWorkspaceMode,
+  workerWorkspaceModes,
+  workerWorkspaceModeSchema,
 } from '@/features/home/domain/session-workspace-contract.generated';
 
 export interface KanbanCardData {
@@ -33,10 +41,11 @@ export interface KanbanCardData {
   activityLabel: string;
   agent: WorkerAgent;
   agentLabel: string;
-  /** @deprecated Prefer `recap`. */
+  /** @deprecated Prefer `descriptionLines`. */
   currentLine: string;
-  /** @deprecated Prefer `recap`. */
+  /** @deprecated Prefer `descriptionLines`. */
   description: string;
+  descriptionLines: string[];
   id: string;
   issue: string;
   /** Raw metadata blob — not for direct display. */

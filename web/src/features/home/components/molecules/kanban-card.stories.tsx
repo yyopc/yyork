@@ -12,7 +12,7 @@ const meta = {
   },
   decorators: [
     (Story) => (
-      <div className="w-[266px] bg-background font-mono text-foreground">
+      <div className="w-[266px] bg-background font-sans text-foreground">
         <Story />
       </div>
     ),
@@ -54,9 +54,7 @@ export const Selected: Story = {
   },
   play: async ({ canvas }) => {
     await expect(canvas.getByText('Tell me about this project')).toBeVisible();
-    await expect(
-      canvas.getByText('Scanning README and package manifests for an overview.')
-    ).toBeVisible();
+    await expect(canvas.getByText('Reading file: README.md')).toBeVisible();
     await expect(canvas.getByText('n-ao-2')).toBeVisible();
   },
 };
@@ -67,13 +65,12 @@ export const WithoutRecap: Story = {
       ...sampleKanbanCards.selectedCodex,
       currentLine: '',
       description: '',
+      descriptionLines: [],
       recap: '',
     },
   },
   play: async ({ canvas }) => {
     await expect(canvas.getByText('Tell me about this project')).toBeVisible();
-    await expect(
-      canvas.queryByText('Scanning README and package manifests for an overview.')
-    ).toBeNull();
+    await expect(canvas.queryByText('Reading file: README.md')).toBeNull();
   },
 };
