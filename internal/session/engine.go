@@ -200,6 +200,11 @@ type SpawnRequest struct {
 	// defaults to worker.
 	Kind Kind
 
+	// WorkspaceMode controls where worker sessions run. Empty uses the worker
+	// workspace default. Orchestrator sessions always run in the main project
+	// worktree regardless of this field.
+	WorkspaceMode WorkerWorkspaceMode
+
 	// SystemPrompt is inline system/developer instruction text. Optional.
 	SystemPrompt string
 
@@ -248,14 +253,24 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 	if kind == "" {
 		kind = KindWorker
 	}
-	baseRef, err := e.worktree.BaseRef(ctx, req.ProjectPath)
+	id := e.newID()
+	workspaceMode, err := spawnWorkspaceMode(kind, req.WorkspaceMode)
 	if err != nil {
-		return store.Session{}, fmt.Errorf("session.Spawn: detect base ref: %w", err)
+		return store.Session{}, err
 	}
 
-	id := e.newID()
-	workspacePath := filepath.Join(e.worktreeBase, id)
-	branchName := branchNameFor(id)
+	workspacePath := req.ProjectPath
+	branchName := ""
+	baseRef := ""
+	createWorktree := workspaceMode == WorkerWorkspaceModeNewWorktree
+	if createWorktree {
+		baseRef, err = e.worktree.BaseRef(ctx, req.ProjectPath)
+		if err != nil {
+			return store.Session{}, fmt.Errorf("session.Spawn: detect base ref: %w", err)
+		}
+		workspacePath = filepath.Join(e.worktreeBase, id)
+		branchName = branchNameFor(id)
+	}
 
 	// The built-in default prompts render per-session facts (workspace,
 	// branch), so they can only be resolved once those are derived.
@@ -269,6 +284,7 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 			Branch:        branchName,
 			BaseRef:       baseRef,
 		}
+		applyWorkspacePromptInstructions(&pc, kind, workspaceMode)
 		switch kind {
 		case KindOrchestrator:
 			systemPrompt, err = DefaultOrchestratorSystemPrompt(pc)
@@ -280,9 +296,12 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 		}
 	}
 
-	// Step 1: create the worktree. Failure here leaks nothing.
-	if err := e.worktree.Create(ctx, req.ProjectPath, workspacePath, branchName, baseRef); err != nil {
-		return store.Session{}, fmt.Errorf("session.Spawn: create worktree: %w", err)
+	// Step 1: create the worktree when this session is isolated. Local
+	// workers and orchestrators run directly in the project worktree.
+	if createWorktree {
+		if err := e.worktree.Create(ctx, req.ProjectPath, workspacePath, branchName, baseRef); err != nil {
+			return store.Session{}, fmt.Errorf("session.Spawn: create worktree: %w", err)
+		}
 	}
 
 	// Step 2: get the agent's launch command. The plugin uses the workspace
@@ -297,7 +316,7 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 	}
 	launchCmd, err := agentPlugin.GetLaunchCommand(ctx, launchCfg)
 	if err != nil {
-		e.rollbackWorktree(ctx, req.ProjectPath, workspacePath, branchName)
+		e.rollbackWorktree(ctx, req.ProjectPath, workspacePath, branchName, createWorktree)
 		return store.Session{}, fmt.Errorf("session.Spawn: build launch command: %w", err)
 	}
 
@@ -307,7 +326,7 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 		WorkspacePath: workspacePath,
 		DataDir:       filepath.Dir(e.worktreeBase),
 	}); err != nil {
-		e.rollbackWorktree(ctx, req.ProjectPath, workspacePath, branchName)
+		e.rollbackWorktree(ctx, req.ProjectPath, workspacePath, branchName, createWorktree)
 		return store.Session{}, fmt.Errorf("session.Spawn: install agent hooks: %w", err)
 	}
 
@@ -317,7 +336,7 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 	// after the worktree exists but before the durability session starts.
 	if pre, ok := agentPlugin.(preLauncher); ok {
 		if err := pre.PreLaunch(ctx, launchCfg); err != nil {
-			e.rollbackWorktree(ctx, req.ProjectPath, workspacePath, branchName)
+			e.rollbackWorktree(ctx, req.ProjectPath, workspacePath, branchName, createWorktree)
 			return store.Session{}, fmt.Errorf("session.Spawn: agent pre-launch: %w", err)
 		}
 	}
@@ -334,6 +353,7 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 	}
 	metadata["kind"] = string(kind)
 	metadata["role"] = string(kind)
+	metadata["workspaceMode"] = string(workspaceMode)
 	if kind == KindOrchestrator {
 		metadata["title"] = "Orchestrator"
 	}
@@ -349,7 +369,7 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 		UpdatedAt:     now,
 	}
 	if err := e.repo.Insert(ctx, sess); err != nil {
-		e.rollbackWorktree(ctx, req.ProjectPath, workspacePath, branchName)
+		e.rollbackWorktree(ctx, req.ProjectPath, workspacePath, branchName, createWorktree)
 		return store.Session{}, fmt.Errorf("session.Spawn: persist session row: %w", err)
 	}
 
@@ -365,7 +385,7 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 		},
 	}); err != nil {
 		_ = e.repo.Delete(ctx, id)
-		e.rollbackWorktree(ctx, req.ProjectPath, workspacePath, branchName)
+		e.rollbackWorktree(ctx, req.ProjectPath, workspacePath, branchName, createWorktree)
 		return store.Session{}, fmt.Errorf("session.Spawn: create durability session: %w", err)
 	}
 
@@ -424,7 +444,7 @@ func (e *Engine) Stop(ctx context.Context, id string) error {
 
 	// Worktree + branch removal is best-effort. We still delete the row so
 	// the user's dashboard reflects reality even if cleanup hiccups.
-	_ = e.worktree.Remove(ctx, sess.ProjectPath, sess.WorkspacePath, branchNameFor(sess.ID))
+	e.removeSessionWorktree(ctx, sess)
 
 	if err := e.repo.Delete(ctx, id); err != nil {
 		return fmt.Errorf("session.Stop: delete row: %w", err)
@@ -456,7 +476,7 @@ func (e *Engine) Reconcile(ctx context.Context, id string) (store.Session, bool,
 	}
 
 	// Best-effort worktree cleanup mirrors Stop's behavior.
-	_ = e.worktree.Remove(ctx, sess.ProjectPath, sess.WorkspacePath, branchNameFor(sess.ID))
+	e.removeSessionWorktree(ctx, sess)
 	if err := e.repo.Delete(ctx, id); err != nil {
 		return store.Session{}, false, fmt.Errorf("session.Reconcile: delete: %w", err)
 	}
@@ -489,7 +509,7 @@ func (e *Engine) ReconcileAll(ctx context.Context) error {
 		if _, ok := liveSet[row.ZellijSession]; ok {
 			continue
 		}
-		_ = e.worktree.Remove(ctx, row.ProjectPath, row.WorkspacePath, branchNameFor(row.ID))
+		e.removeSessionWorktree(ctx, row)
 		if err := e.repo.Delete(ctx, row.ID); err != nil {
 			return fmt.Errorf("session.ReconcileAll: delete %s: %w", row.ID, err)
 		}
@@ -510,10 +530,53 @@ func (e *Engine) resolveAgent(id string) (agent.Agent, error) {
 	return a, nil
 }
 
-func (e *Engine) rollbackWorktree(ctx context.Context, projectPath, worktreePath, branchName string) {
+func (e *Engine) rollbackWorktree(ctx context.Context, projectPath, worktreePath, branchName string, createdWorktree bool) {
+	if !createdWorktree {
+		return
+	}
 	// Best-effort: log silently in production; tests assert on the absence
 	// of the row, not on cleanup correctness.
 	_ = e.worktree.Remove(ctx, projectPath, worktreePath, branchName)
+}
+
+func (e *Engine) removeSessionWorktree(ctx context.Context, sess store.Session) {
+	if sess.WorkspacePath == "" || sess.ProjectPath == "" || sess.WorkspacePath == sess.ProjectPath {
+		return
+	}
+	_ = e.worktree.Remove(ctx, sess.ProjectPath, sess.WorkspacePath, branchNameFor(sess.ID))
+}
+
+func spawnWorkspaceMode(kind Kind, requested WorkerWorkspaceMode) (WorkerWorkspaceMode, error) {
+	if kind == KindOrchestrator {
+		return WorkerWorkspaceModeLocal, nil
+	}
+	mode, ok := NormalizeWorkerWorkspaceMode(string(requested))
+	if !ok {
+		return "", fmt.Errorf(
+			"session.Spawn: WorkspaceMode must be %q or %q, got %q",
+			WorkerWorkspaceModeNewWorktree,
+			WorkerWorkspaceModeLocal,
+			requested,
+		)
+	}
+	return mode, nil
+}
+
+func applyWorkspacePromptInstructions(pc *PromptContext, kind Kind, mode WorkerWorkspaceMode) {
+	if kind == KindOrchestrator {
+		pc.WorkspaceInstruction = "Your workspace is the main project worktree at " + pc.WorkspacePath + "."
+		pc.CompletionInstruction = "Stay in the main worktree and coordinate worker sessions instead of implementing changes yourself unless explicitly asked."
+		return
+	}
+
+	switch mode {
+	case WorkerWorkspaceModeLocal:
+		pc.WorkspaceInstruction = "Your workspace is the main project worktree at " + pc.WorkspacePath + "."
+		pc.CompletionInstruction = "Continue in this main worktree. Do not create or switch branches unless the user explicitly asks."
+	default:
+		pc.WorkspaceInstruction = "Your workspace is an isolated git worktree at " + pc.WorkspacePath + ", on branch " + pc.Branch + " (cut from " + pc.BaseRef + ")."
+		pc.CompletionInstruction = "Commit your work on this branch and stay on it."
+	}
 }
 
 // branchNameFor returns the git branch name for a session id. The branch is

@@ -21,6 +21,7 @@ import (
 
 	_ "github.com/ncruces/go-sqlite3/driver"
 	"github.com/pressly/goose/v3"
+	"github.com/yyopc/yyork/internal/paths"
 )
 
 //go:embed migrations/*.sql
@@ -39,6 +40,9 @@ type Store interface {
 
 	// Sessions returns the session repository.
 	Sessions() SessionRepo
+
+	// ProjectSettings returns the project-scoped settings repository.
+	ProjectSettings() ProjectSettingsRepo
 }
 
 // DefaultPath returns the conventional database path: ~/.yyork/state.db.
@@ -49,7 +53,7 @@ func DefaultPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve home directory: %w", err)
 	}
-	return filepath.Join(home, ".yyork", "state.db"), nil
+	return filepath.Join(home, paths.DataDirName, "state.db"), nil
 }
 
 // Open opens the SQLite database at path, creating the parent directory if
@@ -151,4 +155,8 @@ func (s *sqliteStore) Close() error {
 
 func (s *sqliteStore) Sessions() SessionRepo {
 	return &sessionRepo{db: s.db}
+}
+
+func (s *sqliteStore) ProjectSettings() ProjectSettingsRepo {
+	return &projectSettingsRepo{db: s.db}
 }

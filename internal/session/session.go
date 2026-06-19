@@ -2,6 +2,7 @@ package session
 
 type State string
 type Kind string
+type WorkerWorkspaceMode string
 
 const (
 	StateWorking State = "working"
@@ -14,6 +15,28 @@ const (
 	KindOrchestrator Kind = "orchestrator"
 	KindWorker       Kind = "worker"
 )
+
+const (
+	WorkerWorkspaceModeNewWorktree WorkerWorkspaceMode = "new-worktree"
+	WorkerWorkspaceModeLocal       WorkerWorkspaceMode = "local"
+)
+
+func DefaultWorkerWorkspaceMode() WorkerWorkspaceMode {
+	return WorkerWorkspaceModeLocal
+}
+
+func NormalizeWorkerWorkspaceMode(raw string) (WorkerWorkspaceMode, bool) {
+	switch WorkerWorkspaceMode(raw) {
+	case "":
+		return DefaultWorkerWorkspaceMode(), true
+	case WorkerWorkspaceModeNewWorktree:
+		return WorkerWorkspaceModeNewWorktree, true
+	case WorkerWorkspaceModeLocal:
+		return WorkerWorkspaceModeLocal, true
+	default:
+		return "", false
+	}
+}
 
 type Session struct {
 	AttachCommand     []string `json:"-"`
@@ -37,9 +60,10 @@ type Session struct {
 }
 
 type Project struct {
-	CWD  string `json:"cwd,omitempty"`
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	CWD                 string              `json:"cwd,omitempty"`
+	ID                  string              `json:"id"`
+	Name                string              `json:"name"`
+	WorkerWorkspaceMode WorkerWorkspaceMode `json:"workerWorkspaceMode"`
 }
 
 type Workspace struct {

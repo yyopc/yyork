@@ -199,6 +199,55 @@ func TestSessionUpdatePID(t *testing.T) {
 	}
 }
 
+func TestProjectSettingsSetGetList(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := openTestStore(t).ProjectSettings()
+
+	if _, err := repo.Get(ctx, "/tmp/proj"); err != store.ErrProjectSettingsNotFound {
+		t.Fatalf("Get missing settings: err = %v, want %v", err, store.ErrProjectSettingsNotFound)
+	}
+
+	if err := repo.SetWorkerWorkspaceMode(ctx, "/tmp/proj", "local"); err != nil {
+		t.Fatalf("SetWorkerWorkspaceMode: %v", err)
+	}
+	got, err := repo.Get(ctx, "/tmp/proj")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.ProjectPath != "/tmp/proj" {
+		t.Fatalf("ProjectPath = %q, want /tmp/proj", got.ProjectPath)
+	}
+	if got.WorkerWorkspaceMode != "local" {
+		t.Fatalf("WorkerWorkspaceMode = %q, want local", got.WorkerWorkspaceMode)
+	}
+	if got.UpdatedAt.IsZero() {
+		t.Fatal("UpdatedAt is zero")
+	}
+
+	if err := repo.SetWorkerWorkspaceMode(ctx, "/tmp/proj", "new-worktree"); err != nil {
+		t.Fatalf("SetWorkerWorkspaceMode update: %v", err)
+	}
+	updated, err := repo.Get(ctx, "/tmp/proj")
+	if err != nil {
+		t.Fatalf("Get updated: %v", err)
+	}
+	if updated.WorkerWorkspaceMode != "new-worktree" {
+		t.Fatalf("updated WorkerWorkspaceMode = %q, want new-worktree", updated.WorkerWorkspaceMode)
+	}
+
+	all, err := repo.List(ctx)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(all) != 1 {
+		t.Fatalf("List length = %d, want 1", len(all))
+	}
+	if all[0].ProjectPath != "/tmp/proj" {
+		t.Fatalf("List[0].ProjectPath = %q, want /tmp/proj", all[0].ProjectPath)
+	}
+}
+
 func TestInsertRejectsMissingRequiredFields(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

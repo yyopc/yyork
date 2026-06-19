@@ -25,12 +25,17 @@ type projectMeta struct {
 // active project is the first one we see (the rows are ordered by
 // created_at DESC, so this is the most recent project).
 type StoreWorkspaceSource struct {
-	repo store.SessionRepo
+	repo            store.SessionRepo
+	projectSettings store.ProjectSettingsRepo
 }
 
 // NewStoreWorkspaceSource returns a WorkspaceSource backed by repo.
-func NewStoreWorkspaceSource(repo store.SessionRepo) *StoreWorkspaceSource {
-	return &StoreWorkspaceSource{repo: repo}
+func NewStoreWorkspaceSource(repo store.SessionRepo, projectSettings ...store.ProjectSettingsRepo) *StoreWorkspaceSource {
+	var settings store.ProjectSettingsRepo
+	if len(projectSettings) > 0 {
+		settings = projectSettings[0]
+	}
+	return &StoreWorkspaceSource{repo: repo, projectSettings: settings}
 }
 
 // Workspace implements server.WorkspaceSource by adapting store rows.
@@ -38,6 +43,10 @@ func (s *StoreWorkspaceSource) Workspace(ctx context.Context) (Workspace, error)
 	rows, err := s.repo.List(ctx)
 	if err != nil {
 		return Workspace{}, fmt.Errorf("session: list rows: %w", err)
+	}
+	projectWorkspaceModes, err := s.projectWorkspaceModes(ctx)
+	if err != nil {
+		return Workspace{}, err
 	}
 
 	// configPath selects yyork's color theme on the attach invocation. Best-
@@ -52,9 +61,13 @@ func (s *StoreWorkspaceSource) Workspace(ctx context.Context) (Workspace, error)
 
 	for _, row := range rows {
 		project := Project{
-			ID:   row.ProjectPath,
-			Name: row.ProjectName,
-			CWD:  row.ProjectPath,
+			ID:                  row.ProjectPath,
+			Name:                row.ProjectName,
+			CWD:                 row.ProjectPath,
+			WorkerWorkspaceMode: projectWorkspaceModes[row.ProjectPath],
+		}
+		if project.WorkerWorkspaceMode == "" {
+			project.WorkerWorkspaceMode = DefaultWorkerWorkspaceMode()
 		}
 		if project.Name == "" {
 			project.Name = basename(row.ProjectPath)
@@ -102,6 +115,26 @@ func (s *StoreWorkspaceSource) Workspace(ctx context.Context) (Workspace, error)
 	}, nil
 }
 
+func (s *StoreWorkspaceSource) projectWorkspaceModes(ctx context.Context) (map[string]WorkerWorkspaceMode, error) {
+	modes := map[string]WorkerWorkspaceMode{}
+	if s.projectSettings == nil {
+		return modes, nil
+	}
+
+	settingsRows, err := s.projectSettings.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("session: list project settings: %w", err)
+	}
+	for _, settings := range settingsRows {
+		mode, ok := NormalizeWorkerWorkspaceMode(settings.WorkerWorkspaceMode)
+		if !ok {
+			continue
+		}
+		modes[settings.ProjectPath] = mode
+	}
+	return modes, nil
+}
+
 func toLegacySession(row store.Session, configPath string) Session {
 	prompt := stringField(row.Metadata, "prompt")
 	title := stringField(row.Metadata, "title")
@@ -144,12 +177,27 @@ func toLegacySession(row store.Session, configPath string) Session {
 		Metadata:          metadataJSON,
 		Project:           row.ProjectPath,
 		Recap:             recap,
-		State:             StateWorking, // v1: no activity-state capture yet.
+		State:             rowState(row.Metadata),
 		TerminalKey:       row.ZellijSession,
 		TerminalSupported: true,
 		Title:             title,
 		WorkerID:          row.ID,
 		ZellijSession:     row.ZellijSession,
+	}
+}
+
+func rowState(metadata map[string]any) State {
+	switch State(stringField(metadata, "state")) {
+	case StatePrompt:
+		return StatePrompt
+	case StateTriage:
+		return StateTriage
+	case StateDone:
+		return StateDone
+	case StateWorking:
+		return StateWorking
+	default:
+		return StateWorking
 	}
 }
 

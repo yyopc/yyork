@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -32,6 +33,14 @@ type SessionStopper interface {
 	Stop(ctx context.Context, id string) error
 }
 
+// OrchestratorEnsurer makes sure a project has a running orchestrator session,
+// spawning one when the project has none. The session.Engine satisfies this
+// interface; the server depends on the narrow surface so adding a project from
+// the dashboard reuses the exact spawn path the CLI uses.
+type OrchestratorEnsurer interface {
+	EnsureOrchestrator(ctx context.Context, req session.SpawnRequest) (store.Session, bool, error)
+}
+
 type Config struct {
 	IDEOpener       IDEOpener
 	Registry        *plugin.Registry
@@ -45,6 +54,14 @@ type Config struct {
 	// Used when WebDir is empty.
 	WebFS fs.FS
 
+	// DashboardDevOrigin is the live dashboard origin — the Vite dev
+	// server — that self-target browser previews proxy to instead of the
+	// in-process WebDir/WebFS assets. `yyork dev` sets it so the in-app
+	// browser previews the running source (with HMR), not the build-time
+	// snapshot embedded in this binary. Leave empty in production, where
+	// the embedded assets are the live dashboard.
+	DashboardDevOrigin string
+
 	Workspace           session.Workspace
 	WorkspaceSource     WorkspaceSource
 	DurabilityProviders *durabilityprovider.Registry
@@ -54,10 +71,24 @@ type Config struct {
 	// returns an empty list.
 	Sessions store.SessionRepo
 
+	// ProjectSettings stores project-scoped dashboard and CLI defaults.
+	// Optional — if nil, settings updates return 501.
+	ProjectSettings store.ProjectSettingsRepo
+
 	// Stopper terminates a session by id. When set, the dashboard can stop
 	// sessions via DELETE /api/sessions/{sessionID}. Optional — if nil, the
 	// endpoint returns 501.
 	Stopper SessionStopper
+
+	// Orchestrators ensures a project has an orchestrator session. When set,
+	// the dashboard can add projects via POST /api/projects. Optional — if
+	// nil, the endpoint returns 501.
+	Orchestrators OrchestratorEnsurer
+
+	// DirectoryChooser opens the native folder picker behind POST
+	// /api/projects/choose-directory. Optional — defaults to the host OS's
+	// native picker (macOS `osascript`).
+	DirectoryChooser DirectoryChooser
 
 	// EventBus is the in-process pub/sub bus the engine publishes
 	// lifecycle events on. The /api/events SSE endpoint subscribes to it.
@@ -78,11 +109,15 @@ type Server struct {
 	terminalManager     *terminal.Manager
 	webDir              string
 	webFS               fs.FS
+	dashboardDevOrigin  *url.URL
 	workspace           session.Workspace
 	workspaceSource     WorkspaceSource
 	durabilityProviders *durabilityprovider.Registry
 	sessions            store.SessionRepo
+	projectSettings     store.ProjectSettingsRepo
 	stopper             SessionStopper
+	orchestrators       OrchestratorEnsurer
+	directoryChooser    DirectoryChooser
 	eventBus            *events.Bus
 	controlToken        string
 	previewTargets      map[string]*url.URL
@@ -95,6 +130,15 @@ type WorkspaceSource interface {
 
 type IDEOpener interface {
 	Open(context.Context, string) error
+}
+
+// DirectoryChooser opens the host OS's native folder picker and returns the
+// absolute path the user selected. ok is false when the user cancels. Browsers
+// hide absolute filesystem paths from their file APIs, so the dashboard can't
+// produce one itself — but yyork runs locally, so the picker runs server-side
+// and the dialog appears on the user's own machine.
+type DirectoryChooser interface {
+	Choose(ctx context.Context) (path string, ok bool, err error)
 }
 
 func New(cfg Config) *Server {
@@ -112,9 +156,23 @@ func New(cfg Config) *Server {
 	if ideOpener == nil {
 		ideOpener = localIDEOpener{}
 	}
+	directoryChooser := cfg.DirectoryChooser
+	if directoryChooser == nil {
+		directoryChooser = nativeDirectoryChooser{}
+	}
 	durabilityProviders := cfg.DurabilityProviders
 	if durabilityProviders == nil {
 		durabilityProviders = durabilityprovider.NewDefaultRegistry()
+	}
+
+	var dashboardDevOrigin *url.URL
+	if cfg.DashboardDevOrigin != "" {
+		parsed, err := url.Parse(cfg.DashboardDevOrigin)
+		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+			slog.Warn("ignoring invalid dashboard dev origin", "origin", cfg.DashboardDevOrigin)
+		} else {
+			dashboardDevOrigin = &url.URL{Scheme: parsed.Scheme, Host: parsed.Host}
+		}
 	}
 
 	return &Server{
@@ -123,11 +181,15 @@ func New(cfg Config) *Server {
 		terminalManager:     terminalManager,
 		webDir:              cfg.WebDir,
 		webFS:               cfg.WebFS,
+		dashboardDevOrigin:  dashboardDevOrigin,
 		workspace:           workspace,
 		workspaceSource:     cfg.WorkspaceSource,
 		durabilityProviders: durabilityProviders,
 		sessions:            cfg.Sessions,
+		projectSettings:     cfg.ProjectSettings,
 		stopper:             cfg.Stopper,
+		orchestrators:       cfg.Orchestrators,
+		directoryChooser:    directoryChooser,
 		eventBus:            cfg.EventBus,
 		controlToken:        cfg.ControlToken,
 		previewTargets:      map[string]*url.URL{},
@@ -139,6 +201,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/health", s.handleHealth)
 	mux.HandleFunc("GET /api/plugins", s.handlePlugins)
 	mux.HandleFunc("GET /api/workspace", s.handleWorkspace)
+	mux.HandleFunc("POST /api/projects", s.handleCreateProject)
+	mux.HandleFunc("POST /api/projects/choose-directory", s.handleChooseProjectDirectory)
+	mux.HandleFunc("PATCH /api/projects/worker-workspace", s.handleUpdateProjectWorkerWorkspace)
 	mux.HandleFunc("POST /api/projects/{projectID}/ide", s.handleProjectIDE)
 	mux.HandleFunc("POST /api/sessions/{sessionID}/ide", s.handleSessionIDE)
 	mux.HandleFunc("GET /api/sessions/{sessionID}/files", s.handleSessionFiles)

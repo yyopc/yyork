@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -162,7 +163,8 @@ func buildEngine(ctx context.Context) (*session.Engine, func(), error) {
 }
 
 func newSpawnCmd() *cobra.Command {
-	var prompt, systemPromptFile, permissions, agentPlugin, sessionType string
+	var prompt, systemPromptFile, permissions, agentPlugin, sessionType, workspaceMode string
+	var jsonOutput bool
 
 	cmd := &cobra.Command{
 		Use:     "spawn",
@@ -178,13 +180,18 @@ func newSpawnCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			workspaceModeValue, err := parseWorkerWorkspaceModeFlag(workspaceMode)
+			if err != nil {
+				return err
+			}
 			return runSpawn(cmd, session.SpawnRequest{
 				AgentPlugin:      agentPlugin,
 				Kind:             kind,
 				Prompt:           prompt,
 				SystemPromptFile: systemPromptFile,
 				Permissions:      pluginagent.PermissionMode(permissions),
-			})
+				WorkspaceMode:    workspaceModeValue,
+			}, jsonOutput)
 		},
 	}
 	cmd.Flags().StringVar(&prompt, "prompt", "", "initial prompt for the spawned agent")
@@ -192,10 +199,12 @@ func newSpawnCmd() *cobra.Command {
 	cmd.Flags().StringVar(&systemPromptFile, "system-prompt-file", "", "path to a system prompt file for the spawned agent")
 	cmd.Flags().StringVar(&permissions, "permissions", "", "agent permission mode override")
 	cmd.Flags().StringVar(&sessionType, "type", spawnTypeWorker, "session type: worker or orchestrator")
+	cmd.Flags().StringVar(&workspaceMode, "workspace", "", "worker workspace mode: new-worktree or local")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "write machine-readable JSON to stdout")
 	return cmd
 }
 
-func runSpawn(cmd *cobra.Command, req session.SpawnRequest) error {
+func runSpawn(cmd *cobra.Command, req session.SpawnRequest, jsonOutput bool) error {
 	if err := validateSpawnRequest(req); err != nil {
 		return err
 	}
@@ -205,6 +214,15 @@ func runSpawn(cmd *cobra.Command, req session.SpawnRequest) error {
 		return err
 	}
 	req.ProjectPath = projectPath
+	if req.Kind != session.KindOrchestrator && req.WorkspaceMode == "" {
+		mode, ok, err := configuredWorkerWorkspaceMode(cmd.Context(), projectPath)
+		if err != nil {
+			return err
+		}
+		if ok {
+			req.WorkspaceMode = mode
+		}
+	}
 
 	eng, closeFn, err := buildEngine(cmd.Context())
 	if err != nil {
@@ -215,6 +233,9 @@ func runSpawn(cmd *cobra.Command, req session.SpawnRequest) error {
 	sess, err := eng.Spawn(cmd.Context(), req)
 	if err != nil {
 		return fmt.Errorf("spawn: %w", err)
+	}
+	if jsonOutput {
+		return writeJSON(cmd, cliSessionFromStore(sess))
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), sess.ID)
 	return nil
@@ -236,6 +257,53 @@ func spawnKind(raw string) (session.Kind, error) {
 	default:
 		return "", fmt.Errorf("spawn: --type must be %q or %q", spawnTypeWorker, spawnTypeOrchestrator)
 	}
+}
+
+func parseWorkerWorkspaceModeFlag(raw string) (session.WorkerWorkspaceMode, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", nil
+	}
+	mode, ok := session.NormalizeWorkerWorkspaceMode(trimmed)
+	if !ok {
+		return "", fmt.Errorf(
+			"spawn: --workspace must be %q or %q",
+			session.WorkerWorkspaceModeNewWorktree,
+			session.WorkerWorkspaceModeLocal,
+		)
+	}
+	return mode, nil
+}
+
+func configuredWorkerWorkspaceMode(ctx context.Context, projectPath string) (session.WorkerWorkspaceMode, bool, error) {
+	dbPath, err := store.DefaultPath()
+	if err != nil {
+		return "", false, err
+	}
+	dataStore, err := store.Open(ctx, dbPath)
+	if err != nil {
+		return "", false, fmt.Errorf("open store: %w", err)
+	}
+	defer func() { _ = dataStore.Close() }()
+
+	settings, err := dataStore.ProjectSettings().Get(ctx, projectPath)
+	if errors.Is(err, store.ErrProjectSettingsNotFound) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("read project settings: %w", err)
+	}
+	mode, ok := session.NormalizeWorkerWorkspaceMode(settings.WorkerWorkspaceMode)
+	if !ok {
+		return "", false, fmt.Errorf(
+			"spawn: stored worker workspace mode for %s must be %q or %q, got %q",
+			projectPath,
+			session.WorkerWorkspaceModeNewWorktree,
+			session.WorkerWorkspaceModeLocal,
+			settings.WorkerWorkspaceMode,
+		)
+	}
+	return mode, true, nil
 }
 
 func resolveProjectPathForSpawn() (string, error) {
@@ -299,20 +367,22 @@ func newSessionCmd() *cobra.Command {
 	}
 
 	var project string
+	var jsonOutput bool
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "List running sessions.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runSessionList(cmd, project)
+			return runSessionList(cmd, project, jsonOutput)
 		},
 	}
 	list.Flags().StringVar(&project, "project", "", "filter to a single project path")
+	list.Flags().BoolVar(&jsonOutput, "json", false, "write machine-readable JSON to stdout")
 	cmd.AddCommand(list)
 	return cmd
 }
 
-func runSessionList(cmd *cobra.Command, projectFilter string) error {
+func runSessionList(cmd *cobra.Command, projectFilter string, jsonOutput bool) error {
 	ctx := cmd.Context()
 	dbPath, err := store.DefaultPath()
 	if err != nil {
@@ -342,6 +412,17 @@ func runSessionList(cmd *cobra.Command, projectFilter string) error {
 	}
 
 	out := cmd.OutOrStdout()
+	if jsonOutput {
+		sessions := make([]cliSessionOutput, 0, len(rows))
+		for _, row := range rows {
+			sessions = append(sessions, cliSessionFromWorkspace(row))
+		}
+		return writeJSON(cmd, cliSessionListOutput{
+			Sessions: sessions,
+			Count:    len(sessions),
+		})
+	}
+
 	if len(rows) == 0 {
 		fmt.Fprintln(out, "No sessions.")
 		return nil
@@ -361,7 +442,9 @@ func runSessionList(cmd *cobra.Command, projectFilter string) error {
 }
 
 func newStopCmd() *cobra.Command {
-	return &cobra.Command{
+	var jsonOutput bool
+
+	cmd := &cobra.Command{
 		Use:     "stop <sessionID>",
 		GroupID: groupCore,
 		Short:   "Terminate a running session.",
@@ -370,12 +453,14 @@ func newStopCmd() *cobra.Command {
 			"Stopping a session id that is not in yyork's store is a no-op (exit 0).",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runStop(cmd, args[0])
+			return runStop(cmd, args[0], jsonOutput)
 		},
 	}
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "write machine-readable JSON to stdout")
+	return cmd
 }
 
-func runStop(cmd *cobra.Command, id string) error {
+func runStop(cmd *cobra.Command, id string, jsonOutput bool) error {
 	eng, closeFn, err := buildEngine(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("stop: %w", err)
@@ -385,12 +470,19 @@ func runStop(cmd *cobra.Command, id string) error {
 	if err := eng.Stop(cmd.Context(), id); err != nil {
 		return fmt.Errorf("stop: %w", err)
 	}
+	if jsonOutput {
+		return writeJSON(cmd, cliStopOutput{
+			ID:      id,
+			Stopped: true,
+		})
+	}
 	fmt.Fprintln(cmd.OutOrStdout(), "stopped", id)
 	return nil
 }
 
 func newSendCmd() *cobra.Command {
 	var sessionID, projectID string
+	var jsonOutput bool
 
 	cmd := &cobra.Command{
 		Use:     "send <message>",
@@ -399,16 +491,17 @@ func newSendCmd() *cobra.Command {
 		Long:    "Send a message to a session's agent as if typed by the user.",
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSend(cmd, sessionID, projectID, args)
+			return runSend(cmd, sessionID, projectID, args, jsonOutput)
 		},
 	}
 	cmd.Flags().StringVar(&sessionID, "session", "", "target session id (required)")
 	cmd.Flags().StringVar(&projectID, "project", "", "project id to disambiguate duplicate session ids")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "write machine-readable JSON to stdout")
 	_ = cmd.MarkFlagRequired("session")
 	return cmd
 }
 
-func runSend(cmd *cobra.Command, sessionID, projectID string, args []string) error {
+func runSend(cmd *cobra.Command, sessionID, projectID string, args []string, jsonOutput bool) error {
 	ctx := cmd.Context()
 
 	if strings.TrimSpace(sessionID) == "" {
@@ -439,8 +532,154 @@ func runSend(cmd *cobra.Command, sessionID, projectID string, args []string) err
 		return fmt.Errorf("send: %w", err)
 	}
 
+	if jsonOutput {
+		return writeJSON(cmd, cliSendOutput{
+			SessionID:   sessionID,
+			ProjectPath: projectID,
+			Sent:        true,
+		})
+	}
 	fmt.Fprintf(cmd.OutOrStdout(), "Sent message to session %s.\n", sessionID)
 	return nil
+}
+
+type cliSessionOutput struct {
+	ID            string         `json:"id"`
+	ProjectPath   string         `json:"projectPath"`
+	Kind          session.Kind   `json:"kind"`
+	Agent         string         `json:"agent"`
+	State         session.State  `json:"state,omitempty"`
+	WorkspacePath string         `json:"workspacePath,omitempty"`
+	ZellijSession string         `json:"zellijSession,omitempty"`
+	Title         string         `json:"title,omitempty"`
+	Recap         string         `json:"recap,omitempty"`
+	Metadata      map[string]any `json:"metadata,omitempty"`
+}
+
+type cliSessionListOutput struct {
+	Sessions []cliSessionOutput `json:"sessions"`
+	Count    int                `json:"count"`
+}
+
+type cliStopOutput struct {
+	ID      string `json:"id"`
+	Stopped bool   `json:"stopped"`
+}
+
+type cliSendOutput struct {
+	SessionID   string `json:"sessionId"`
+	ProjectPath string `json:"projectPath,omitempty"`
+	Sent        bool   `json:"sent"`
+}
+
+func writeJSON(cmd *cobra.Command, v any) error {
+	encoder := json.NewEncoder(cmd.OutOrStdout())
+	return encoder.Encode(v)
+}
+
+func cliSessionFromStore(row store.Session) cliSessionOutput {
+	return cliSessionOutput{
+		ID:            row.ID,
+		ProjectPath:   row.ProjectPath,
+		Kind:          kindFromMetadata(row.Metadata),
+		Agent:         row.AgentPlugin,
+		State:         stateFromMetadata(row.Metadata),
+		WorkspacePath: row.WorkspacePath,
+		ZellijSession: row.ZellijSession,
+		Title:         titleFromMetadata(row.Metadata, row.ID),
+		Recap:         cliStringMetadata(row.Metadata, "recap"),
+		Metadata:      metadataOrNil(row.Metadata),
+	}
+}
+
+func cliSessionFromWorkspace(row session.Session) cliSessionOutput {
+	metadata := decodeSessionMetadata(row.Metadata)
+	kind := row.Kind
+	if kind == "" {
+		kind = session.KindWorker
+	}
+	agent := row.AgentPluginID
+	if agent == "" {
+		agent = row.Agent
+	}
+	return cliSessionOutput{
+		ID:            row.ID,
+		ProjectPath:   row.Project,
+		Kind:          kind,
+		Agent:         agent,
+		State:         row.State,
+		WorkspacePath: row.CWD,
+		ZellijSession: row.ZellijSession,
+		Title:         row.Title,
+		Recap:         row.Recap,
+		Metadata:      metadataOrNil(metadata),
+	}
+}
+
+func decodeSessionMetadata(raw string) map[string]any {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	var metadata map[string]any
+	if err := json.Unmarshal([]byte(raw), &metadata); err != nil {
+		return nil
+	}
+	return metadata
+}
+
+func metadataOrNil(metadata map[string]any) map[string]any {
+	if len(metadata) == 0 {
+		return nil
+	}
+	return metadata
+}
+
+func kindFromMetadata(metadata map[string]any) session.Kind {
+	for _, key := range []string{"kind", "role"} {
+		switch cliStringMetadata(metadata, key) {
+		case string(session.KindOrchestrator):
+			return session.KindOrchestrator
+		case string(session.KindWorker):
+			return session.KindWorker
+		}
+	}
+	return session.KindWorker
+}
+
+func stateFromMetadata(metadata map[string]any) session.State {
+	switch cliStringMetadata(metadata, "state") {
+	case string(session.StatePrompt):
+		return session.StatePrompt
+	case string(session.StateTriage):
+		return session.StateTriage
+	case string(session.StateDone):
+		return session.StateDone
+	case string(session.StateWorking):
+		return session.StateWorking
+	default:
+		return session.StateWorking
+	}
+}
+
+func titleFromMetadata(metadata map[string]any, id string) string {
+	for _, key := range []string{"displayName", "title", "prompt"} {
+		if value := cliStringMetadata(metadata, key); value != "" {
+			return value
+		}
+	}
+	return "new agent: " + id
+}
+
+func cliStringMetadata(metadata map[string]any, key string) string {
+	value, ok := metadata[key]
+	if !ok {
+		return ""
+	}
+	text, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(text)
 }
 
 // newHooksCmd registers the internal agent lifecycle hook entrypoint. hooks
@@ -452,7 +691,7 @@ func runSend(cmd *cobra.Command, sessionID, projectID string, args []string) err
 // (agent name, event) intact.
 func newHooksCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:                "hooks <codex|claude-code> <session-start|user-prompt-submit|stop|uninstall>",
+		Use:                "hooks <codex|claude-code> <session-start|user-prompt-submit|pre-tool-use|post-tool-use|permission-request|stop|uninstall>",
 		Short:              "Internal agent lifecycle hook entrypoint.",
 		Hidden:             true,
 		DisableFlagParsing: true,
@@ -483,7 +722,6 @@ var plannedCommandOrder = []string{
 	"setup",
 	"plugin",
 	"notify",
-	"project",
 	"migrate-storage",
 	"events",
 	"config",
@@ -500,7 +738,6 @@ var plannedCommands = map[string]string{
 	"notify":          "Work with configured notification targets",
 	"open":            "Open sessions or dashboard targets",
 	"plugin":          "Browse and manage plugins",
-	"project":         "Manage portfolio projects",
 	"report":          "Declare a workflow transition",
 	"review":          "Manage local reviewer runs",
 	"review-check":    "Check PRs for review comments",

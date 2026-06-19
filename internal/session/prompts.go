@@ -22,12 +22,14 @@ var (
 // PromptContext carries the per-session facts rendered into the built-in
 // system prompts.
 type PromptContext struct {
-	SessionID     string
-	ProjectPath   string
-	ProjectName   string
-	WorkspacePath string
-	Branch        string
-	BaseRef       string
+	SessionID             string
+	ProjectPath           string
+	ProjectName           string
+	WorkspacePath         string
+	Branch                string
+	BaseRef               string
+	WorkspaceInstruction  string
+	CompletionInstruction string
 }
 
 // DefaultOrchestratorSystemPrompt renders the built-in instruction set for

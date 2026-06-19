@@ -10,12 +10,14 @@ import (
 func TestDefaultPromptsRenderContext(t *testing.T) {
 	t.Parallel()
 	pc := session.PromptContext{
-		SessionID:     "abc123",
-		ProjectPath:   "/home/u/proj",
-		ProjectName:   "proj",
-		WorkspacePath: "/data/worktrees/abc123",
-		Branch:        "yyork/abc123",
-		BaseRef:       "refs/heads/main",
+		SessionID:             "abc123",
+		ProjectPath:           "/home/u/proj",
+		ProjectName:           "proj",
+		WorkspacePath:         "/data/worktrees/abc123",
+		Branch:                "yyork/abc123",
+		BaseRef:               "refs/heads/main",
+		WorkspaceInstruction:  "Your workspace is an isolated git worktree at /data/worktrees/abc123, on branch yyork/abc123 (cut from refs/heads/main).",
+		CompletionInstruction: "Commit your work on this branch and stay on it.",
 	}
 
 	renderers := map[string]func(session.PromptContext) (string, error){

@@ -30,6 +30,22 @@ func (f fakeStoreWorkspaceRepo) MergeMetadata(context.Context, string, map[strin
 	return nil
 }
 
+type fakeProjectSettingsRepo struct {
+	rows []store.ProjectSettings
+}
+
+func (f fakeProjectSettingsRepo) Get(context.Context, string) (store.ProjectSettings, error) {
+	return store.ProjectSettings{}, store.ErrProjectSettingsNotFound
+}
+
+func (f fakeProjectSettingsRepo) List(context.Context) ([]store.ProjectSettings, error) {
+	return f.rows, nil
+}
+
+func (f fakeProjectSettingsRepo) SetWorkerWorkspaceMode(context.Context, string, string) error {
+	return nil
+}
+
 func TestToLegacySessionTitlePrecedence(t *testing.T) {
 	t.Parallel()
 
@@ -161,6 +177,34 @@ func TestToLegacySessionRecapDoesNotUsePromptWhenSessionRenamed(t *testing.T) {
 	}
 }
 
+func TestToLegacySessionReadsMetadataState(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		metadata map[string]any
+		want     State
+	}{
+		{name: "prompt", metadata: map[string]any{"state": "prompt"}, want: StatePrompt},
+		{name: "triage", metadata: map[string]any{"state": "triage"}, want: StateTriage},
+		{name: "done", metadata: map[string]any{"state": "done"}, want: StateDone},
+		{name: "working", metadata: map[string]any{"state": "working"}, want: StateWorking},
+		{name: "unknown falls back", metadata: map[string]any{"state": "blocked"}, want: StateWorking},
+		{name: "missing falls back", metadata: nil, want: StateWorking},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := toLegacySession(store.Session{ID: "v042rv", Metadata: tc.metadata}, "")
+			if got.State != tc.want {
+				t.Fatalf("State = %q, want %q", got.State, tc.want)
+			}
+		})
+	}
+}
+
 func TestWorkspaceSplitsOrchestratorRowsFromWorkerRows(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
@@ -203,6 +247,53 @@ func TestWorkspaceSplitsOrchestratorRowsFromWorkerRows(t *testing.T) {
 	}
 	if got := workspace.Sessions[0]; got.ID != "wrk1" || got.Kind != KindWorker {
 		t.Fatalf("unexpected worker row: %#v", got)
+	}
+}
+
+func TestWorkspaceProjectsCarryWorkerWorkspaceMode(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	source := NewStoreWorkspaceSource(
+		fakeStoreWorkspaceRepo{
+			rows: []store.Session{
+				{
+					ID:            "orch1",
+					AgentPlugin:   "claude-code",
+					ProjectName:   "Project A",
+					ProjectPath:   "/repo/project-a",
+					WorkspacePath: "/repo/project-a",
+					ZellijSession: "orch1",
+					Metadata:      map[string]any{"kind": "orchestrator"},
+				},
+				{
+					ID:            "wrk1",
+					AgentPlugin:   "codex",
+					ProjectName:   "Project B",
+					ProjectPath:   "/repo/project-b",
+					WorkspacePath: "/worktrees/wrk1",
+					ZellijSession: "wrk1",
+				},
+			},
+		},
+		fakeProjectSettingsRepo{
+			rows: []store.ProjectSettings{
+				{ProjectPath: "/repo/project-a", WorkerWorkspaceMode: string(WorkerWorkspaceModeLocal)},
+			},
+		},
+	)
+
+	workspace, err := source.Workspace(context.Background())
+	if err != nil {
+		t.Fatalf("Workspace: %v", err)
+	}
+	if len(workspace.Projects) != 2 {
+		t.Fatalf("projects = %#v, want 2", workspace.Projects)
+	}
+	if got := workspace.Projects[0].WorkerWorkspaceMode; got != WorkerWorkspaceModeLocal {
+		t.Fatalf("project-a WorkerWorkspaceMode = %q, want local", got)
+	}
+	if got := workspace.Projects[1].WorkerWorkspaceMode; got != WorkerWorkspaceModeLocal {
+		t.Fatalf("project-b WorkerWorkspaceMode = %q, want local", got)
 	}
 }
 

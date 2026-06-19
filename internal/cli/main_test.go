@@ -3,15 +3,18 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/yyopc/yyork/internal/app"
 	"github.com/yyopc/yyork/internal/session"
+	"github.com/yyopc/yyork/internal/store"
 )
 
 // execCLI builds the cobra command tree (the same tree main() hands to fang)
@@ -154,10 +157,123 @@ func TestSpawnHelpListsTypeFlag(t *testing.T) {
 	if *called {
 		t.Fatal("spawn help should not start the server")
 	}
-	for _, want := range []string{"--type", "worker", "orchestrator"} {
+	for _, want := range []string{"--type", "--json", "worker", "orchestrator"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("spawn help missing %q:\n%s", want, out)
 		}
+	}
+}
+
+func TestSessionListJSON(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	ctx := context.Background()
+	dbPath, err := store.DefaultPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dataStore, err := store.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	createdAt := time.Unix(100, 0).UTC()
+	if err := dataStore.Sessions().Insert(ctx, store.Session{
+		ID:            "sess-1",
+		ProjectPath:   "/repo/app",
+		ProjectName:   "app",
+		AgentPlugin:   "claude-code",
+		WorkspacePath: "/repo/app",
+		ZellijSession: "sess-1",
+		Metadata: map[string]any{
+			"kind":   "orchestrator",
+			"prompt": "Coordinate the project",
+			"state":  "prompt",
+		},
+		CreatedAt: createdAt,
+		UpdatedAt: createdAt,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := dataStore.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	runApp, called := noopApp()
+	out, err := execCLI(t, runApp, "session", "list", "--json")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if *called {
+		t.Fatal("session list should not start the server")
+	}
+
+	var got cliSessionListOutput
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("session list --json produced invalid JSON: %v\n%s", err, out)
+	}
+	if got.Count != 1 || len(got.Sessions) != 1 {
+		t.Fatalf("got count=%d len=%d, want 1 session; output=%s", got.Count, len(got.Sessions), out)
+	}
+	session := got.Sessions[0]
+	if session.ID != "sess-1" || session.ProjectPath != "/repo/app" || session.Kind != "orchestrator" || session.Agent != "claude-code" || session.State != "prompt" {
+		t.Fatalf("unexpected session JSON: %#v", session)
+	}
+	if session.Title != "Coordinate the project" {
+		t.Fatalf("Title = %q, want prompt-derived title", session.Title)
+	}
+	if session.Metadata["prompt"] != "Coordinate the project" {
+		t.Fatalf("metadata = %#v, want prompt", session.Metadata)
+	}
+}
+
+func TestSessionListJSONNoSessions(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	runApp, called := noopApp()
+
+	out, err := execCLI(t, runApp, "session", "list", "--json")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if *called {
+		t.Fatal("session list should not start the server")
+	}
+
+	var got cliSessionListOutput
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("session list --json produced invalid JSON: %v\n%s", err, out)
+	}
+	if got.Count != 0 || len(got.Sessions) != 0 {
+		t.Fatalf("got count=%d len=%d, want no sessions", got.Count, len(got.Sessions))
+	}
+}
+
+func TestCommandAcknowledgementJSON(t *testing.T) {
+	cmd := newRootCmd(func(context.Context, app.Config) error {
+		return nil
+	}, fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}})
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	if err := writeJSON(cmd, cliStopOutput{ID: "sess-1", Stopped: true}); err != nil {
+		t.Fatalf("write stop json: %v", err)
+	}
+	var stop cliStopOutput
+	if err := json.Unmarshal(buf.Bytes(), &stop); err != nil {
+		t.Fatalf("stop output is not JSON: %v", err)
+	}
+	if stop.ID != "sess-1" || !stop.Stopped {
+		t.Fatalf("unexpected stop JSON: %#v", stop)
+	}
+
+	buf.Reset()
+	if err := writeJSON(cmd, cliSendOutput{SessionID: "sess-1", ProjectPath: "/repo/app", Sent: true}); err != nil {
+		t.Fatalf("write send json: %v", err)
+	}
+	var send cliSendOutput
+	if err := json.Unmarshal(buf.Bytes(), &send); err != nil {
+		t.Fatalf("send output is not JSON: %v", err)
+	}
+	if send.SessionID != "sess-1" || send.ProjectPath != "/repo/app" || !send.Sent {
+		t.Fatalf("unexpected send JSON: %#v", send)
 	}
 }
 

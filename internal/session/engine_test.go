@@ -253,8 +253,9 @@ func TestSpawnHappyPath(t *testing.T) {
 	ctx := context.Background()
 
 	sess, err := h.engine.Spawn(ctx, session.SpawnRequest{
-		ProjectPath: "/tmp/proj",
-		Prompt:      "do thing",
+		ProjectPath:   "/tmp/proj",
+		Prompt:        "do thing",
+		WorkspaceMode: session.WorkerWorkspaceModeNewWorktree,
 	})
 	if err != nil {
 		t.Fatalf("Spawn: %v", err)
@@ -341,6 +342,74 @@ func TestSpawnHappyPath(t *testing.T) {
 	}
 }
 
+func TestSpawnWorkerDefaultUsesProjectWorktree(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	ctx := context.Background()
+
+	sess, err := h.engine.Spawn(ctx, session.SpawnRequest{
+		ProjectPath: "/tmp/proj",
+		Prompt:      "do thing",
+	})
+	if err != nil {
+		t.Fatalf("Spawn: %v", err)
+	}
+
+	if sess.WorkspacePath != "/tmp/proj" {
+		t.Fatalf("WorkspacePath = %q, want project path", sess.WorkspacePath)
+	}
+	if len(h.worktree.createCalls) != 0 {
+		t.Fatalf("worktree createCalls = %d, want 0", len(h.worktree.createCalls))
+	}
+
+	got, err := h.repo.Get(ctx, sess.ID)
+	if err != nil {
+		t.Fatalf("Get after spawn: %v", err)
+	}
+	if got.Metadata["workspaceMode"] != string(session.WorkerWorkspaceModeLocal) {
+		t.Fatalf("workspaceMode metadata = %v, want local", got.Metadata["workspaceMode"])
+	}
+}
+
+func TestSpawnWorkerLocalUsesProjectWorktree(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	ctx := context.Background()
+
+	sess, err := h.engine.Spawn(ctx, session.SpawnRequest{
+		ProjectPath:   "/tmp/proj",
+		Prompt:        "do thing",
+		WorkspaceMode: session.WorkerWorkspaceModeLocal,
+	})
+	if err != nil {
+		t.Fatalf("Spawn: %v", err)
+	}
+
+	if sess.WorkspacePath != "/tmp/proj" {
+		t.Fatalf("WorkspacePath = %q, want project path", sess.WorkspacePath)
+	}
+	if len(h.worktree.createCalls) != 0 {
+		t.Fatalf("worktree createCalls = %d, want 0", len(h.worktree.createCalls))
+	}
+	if len(h.provider.createCalls) != 1 {
+		t.Fatalf("createCalls = %d, want 1", len(h.provider.createCalls))
+	}
+	if h.provider.createCalls[0].Cwd != "/tmp/proj" {
+		t.Fatalf("provider cwd = %q, want /tmp/proj", h.provider.createCalls[0].Cwd)
+	}
+	if h.agent.launchCalls[0].WorkspacePath != "/tmp/proj" {
+		t.Fatalf("launch WorkspacePath = %q, want /tmp/proj", h.agent.launchCalls[0].WorkspacePath)
+	}
+
+	got, err := h.repo.Get(ctx, sess.ID)
+	if err != nil {
+		t.Fatalf("Get after spawn: %v", err)
+	}
+	if got.Metadata["workspaceMode"] != string(session.WorkerWorkspaceModeLocal) {
+		t.Fatalf("workspaceMode metadata = %v, want local", got.Metadata["workspaceMode"])
+	}
+}
+
 func TestSpawnOrchestratorPersistsKindAndSystemPrompt(t *testing.T) {
 	t.Parallel()
 	h := newHarness(t)
@@ -381,6 +450,12 @@ func TestSpawnOrchestratorPersistsKindAndSystemPrompt(t *testing.T) {
 	}
 	if h.provider.createCalls[0].Env["YYORK_SESSION_KIND"] != "orchestrator" {
 		t.Errorf("env[YYORK_SESSION_KIND] = %q, want orchestrator", h.provider.createCalls[0].Env["YYORK_SESSION_KIND"])
+	}
+	if h.provider.createCalls[0].Cwd != "/tmp/proj" {
+		t.Errorf("orchestrator cwd = %q, want /tmp/proj", h.provider.createCalls[0].Cwd)
+	}
+	if len(h.worktree.createCalls) != 0 {
+		t.Errorf("orchestrator worktree createCalls = %d, want 0", len(h.worktree.createCalls))
 	}
 }
 
@@ -439,13 +514,23 @@ func TestSpawnWorkerUsesDefaultSystemPrompt(t *testing.T) {
 // promptContextFor rebuilds the PromptContext the engine derives during Spawn,
 // from the facts it persists on the session row.
 func promptContextFor(sess store.Session) session.PromptContext {
+	branch := "yyork/" + sess.ID
+	baseRef := "refs/heads/main"
+	workspaceInstruction := "Your workspace is an isolated git worktree at " + sess.WorkspacePath + ", on branch " + branch + " (cut from " + baseRef + ")."
+	completionInstruction := "Commit your work on this branch and stay on it."
+	if sess.WorkspacePath == sess.ProjectPath || sess.Metadata["workspaceMode"] == string(session.WorkerWorkspaceModeLocal) {
+		workspaceInstruction = "Your workspace is the main project worktree at " + sess.WorkspacePath + "."
+		completionInstruction = "Continue in this main worktree. Do not create or switch branches unless the user explicitly asks."
+	}
 	return session.PromptContext{
-		SessionID:     sess.ID,
-		ProjectPath:   sess.ProjectPath,
-		ProjectName:   sess.ProjectName,
-		WorkspacePath: sess.WorkspacePath,
-		Branch:        "yyork/" + sess.ID,
-		BaseRef:       "refs/heads/main",
+		SessionID:             sess.ID,
+		ProjectPath:           sess.ProjectPath,
+		ProjectName:           sess.ProjectName,
+		WorkspacePath:         sess.WorkspacePath,
+		Branch:                branch,
+		BaseRef:               baseRef,
+		WorkspaceInstruction:  workspaceInstruction,
+		CompletionInstruction: completionInstruction,
 	}
 }
 
@@ -510,13 +595,29 @@ func TestSpawnRejectsNonGitProject(t *testing.T) {
 	}
 }
 
+func TestSpawnRejectsInvalidWorkspaceMode(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	_, err := h.engine.Spawn(context.Background(), session.SpawnRequest{
+		ProjectPath:   "/tmp/proj",
+		WorkspaceMode: session.WorkerWorkspaceMode("elsewhere"),
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid workspace mode")
+	}
+	if len(h.worktree.createCalls) != 0 {
+		t.Errorf("worktree was created despite invalid workspace mode; calls = %d", len(h.worktree.createCalls))
+	}
+}
+
 func TestSpawnRollsBackOnProviderFailure(t *testing.T) {
 	t.Parallel()
 	h := newHarness(t)
 	h.provider.createErr = errors.New("zellij blew up")
 
 	_, err := h.engine.Spawn(context.Background(), session.SpawnRequest{
-		ProjectPath: "/tmp/proj",
+		ProjectPath:   "/tmp/proj",
+		WorkspaceMode: session.WorkerWorkspaceModeNewWorktree,
 	})
 	if err == nil {
 		t.Fatal("expected error from provider failure")
@@ -559,7 +660,8 @@ func TestSpawnRollsBackOnHookFailure(t *testing.T) {
 	h.agent.hooksErr = errors.New("hooks blew up")
 
 	_, err := h.engine.Spawn(context.Background(), session.SpawnRequest{
-		ProjectPath: "/tmp/proj",
+		ProjectPath:   "/tmp/proj",
+		WorkspaceMode: session.WorkerWorkspaceModeNewWorktree,
 	})
 	if err == nil {
 		t.Fatal("expected error from hook failure")
@@ -586,7 +688,8 @@ func TestSpawnRollsBackOnWorktreeFailure(t *testing.T) {
 	h.worktree.createErr = errors.New("worktree busted")
 
 	_, err := h.engine.Spawn(context.Background(), session.SpawnRequest{
-		ProjectPath: "/tmp/proj",
+		ProjectPath:   "/tmp/proj",
+		WorkspaceMode: session.WorkerWorkspaceModeNewWorktree,
 	})
 	if err == nil {
 		t.Fatal("expected error from worktree failure")
@@ -638,6 +741,28 @@ func TestStopRemovesWorktreeKillsProviderAndDeletesRow(t *testing.T) {
 	events := h.drainEvents(t, 1, 100*time.Millisecond)
 	if events[0].Type != "session.terminated" {
 		t.Errorf("event type = %q, want session.terminated", events[0].Type)
+	}
+}
+
+func TestStopLocalWorkspaceDoesNotRemoveProjectWorktree(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	ctx := context.Background()
+
+	sess, err := h.engine.Spawn(ctx, session.SpawnRequest{
+		ProjectPath:   "/tmp/proj",
+		WorkspaceMode: session.WorkerWorkspaceModeLocal,
+	})
+	if err != nil {
+		t.Fatalf("Spawn: %v", err)
+	}
+	_ = h.drainEvents(t, 1, 100*time.Millisecond)
+
+	if err := h.engine.Stop(ctx, sess.ID); err != nil {
+		t.Fatalf("Stop: %v", err)
+	}
+	if len(h.worktree.removeCalls) != 0 {
+		t.Fatalf("worktree removeCalls = %d, want 0", len(h.worktree.removeCalls))
 	}
 }
 

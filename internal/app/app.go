@@ -40,6 +40,13 @@ type Config struct {
 	// server serves the dashboard from the embed.
 	WebFS fs.FS
 
+	// DashboardDevOrigin is the live dashboard origin (the Vite dev
+	// server) that the server proxies self-target browser previews to
+	// instead of serving WebDir/WebFS in-process. `yyork dev` sets it so
+	// the in-app browser shows the running source with HMR; leave empty in
+	// production, where the embedded assets are the dashboard.
+	DashboardDevOrigin string
+
 	// OnListen, when set, is called once with the bound listener address
 	// immediately after the listener is created and before it begins
 	// serving. `yyork dev` passes Addr ":0" and uses this to learn the
@@ -137,14 +144,17 @@ func Run(ctx context.Context, cfg Config) error {
 	}()
 
 	appServer := server.New(server.Config{
-		Registry: registry,
-		WebDir:   cfg.WebDir,
-		WebFS:    cfg.WebFS,
+		Registry:           registry,
+		WebDir:             cfg.WebDir,
+		WebFS:              cfg.WebFS,
+		DashboardDevOrigin: cfg.DashboardDevOrigin,
 		// The dashboard reads yyork's own session store. Orchestrators and
 		// workers are both yyork-owned rows backed by Zellij sessions.
-		WorkspaceSource: session.NewStoreWorkspaceSource(dataStore.Sessions()),
+		WorkspaceSource: session.NewStoreWorkspaceSource(dataStore.Sessions(), dataStore.ProjectSettings()),
 		Sessions:        dataStore.Sessions(),
+		ProjectSettings: dataStore.ProjectSettings(),
 		Stopper:         engine,
+		Orchestrators:   engine,
 		EventBus:        bus,
 		ControlToken:    controlToken,
 	})
