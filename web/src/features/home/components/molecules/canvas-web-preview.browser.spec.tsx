@@ -243,6 +243,40 @@ test('bridge location changes drive the address bar without remounting the ifram
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
 
+test('unsupported URLs are reported with a toast instead of a viewport banner', async () => {
+  const user = setupUser();
+  const fetchMock = previewTargetsFetchMock();
+  vi.stubGlobal('fetch', fetchMock);
+
+  render(<CanvasWebPreview defaultUrl="http://localhost:3000/app" />);
+
+  const iframeLocator = page.getByTitle('Browser preview');
+  await expect.element(iframeLocator).toBeVisible();
+  const addressInput = page
+    .getByPlaceholder('http://localhost:3000')
+    .element() as HTMLInputElement;
+
+  addressInput.focus();
+  addressInput.setSelectionRange(0, addressInput.value.length);
+  await user.type(addressInput, 'https://google.com');
+  await user.keyboard('{Enter}');
+
+  await expect.element(page.getByText('Unsupported preview URL')).toBeVisible();
+  await expect
+    .element(
+      page.getByText(
+        'yyork Browser only supports localhost, loopback, wildcard bind, and *.localhost preview URLs.'
+      )
+    )
+    .toBeVisible();
+  expect(
+    Array.from(document.querySelectorAll('div')).some((element) =>
+      element.className.includes('border-destructive/30')
+    )
+  ).toBe(false);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
 test('toolbar back and forward rebind the frame to the recorded entry', async () => {
   const user = setupUser();
   const fetchMock = previewTargetsFetchMock();

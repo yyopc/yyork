@@ -1,7 +1,10 @@
 package server
 
 import (
+	"bufio"
 	"encoding/json"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -229,6 +232,158 @@ func TestBrowserPreviewProxyCanServeYyorkItselfOnSamePort(t *testing.T) {
 	}
 	if !strings.Contains(body, browserPreviewAgentationPath) {
 		t.Fatalf("expected self preview to receive Agentation injection, got %s", body)
+	}
+}
+
+func TestBrowserPreviewProxyDevSelfTargetServesDashboardDevOrigin(t *testing.T) {
+	var upstreamHost string
+	vite := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upstreamHost = r.Host
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write([]byte("<!doctype html><html><body><main>vite dev fixture</main></body></html>"))
+	}))
+	t.Cleanup(vite.Close)
+
+	server := New(Config{
+		WebFS:              dashboardFixtureFS(),
+		DashboardDevOrigin: vite.URL,
+	})
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"http://127.0.0.1:4217/api/browser-preview/targets",
+		strings.NewReader(`{"url":"http://127.0.0.1:4217/board/demo"}`),
+	)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("register preview target failed with %d: %s", response.Code, response.Body.String())
+	}
+
+	var payload browserPreviewTargetResponse
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode preview target response: %v", err)
+	}
+
+	previewRequest := httptest.NewRequest(http.MethodGet, payload.PreviewURL, nil)
+	previewResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(previewResponse, previewRequest)
+
+	if previewResponse.Code != http.StatusOK {
+		t.Fatalf("expected dev self preview to succeed, got %d: %s", previewResponse.Code, previewResponse.Body.String())
+	}
+	body := previewResponse.Body.String()
+	if !strings.Contains(body, "vite dev fixture") {
+		t.Fatalf("expected the live dev-server HTML, got %s", body)
+	}
+	if strings.Contains(body, "dashboard fixture") {
+		t.Fatalf("expected the embedded snapshot NOT to be served, got %s", body)
+	}
+	if !strings.Contains(body, browserPreviewBridgePath) {
+		t.Fatalf("expected dev self preview to receive bridge injection, got %s", body)
+	}
+	if !strings.Contains(body, browserPreviewAgentationPath) {
+		t.Fatalf("expected dev self preview to receive Agentation injection, got %s", body)
+	}
+	// Logical URLs must stay on the registered origin, not leak Vite's
+	// internal address into the bridge config.
+	if !strings.Contains(body, `"targetOrigin":"http://127.0.0.1:4217"`) {
+		t.Fatalf("expected bridge config to keep the registered target origin, got %s", body)
+	}
+	upstreamURL, err := url.Parse(vite.URL)
+	if err != nil {
+		t.Fatalf("parse vite fixture URL: %v", err)
+	}
+	if upstreamHost != upstreamURL.Host {
+		t.Fatalf("expected upstream Host %q (Vite's own address), got %q", upstreamURL.Host, upstreamHost)
+	}
+}
+
+func TestBrowserPreviewProxyTunnelsUpgradeRequests(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+			http.Error(w, "expected an upgrade request", http.StatusBadRequest)
+			return
+		}
+		conn, buffered, err := http.NewResponseController(w).Hijack()
+		if err != nil {
+			t.Errorf("hijack upstream connection: %v", err)
+			return
+		}
+		defer conn.Close()
+		_, _ = buffered.WriteString("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n")
+		_ = buffered.Flush()
+		line, err := buffered.ReadString('\n')
+		if err != nil {
+			return
+		}
+		_, _ = buffered.WriteString("echo:" + line)
+		_ = buffered.Flush()
+	}))
+	t.Cleanup(upstream.Close)
+
+	server := New(Config{
+		WebFS:              dashboardFixtureFS(),
+		DashboardDevOrigin: upstream.URL,
+	})
+	listener := httptest.NewServer(server.Handler())
+	t.Cleanup(listener.Close)
+	listenerURL, err := url.Parse(listener.URL)
+	if err != nil {
+		t.Fatalf("parse test listener URL: %v", err)
+	}
+	port := listenerURL.Port()
+
+	registration, err := http.Post(
+		listener.URL+"/api/browser-preview/targets",
+		"application/json",
+		strings.NewReader(`{"url":"http://yyork.localhost:`+port+`/"}`),
+	)
+	if err != nil {
+		t.Fatalf("register preview target: %v", err)
+	}
+	defer registration.Body.Close()
+	if registration.StatusCode != http.StatusOK {
+		t.Fatalf("register preview target failed with %d", registration.StatusCode)
+	}
+
+	conn, err := net.Dial("tcp", listenerURL.Host)
+	if err != nil {
+		t.Fatalf("dial preview listener: %v", err)
+	}
+	defer conn.Close()
+	_, _ = fmt.Fprintf(
+		conn,
+		"GET / HTTP/1.1\r\nHost: yyork-preview.yyork.localhost:%s\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n",
+		port,
+	)
+
+	reader := bufio.NewReader(conn)
+	status, err := reader.ReadString('\n')
+	if err != nil {
+		t.Fatalf("read upgrade status line: %v", err)
+	}
+	if !strings.Contains(status, "101") {
+		t.Fatalf("expected 101 Switching Protocols through the preview proxy, got %q", status)
+	}
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			t.Fatalf("read upgrade response headers: %v", err)
+		}
+		if line == "\r\n" {
+			break
+		}
+	}
+
+	if _, err := fmt.Fprint(conn, "ping\n"); err != nil {
+		t.Fatalf("write tunneled payload: %v", err)
+	}
+	echo, err := reader.ReadString('\n')
+	if err != nil {
+		t.Fatalf("read tunneled echo: %v", err)
+	}
+	if echo != "echo:ping\n" {
+		t.Fatalf("expected the upstream echo through the tunnel, got %q", echo)
 	}
 }
 

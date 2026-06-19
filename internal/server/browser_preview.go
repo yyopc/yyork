@@ -13,6 +13,7 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -90,15 +91,33 @@ func (s *Server) handleBrowserPreview(w http.ResponseWriter, r *http.Request) {
 	upstreamURL.RawPath = r.URL.RawPath
 	upstreamURL.RawQuery = r.URL.RawQuery
 
+	// connectURL is the address the proxy actually dials. It only diverges
+	// from the logical upstreamURL for dev self-targets, where the live
+	// dashboard is the Vite dev server rather than this process's embedded
+	// build-time snapshot. The bridge config and redirect resolution keep
+	// using targetOrigin/upstreamURL so logical URLs stay on the registered
+	// host.
+	connectURL := upstreamURL
 	if isBrowserPreviewSelfTarget(r, targetOrigin) {
-		s.handleBrowserPreviewSelfTarget(w, r, targetOrigin, &upstreamURL)
+		if s.dashboardDevOrigin == nil {
+			s.handleBrowserPreviewSelfTarget(w, r, targetOrigin, &upstreamURL)
+			return
+		}
+		connectURL.Scheme = s.dashboardDevOrigin.Scheme
+		connectURL.Host = s.dashboardDevOrigin.Host
+	}
+
+	// Protocol upgrades (a dev server's HMR websocket) cannot flow through
+	// the buffered proxy below; tunnel them instead.
+	if isBrowserPreviewUpgradeRequest(r) {
+		serveBrowserPreviewUpgrade(w, r, browserPreviewOrigin(&connectURL))
 		return
 	}
 
 	upstreamRequest, err := http.NewRequestWithContext(
 		r.Context(),
 		r.Method,
-		upstreamURL.String(),
+		connectURL.String(),
 		r.Body,
 	)
 	if err != nil {
@@ -106,7 +125,7 @@ func (s *Server) handleBrowserPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	copyBrowserPreviewRequestHeaders(upstreamRequest.Header, r.Header)
-	upstreamRequest.Host = targetOrigin.Host
+	upstreamRequest.Host = connectURL.Host
 	upstreamRequest.Header.Set("X-Forwarded-Host", externalRequestHost(r))
 	upstreamRequest.Header.Set("X-Forwarded-Proto", externalRequestScheme(r))
 
@@ -397,6 +416,39 @@ func externalRequestScheme(r *http.Request) string {
 		return r.URL.Scheme
 	}
 	return "http"
+}
+
+// isBrowserPreviewUpgradeRequest reports whether the request asks to switch
+// protocols (e.g. Vite's HMR websocket: `Connection: Upgrade` plus an
+// `Upgrade:` token).
+func isBrowserPreviewUpgradeRequest(r *http.Request) bool {
+	if r.Header.Get("Upgrade") == "" {
+		return false
+	}
+	for _, value := range r.Header.Values("Connection") {
+		for token := range strings.SplitSeq(value, ",") {
+			if strings.EqualFold(strings.TrimSpace(token), "upgrade") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// serveBrowserPreviewUpgrade tunnels a protocol-upgrade request to the
+// upstream origin. The buffered preview proxy cannot switch protocols, so
+// upgrades go through httputil.ReverseProxy, which hijacks the client
+// connection after the upstream's 101 and streams both directions. Without
+// this, a previewed dev server renders but its HMR socket never connects,
+// so the page goes stale on source edits.
+func serveBrowserPreviewUpgrade(w http.ResponseWriter, r *http.Request, origin *url.URL) {
+	proxy := &httputil.ReverseProxy{
+		Rewrite: func(request *httputil.ProxyRequest) {
+			request.SetURL(origin)
+			request.Out.Host = origin.Host
+		},
+	}
+	proxy.ServeHTTP(w, r)
 }
 
 func browserPreviewHTTPClient() *http.Client {

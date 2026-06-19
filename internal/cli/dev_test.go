@@ -126,6 +126,23 @@ func TestDevBackendAppConfigCarriesDashboardFS(t *testing.T) {
 	}
 }
 
+func TestDevBackendAppConfigPointsSelfPreviewAtVite(t *testing.T) {
+	cfg := devConfig{
+		webHost:     "127.0.0.1",
+		webPort:     5173,
+		backendAddr: "127.0.0.1:0",
+		portlessURL: "https://yyork.localhost",
+	}
+
+	got := devBackendAppConfig(cfg, nil, nil)
+
+	// Always the direct Vite address — never the portless proxy URL, whose
+	// TLS certificate the backend would not trust.
+	if got.DashboardDevOrigin != "http://127.0.0.1:5173" {
+		t.Fatalf("DashboardDevOrigin = %q, want http://127.0.0.1:5173", got.DashboardDevOrigin)
+	}
+}
+
 func TestDevPreviewAliasPortRequiresPortless(t *testing.T) {
 	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:7331")
 	if err != nil {

@@ -18,7 +18,10 @@ import (
 	"github.com/yyopc/yyork/internal/app"
 )
 
-const devBrowserPreviewAliasName = "yyork-preview.yyork"
+const (
+	devBrowserPreviewAliasName = "yyork-preview.yyork"
+	devMockAliasName           = "mock.yyork"
+)
 
 // newDevCmd builds the dev-stack launcher. It is hidden because it is a
 // development-loop entrypoint (driven by `pnpm dev` -> portless -> `go run .
@@ -56,15 +59,25 @@ func (c devConfig) webOrigin() string {
 	if c.portlessURL != "" {
 		return c.portlessURL
 	}
+	return c.viteOrigin()
+}
+
+// viteOrigin is the Vite child's direct plain-HTTP address (never the
+// portless proxy URL, whose TLS certificate the backend would not trust).
+// The backend proxies self-target browser previews here so the in-app
+// browser shows the live dev server, not the embedded snapshot.
+func (c devConfig) viteOrigin() string {
 	return "http://" + net.JoinHostPort(c.webHost, strconv.Itoa(c.webPort))
 }
 
 // resolveDevConfig derives the dev wiring from environment variables.
-//
-//   - web host: HOST (portless) -> VITE_HOST -> 127.0.0.1
-//   - web port: PORT (portless) -> VITE_PORT -> 3000
-//   - backend:  127.0.0.1:YYORK_BACKEND_PORT, or 127.0.0.1:0 (ephemeral) when
-//     unset. YYORK_BACKEND_HOST overrides the host.
+	//
+	//   - web host: VITE_HOST -> HOST (portless) -> 127.0.0.1
+	//     If running under portless and only HOST is present, we bind Vite on
+	//     0.0.0.0 so the proxy can forward from the stable .localhost URL.
+	//   - web port: PORT (portless) -> VITE_PORT -> 3000
+	//   - backend:  127.0.0.1:YYORK_BACKEND_PORT, or 127.0.0.1:0 (ephemeral) when
+	//     unset. YYORK_BACKEND_HOST overrides the host.
 func resolveDevConfig(getenv func(string) string) (devConfig, error) {
 	webPort, err := resolvePort(firstNonEmpty(getenv("PORT"), getenv("VITE_PORT")), 3000)
 	if err != nil {
@@ -78,8 +91,13 @@ func resolveDevConfig(getenv func(string) string) (devConfig, error) {
 
 	backendHost := firstNonEmpty(getenv("YYORK_BACKEND_HOST"), "127.0.0.1")
 
+	webHost := firstNonEmpty(getenv("VITE_HOST"), getenv("HOST"), "127.0.0.1")
+	if getenv("PORTLESS_URL") != "" && getenv("VITE_HOST") == "" && getenv("HOST") == "127.0.0.1" {
+		webHost = "0.0.0.0"
+	}
+
 	return devConfig{
-		webHost:     firstNonEmpty(getenv("HOST"), getenv("VITE_HOST"), "127.0.0.1"),
+		webHost:     webHost,
 		webPort:     webPort,
 		backendAddr: net.JoinHostPort(backendHost, strconv.Itoa(backendPort)),
 		portlessURL: getenv("PORTLESS_URL"),
@@ -111,11 +129,12 @@ func firstNonEmpty(values ...string) string {
 
 func devBackendAppConfig(cfg devConfig, webFS fs.FS, onListen func(net.Addr)) app.Config {
 	return app.Config{
-		Addr:           cfg.backendAddr,
-		OpenBrowser:    false,
-		SuppressBanner: true,
-		OnListen:       onListen,
-		WebFS:          webFS,
+		Addr:               cfg.backendAddr,
+		OpenBrowser:        false,
+		SuppressBanner:     true,
+		OnListen:           onListen,
+		WebFS:              webFS,
+		DashboardDevOrigin: cfg.viteOrigin(),
 	}
 }
 
@@ -135,21 +154,31 @@ func registerDevPreviewAlias(ctx context.Context, cmd *cobra.Command, cfg devCon
 	if err != nil || !ok {
 		return err
 	}
+	return registerDevPortlessAlias(ctx, cmd, devBrowserPreviewAliasName, port)
+}
 
+func registerDevMockAlias(ctx context.Context, cmd *cobra.Command, cfg devConfig) error {
+	if cfg.portlessURL == "" {
+		return nil
+	}
+	return registerDevPortlessAlias(ctx, cmd, devMockAliasName, strconv.Itoa(cfg.webPort))
+}
+
+func registerDevPortlessAlias(ctx context.Context, cmd *cobra.Command, name string, port string) error {
 	alias := exec.CommandContext(
 		ctx,
 		"pnpm",
 		"exec",
 		"portless",
 		"alias",
-		devBrowserPreviewAliasName,
+		name,
 		port,
 		"--force",
 	)
 	alias.Stdout = cmd.OutOrStdout()
 	alias.Stderr = cmd.ErrOrStderr()
 	if err := alias.Run(); err != nil {
-		return fmt.Errorf("register preview alias: %w", err)
+		return fmt.Errorf("register %s alias: %w", name, err)
 	}
 	return nil
 }
@@ -193,6 +222,11 @@ func runDev(cmd *cobra.Command, runApp appRunner, webFS fs.FS) error {
 
 	backendOrigin := "http://" + apiAddr.String()
 	if err := registerDevPreviewAlias(ctx, cmd, cfg, apiAddr); err != nil {
+		cancel()
+		<-appErrCh
+		return fmt.Errorf("dev: %w", err)
+	}
+	if err := registerDevMockAlias(ctx, cmd, cfg); err != nil {
 		cancel()
 		<-appErrCh
 		return fmt.Errorf("dev: %w", err)

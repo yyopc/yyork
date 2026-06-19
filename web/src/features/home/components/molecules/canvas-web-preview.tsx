@@ -4,6 +4,7 @@ import {
   ChevronRightIcon,
   CookieIcon,
   ExternalLinkIcon,
+  Globe,
   HardDriveIcon,
   MoreVerticalIcon,
   RefreshCcwIcon,
@@ -59,6 +60,7 @@ interface WebPreviewContextValue {
   canGoForward: boolean;
   currentUrl: string;
   error: string | null;
+  frameUrl: string;
   iframeRef: React.RefObject<HTMLIFrameElement | null>;
   loading: boolean;
   navigateTo: (url: string) => void;
@@ -71,6 +73,7 @@ interface WebPreviewContextValue {
   ) => void;
   runHistory: (direction: 'back' | 'forward') => void;
   setError: (error: string | null) => void;
+  setFrameUrl: (url: string) => void;
   setLoading: (loading: boolean) => void;
 }
 
@@ -116,6 +119,7 @@ export function CanvasWebPreview(props: {
   const [previewState, setPreviewState] = useState(() =>
     createPreviewState(props.defaultUrl)
   );
+  const [frameUrl, setFrameUrl] = useState('');
   const [annotations, setAnnotations] = useState<StagedAnnotation[]>([]);
   const annotationKeyRef = useRef(0);
   const sendMutation = useMutation(sendAnnotationsMutationOptions());
@@ -159,11 +163,13 @@ export function CanvasWebPreview(props: {
     if (!result.url) {
       updatePreviewState((current) => ({
         ...current,
-        error: result.error ?? null,
+        error: null,
         loading: false,
       }));
       if (result.error) {
-        toast.error(result.error);
+        toast.error('Unsupported preview URL', {
+          description: result.error,
+        });
       }
       return;
     }
@@ -371,6 +377,7 @@ export function CanvasWebPreview(props: {
     canGoForward,
     currentUrl,
     error,
+    frameUrl,
     iframeRef,
     loading,
     navigateTo,
@@ -380,6 +387,7 @@ export function CanvasWebPreview(props: {
     reloadPreview,
     runHistory,
     setError: setPreviewError,
+    setFrameUrl,
     setLoading: setPreviewLoading,
   };
 
@@ -456,8 +464,9 @@ function ReloadPreviewButton() {
 }
 
 function OpenExternalButton() {
-  const { currentUrl } = useWebPreview();
-  const disabled = !currentUrl.trim();
+  const { currentUrl, frameUrl } = useWebPreview();
+  const urlToOpen = frameUrl || currentUrl;
+  const disabled = !urlToOpen.trim();
 
   return (
     <WebPreviewNavigationButton
@@ -466,7 +475,7 @@ function OpenExternalButton() {
       disabled={disabled}
       onClick={() => {
         if (!disabled) {
-          window.open(currentUrl, '_blank', 'noopener,noreferrer');
+          window.open(urlToOpen, '_blank', 'noopener,noreferrer');
         }
       }}
     >
@@ -542,6 +551,7 @@ function BrowserViewport(props: {
     previewName,
     recordFrameNavigation,
     setError,
+    setFrameUrl,
     setLoading,
   } = useWebPreview();
   const frameUrl =
@@ -602,6 +612,7 @@ function BrowserViewport(props: {
           frameUrl: target.previewUrl,
           sourceUrl: navigation.url,
         });
+        setFrameUrl(target.previewUrl);
       })
       .catch((errorValue: unknown) => {
         if (controller.signal.aborted) {
@@ -611,7 +622,7 @@ function BrowserViewport(props: {
       });
 
     return () => controller.abort();
-  }, [navigation.id, navigation.url, previewName]);
+  }, [navigation.id, navigation.url, previewName, setFrameUrl]);
 
   useEffect(() => {
     const frame = iframeRef.current;
@@ -668,7 +679,8 @@ function BrowserViewport(props: {
           Preparing local preview
         </div>
       ) : (
-        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+        <div className="flex h-full flex-col items-center justify-center text-sm text-muted-foreground">
+          <Globe size={40} />
           Enter a local preview URL
         </div>
       )}
@@ -733,8 +745,8 @@ function AnnotationTray(props: {
             key={annotation.key}
             className="flex items-start gap-2 px-3 py-2 text-xs"
           >
-            <div className="min-w-0 flex-1">
-              <p className="break-words">
+            <div className="min-wt-0 flex-1">
+              <p className="wrap-break-words">
                 {annotation.comment ||
                   annotation.selectedText ||
                   annotation.element ||
@@ -818,7 +830,7 @@ function WebPreviewUrl(props: ComponentProps<typeof Input>) {
     <Input
       {...props}
       value={draftUrl}
-      className="h-8 max-w-[66.666%] min-w-0 flex-1 rounded-md border-0"
+      className="h-8 min-w-0 flex-1 rounded-md border border-input shadow-none focus-within:border-input focus-within:ring-0"
       autoCapitalize="none"
       autoComplete="off"
       autoCorrect="off"
@@ -853,7 +865,7 @@ function createPreviewState(defaultUrl: string | undefined): PreviewState {
 
   if (!result.url) {
     return {
-      error: result.error ?? null,
+      error: null,
       history: [],
       historyIndex: -1,
       loading: false,
