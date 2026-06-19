@@ -29,6 +29,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/yyopc/yyork/internal/paths"
 )
 
 // configKDL is the full contents of the managed config file. Bumping this
@@ -85,7 +87,7 @@ func Path() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("zellijconfig: resolve home: %w", err)
 	}
-	return filepath.Join(home, ".yyork", "zellij", "config.kdl"), nil
+	return filepath.Join(home, paths.DataDirName, "zellij", "config.kdl"), nil
 }
 
 // Ensure writes the managed config to Path() when the file is missing or its
