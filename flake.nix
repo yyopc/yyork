@@ -69,6 +69,32 @@
             exec pnpm dev "$@"
           '';
         };
+        portlessDev = pkgs.writeShellApplication {
+          name = "portless";
+          runtimeInputs = [
+            pkgs.coreutils
+            pkgs.pnpm_10
+          ];
+          text = ''
+            root="$PWD"
+            while [ "$root" != "/" ] && [ ! -f "$root/pnpm-workspace.yaml" ]; do
+              root="$(dirname "$root")"
+            done
+
+            if [ ! -f "$root/pnpm-workspace.yaml" ]; then
+              echo "Unable to find the yyork workspace root."
+              exit 1
+            fi
+
+            if [ ! -x "$root/node_modules/.bin/portless" ]; then
+              echo "portless is not installed; run 'pnpm install' first."
+              exit 1
+            fi
+
+            cd "$root"
+            exec "$root/node_modules/.bin/portless" "$@"
+          '';
+        };
       in
       {
         packages = {
@@ -84,8 +110,9 @@
         devShells.default = pkgs.mkShell {
           buildInputs = [
             yyorkDev
+            portlessDev
             go
-            pkgs.nodejs_22
+            pkgs.nodejs_24
             pkgs.pnpm_10
             pkgs.just
           ];

@@ -64,8 +64,8 @@ These rules apply to work under `web/`. Also follow the repository root
 2. Do not create another global stylesheet for app tokens. Extend
    `web/src/styles/app.css` when a truly global token or utility is needed.
 3. Keep terminal-specific styling on `.ao-terminal` and related terminal tokens.
-   The terminal font stack is owned by `--font-mono` and the Nerd Font
-   fallbacks in `app.css`.
+   The app shell uses `--font-sans`; ordinary monospaced UI uses `--font-mono`.
+   The Nerd Font fallback stack is terminal-only and owned by `--font-terminal`.
 4. Respect `prefers-reduced-motion` when adding view-transition or animation
    rules.
 

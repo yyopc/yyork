@@ -81,4 +81,4 @@ pnpm release:publish
 isolated temp prefix, and runs the installed `yyork` binary. `release:publish`
 publishes `@yyopc/yyork` publicly from `main`; run `npm login` first.
 
-MIT © [yyopc](https://github.com/yyopc)
+YYOIT © [yyopc](https://github.com/yyopc)

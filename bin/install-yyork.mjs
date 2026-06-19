@@ -3,7 +3,8 @@
 // installed as a package. The published tarball ships the embedded dashboard
 // (cmd/yyork/dashboard/app/**, built by `prepack`), so this only needs Go.
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -52,6 +53,8 @@ if (result.status !== 0 || !existsSync(binaryPath)) {
   process.exit(result.status ?? 1);
 }
 
+installGlobalAgentSkill();
+
 function isPackageInstall() {
   return rootDir.split(sep).includes('node_modules');
 }
@@ -59,4 +62,19 @@ function isPackageInstall() {
 function hasCommand(command, args) {
   const result = spawnSync(command, args, { stdio: 'ignore' });
   return result.status === 0;
+}
+
+function installGlobalAgentSkill() {
+  const sourceDir = resolve(rootDir, '.agents', 'skills', 'yyork-cli');
+  if (!existsSync(sourceDir)) {
+    console.warn(
+      'yyork CLI skill was not bundled; skipping global skill install.'
+    );
+    return;
+  }
+
+  const targetDir = resolve(homedir(), '.agents', 'skills', 'yyork-cli');
+  mkdirSync(resolve(targetDir, '..'), { recursive: true });
+  rmSync(targetDir, { recursive: true, force: true });
+  cpSync(sourceDir, targetDir, { recursive: true });
 }

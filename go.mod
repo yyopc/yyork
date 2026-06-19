@@ -11,6 +11,7 @@ require (
 	github.com/charmbracelet/ultraviolet v0.0.0-20260303162955-0b88c25f3fff
 	github.com/charmbracelet/x/vt v0.0.0-20260527151214-009e6338d40d
 	github.com/coder/websocket v1.8.14
+	github.com/danielgtaylor/huma/v2 v2.38.0
 	github.com/google/uuid v1.6.0
 	github.com/ncruces/go-sqlite3 v0.34.3
 	github.com/pressly/goose/v3 v3.27.1
@@ -47,7 +48,7 @@ require (
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/ncruces/go-sqlite3-wasm/v2 v2.5.35301 // indirect
 	github.com/ncruces/julianday v1.0.0 // indirect
-	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
+	github.com/pelletier/go-toml/v2 v2.3.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
 	github.com/sethvargo/go-retry v0.3.0 // indirect
