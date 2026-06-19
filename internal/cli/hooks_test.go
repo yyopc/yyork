@@ -57,6 +57,71 @@ func TestRunCodexHookPersistsSessionInfoMetadata(t *testing.T) {
 	}
 }
 
+func TestRunCodexHookPersistsKanbanActivityMetadata(t *testing.T) {
+	ctx := context.Background()
+	sessionID := "ao-session-activity"
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("YYORK_SESSION_ID", sessionID)
+	insertHookTestSession(t, ctx, sessionID)
+
+	runHook := func(event string, payload string) {
+		t.Helper()
+		var stdout, stderr bytes.Buffer
+		code := runCodexHook(ctx, event, strings.NewReader(payload), &stdout, &stderr)
+		if code != 0 {
+			t.Fatalf("%s exit = %d, stderr: %s", event, code, stderr.String())
+		}
+		if stdout.String() != "{}\n" {
+			t.Fatalf("%s stdout = %q, want hook response", event, stdout.String())
+		}
+		if stderr.Len() != 0 {
+			t.Fatalf("%s stderr = %s", event, stderr.String())
+		}
+	}
+
+	runHook("pre-tool-use", `{"tool_name":"Bash","tool_input":{"command":"pnpm --filter @yyork/web test:ci"}}`)
+	row := readHookTestSession(t, ctx, sessionID)
+	if got := row.Metadata[hookMetadataState]; got != hookStateWorking {
+		t.Fatalf("pre-tool-use state = %#v, want working", got)
+	}
+	if got := row.Metadata[hookMetadataCurrentTool]; got != "Running shell command: pnpm --filter @yyork/web test:ci" {
+		t.Fatalf("currentToolCall = %#v", got)
+	}
+	if got := metadataStrings(row.Metadata[hookMetadataToolBulletins]); len(got) != 1 || got[0] != "Running shell command: pnpm --filter @yyork/web test:ci" {
+		t.Fatalf("toolCallBulletins after pre = %#v", got)
+	}
+	if got := row.Metadata[hookMetadataLastActivityAt]; got == "" {
+		t.Fatalf("lastActivityAt not set: %#v", row.Metadata)
+	}
+
+	runHook("post-tool-use", `{"tool_name":"Bash","tool_input":{"command":"pnpm --filter @yyork/web test:ci"}}`)
+	row = readHookTestSession(t, ctx, sessionID)
+	if got := row.Metadata[hookMetadataCurrentTool]; got != "" {
+		t.Fatalf("post-tool-use currentToolCall = %#v, want cleared", got)
+	}
+	if got := metadataStrings(row.Metadata[hookMetadataToolBulletins]); len(got) != 2 || got[0] != "Finished shell command: pnpm --filter @yyork/web test:ci" {
+		t.Fatalf("toolCallBulletins after post = %#v", got)
+	}
+
+	runHook("permission-request", `{"tool_name":"Bash","tool_input":{"command":"git push origin yyork/card-state"}}`)
+	row = readHookTestSession(t, ctx, sessionID)
+	if got := row.Metadata[hookMetadataState]; got != hookStateTriage {
+		t.Fatalf("permission state = %#v, want triage", got)
+	}
+	if got := row.Metadata[hookMetadataTriageReason]; got != "Needs approval for shell command: git push origin yyork/card-state" {
+		t.Fatalf("triageReason = %#v", got)
+	}
+
+	runHook("stop", `{"last_assistant_message":"Implemented the kanban card activity projection."}`)
+	row = readHookTestSession(t, ctx, sessionID)
+	if got := row.Metadata[hookMetadataState]; got != hookStatePrompt {
+		t.Fatalf("stop state = %#v, want prompt", got)
+	}
+	if got := row.Metadata[hookMetadataRecap]; got != "Implemented the kanban card activity projection." {
+		t.Fatalf("recap = %#v", got)
+	}
+}
+
 func TestRunCodexHookNoopsWithoutAOSession(t *testing.T) {
 	t.Setenv("YYORK_SESSION_ID", "")
 
@@ -181,6 +246,9 @@ func TestYyorkHooksCommandPersistsDashboardMetadataForAgents(t *testing.T) {
 		}
 		if got.Recap != tc.recap || got.Description != tc.recap {
 			t.Fatalf("%s recap/description = %q/%q, want %q", tc.sessionID, got.Recap, got.Description, tc.recap)
+		}
+		if got.State != sessionpkg.StatePrompt {
+			t.Fatalf("%s State = %q, want prompt after Stop hook", tc.sessionID, got.State)
 		}
 
 		var metadata map[string]any
@@ -321,6 +389,21 @@ func readHookTestSession(t *testing.T, ctx context.Context, id string) store.Ses
 		t.Fatal(err)
 	}
 	return row
+}
+
+func metadataStrings(value any) []string {
+	items, ok := value.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		text, ok := item.(string)
+		if ok {
+			out = append(out, text)
+		}
+	}
+	return out
 }
 
 func openHookTestStore(t *testing.T, ctx context.Context) store.Store {

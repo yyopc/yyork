@@ -95,10 +95,27 @@ func declaresYyorkModule(data []byte) bool {
 }
 
 func sourceGoRunExecutable(sourceRoot string) string {
+	direnvPath := ""
 	if direnv, err := exec.LookPath("direnv"); err == nil {
-		return shellQuote(direnv) + " exec " + shellQuote(sourceRoot) + " go run ."
+		direnvPath = direnv
 	}
-	return "cd " + shellQuote(sourceRoot) + " && go run ."
+	return goRunCommand(sourceRoot, direnvPath)
+}
+
+// goRunCommand builds the shell command that runs the yyork root package via
+// `go run .`. It always cd's into sourceRoot first: `go run .` resolves the
+// package against the process's working directory, and an agent hook inherits
+// the session's cwd, which is frequently a non-Go subdirectory (e.g. web/).
+// `direnv exec DIR` loads DIR's .envrc environment but does NOT change
+// directory, so without the cd the direnv branch runs `go run .` in the
+// session cwd and fails with "no Go files in <cwd>". The cd is required on
+// both branches; direnv exec is kept only to load the root's environment.
+func goRunCommand(sourceRoot, direnvPath string) string {
+	root := shellQuote(sourceRoot)
+	if direnvPath != "" {
+		return "cd " + root + " && " + shellQuote(direnvPath) + " exec " + root + " go run ."
+	}
+	return "cd " + root + " && go run ."
 }
 
 func shellQuote(value string) string {

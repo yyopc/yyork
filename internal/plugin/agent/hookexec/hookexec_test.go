@@ -38,6 +38,34 @@ func TestSourceGoRunExecutableUsesMigratedRootPackage(t *testing.T) {
 	}
 }
 
+func TestGoRunCommandChdirsIntoRoot(t *testing.T) {
+	// Regression: `direnv exec DIR` loads DIR's env but does not chdir, so the
+	// command must cd into the module root itself before `go run .`. Without
+	// the cd, an agent hook runs `go run .` in the session cwd (e.g. web/) and
+	// fails with "no Go files in <cwd>".
+	withDirenv := goRunCommand("/tmp/yyork root", "/usr/bin/direnv")
+	if !strings.HasPrefix(withDirenv, "cd '/tmp/yyork root' && ") {
+		t.Fatalf("direnv command must cd into root before running: %q", withDirenv)
+	}
+	if !strings.Contains(withDirenv, "'/usr/bin/direnv' exec '/tmp/yyork root' go run .") {
+		t.Fatalf("direnv command should still load root env via direnv exec: %q", withDirenv)
+	}
+
+	noDirenv := goRunCommand("/tmp/yyork root", "")
+	if !strings.HasPrefix(noDirenv, "cd '/tmp/yyork root' && ") {
+		t.Fatalf("fallback command must cd into root before running: %q", noDirenv)
+	}
+
+	for _, command := range []string{withDirenv, noDirenv} {
+		if !strings.HasSuffix(command, "go run .") {
+			t.Fatalf("command should run the migrated root package: %q", command)
+		}
+		if strings.Contains(command, "cmd/yyork") {
+			t.Fatalf("command still points at deleted cmd/yyork package: %q", command)
+		}
+	}
+}
+
 func TestExecutableHonorsOverride(t *testing.T) {
 	t.Setenv(CommandEnv, "/custom/yyork --from-test")
 

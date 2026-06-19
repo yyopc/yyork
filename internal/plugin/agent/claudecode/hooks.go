@@ -51,22 +51,27 @@ type claudeHookSpec struct {
 // claudeStartupMatcher is referenced by pointer so SessionStart serializes with
 // its required "startup" matcher.
 var claudeStartupMatcher = "startup"
+var claudeToolMatcher = ""
 
 // claudeManagedHooks is the source of truth for the hooks yyork installs:
-// SessionStart (under the "startup" matcher), UserPromptSubmit, and Stop. Each
-// reports normalized session metadata back into yyork's store.
+// SessionStart (under the "startup" matcher), prompt/stop lifecycle events,
+// and tool/permission events. Each reports normalized session metadata back
+// into yyork's store.
 var claudeManagedHooks = []claudeHookSpec{
 	{Event: "SessionStart", Matcher: &claudeStartupMatcher, Command: claudeHookCommand("session-start")},
 	{Event: "UserPromptSubmit", Command: claudeHookCommand("user-prompt-submit")},
+	{Event: "PreToolUse", Matcher: &claudeToolMatcher, Command: claudeHookCommand("pre-tool-use")},
+	{Event: "PostToolUse", Matcher: &claudeToolMatcher, Command: claudeHookCommand("post-tool-use")},
+	{Event: "PermissionRequest", Matcher: &claudeToolMatcher, Command: claudeHookCommand("permission-request")},
 	{Event: "Stop", Command: claudeHookCommand("stop")},
 }
 
 // GetAgentHooks installs yyork's Claude Code hooks into the worktree-local
 // .claude/settings.local.json file (the per-session local settings, not the
-// shared .claude/settings.json). The hooks (SessionStart, UserPromptSubmit,
-// Stop) report normalized session metadata back into yyork's store. Existing
-// hooks and unrelated settings are preserved, and duplicate yyork commands
-// are not appended, so the install is idempotent.
+// shared .claude/settings.json). The hooks report normalized session metadata
+// back into yyork's store. Existing hooks and unrelated settings are
+// preserved, and duplicate yyork commands are not appended, so the install is
+// idempotent.
 func (p *Plugin) GetAgentHooks(ctx context.Context, cfg agent.WorkspaceHookConfig) error {
 	if err := ctx.Err(); err != nil {
 		return err

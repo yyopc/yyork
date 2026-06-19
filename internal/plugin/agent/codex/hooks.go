@@ -50,14 +50,20 @@ type codexHookEntry struct {
 // than read from an embedded hooks file.
 type codexHookSpec struct {
 	Event   string
+	Matcher *string
 	Command string
 }
 
 // codexManagedHooks is the source of truth for the hooks yyork installs.
-// Codex groups every hook under the nil matcher.
+// An empty matcher on tool hooks captures every tool call.
+var codexToolMatcher = ""
+
 var codexManagedHooks = []codexHookSpec{
 	{Event: "SessionStart", Command: codexHookCommand("session-start")},
 	{Event: "UserPromptSubmit", Command: codexHookCommand("user-prompt-submit")},
+	{Event: "PreToolUse", Matcher: &codexToolMatcher, Command: codexHookCommand("pre-tool-use")},
+	{Event: "PostToolUse", Matcher: &codexToolMatcher, Command: codexHookCommand("post-tool-use")},
+	{Event: "PermissionRequest", Matcher: &codexToolMatcher, Command: codexHookCommand("permission-request")},
 	{Event: "Stop", Command: codexHookCommand("stop")},
 }
 
@@ -86,7 +92,7 @@ func (p *Plugin) GetAgentHooks(ctx context.Context, cfg agent.WorkspaceHookConfi
 		existingGroups = removeCodexManagedHooks(existingGroups)
 		for _, spec := range specs {
 			entry := codexHookEntry{Type: "command", Command: spec.Command, Timeout: codexHookTimeout}
-			existingGroups = addCodexHook(existingGroups, entry)
+			existingGroups = addCodexHook(existingGroups, entry, spec.Matcher)
 		}
 		if err := marshalCodexHookType(rawHooks, event, existingGroups); err != nil {
 			return fmt.Errorf("codex.GetAgentHooks: %w", err)
@@ -315,17 +321,24 @@ func marshalCodexHookType(rawHooks map[string]json.RawMessage, event string, gro
 	return nil
 }
 
-func addCodexHook(groups []codexMatcherGroup, hook codexHookEntry) []codexMatcherGroup {
+func addCodexHook(groups []codexMatcherGroup, hook codexHookEntry, matcher *string) []codexMatcherGroup {
 	for i, group := range groups {
-		if group.Matcher == nil {
+		if codexMatchersEqual(group.Matcher, matcher) {
 			groups[i].Hooks = append(groups[i].Hooks, hook)
 			return groups
 		}
 	}
 	return append(groups, codexMatcherGroup{
-		Matcher: nil,
+		Matcher: matcher,
 		Hooks:   []codexHookEntry{hook},
 	})
+}
+
+func codexMatchersEqual(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
 }
 
 func ensureCodexHooksFeatureEnabled(workspacePath string) error {
