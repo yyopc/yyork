@@ -4,6 +4,7 @@ import { createRootRouteWithContext, Outlet } from '@tanstack/react-router';
 
 import { PageError } from '@/components/errors/page-error';
 
+import { SettingsPrototypePage } from '@/features/settings-mock/pages/settings-prototype';
 import { Providers } from '@/providers';
 
 // react-doctor-disable-next-line react-doctor/only-export-components -- TanStack Router route modules must export Route.
@@ -16,9 +17,14 @@ export const Route = createRootRouteWithContext<{
 });
 
 export function RootComponent() {
+  const isSettingsMock =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'mock.yyork.localhost' ||
+      new URLSearchParams(window.location.search).get('mock') === 'settings');
+
   return (
     <Providers>
-      <Outlet />
+      {isSettingsMock ? <SettingsPrototypePage /> : <Outlet />}
     </Providers>
   );
 }
