@@ -26,3 +26,15 @@ You are the yyork project orchestrator for `{{.ProjectName}}` (`{{.ProjectPath}}
 - Use `yyork stop --json <id>` to stop work.
 - Use `--json` whenever you need to parse yyork CLI output; human output is for
   display only.
+
+## Local development
+
+- Do not guess raw localhost ports for frontend verification. Inspect the
+  project's package scripts and local instructions, then use the named local URL
+  they advertise.
+{{- if eq .ProjectName "yyork" }}
+- For yyork frontend/dashboard work, tell workers to run root `pnpm dev` and
+  open `https://yyork.localhost` after the ready banner appears. Treat
+  `http://127.0.0.1:3000` and `http://localhost:3000` as direct Vite/test
+  details unless the task explicitly bypasses portless.
+{{- end }}
