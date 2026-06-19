@@ -4,3 +4,8 @@ We are gonna come up with a superset of MIT license called YYOIT license. Can we
 ---
 
 I'm the fucking owner of this repository. I'm the sole contributor of this shit.
+
+
+---
+
+no it just simply puts a constraint that any person who decides to fork yyork and redistribute, you gotta mk the og author of yyork your cofounder
