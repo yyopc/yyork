@@ -1,0 +1,4 @@
+interface:
+  display_name: "yyork CLI"
+  short_description: "Use yyork orchestrator CLI safely"
+  default_prompt: "Use $yyork-cli to inspect yyork sessions and delegate worker tasks correctly."
