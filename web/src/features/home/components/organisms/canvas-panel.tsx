@@ -24,6 +24,8 @@ import {
 import { useTheme } from 'next-themes';
 import {
   type ReactNode,
+  useCallback,
+  useRef,
   useState,
   useSyncExternalStore,
   type WheelEvent as ReactWheelEvent,
@@ -837,11 +839,49 @@ function useFileTreeExpansionState(
   model: FileTreeModel,
   directoryPaths: string[]
 ): FileTreeExpansionState {
-  const signature = useSyncExternalStore(
-    (listener) => model.subscribe(listener),
-    () => getFileTreeExpansionSignature(model, directoryPaths),
-    () => getFileTreeExpansionSignature(model, directoryPaths)
+  // Recomputing the expansion signature is O(directories), and the model emits
+  // one change event per directory during expand/collapse-all. Reading it on
+  // every emit makes bulk expansion O(directories^2) and freezes the tab on
+  // large trees. Cache the signature and coalesce recomputes into a single
+  // animation frame so the per-emit cost stays O(1).
+  const directoryPathsRef = useRef(directoryPaths);
+  directoryPathsRef.current = directoryPaths;
+  const signatureRef = useRef<string | null>(null);
+  if (signatureRef.current === null) {
+    signatureRef.current = getFileTreeExpansionSignature(model, directoryPaths);
+  }
+
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => {
+      let frame = 0;
+      const flush = () => {
+        frame = 0;
+        const next = getFileTreeExpansionSignature(
+          model,
+          directoryPathsRef.current
+        );
+        if (next !== signatureRef.current) {
+          signatureRef.current = next;
+          onStoreChange();
+        }
+      };
+      const unsubscribe = model.subscribe(() => {
+        if (frame === 0) {
+          frame = requestAnimationFrame(flush);
+        }
+      });
+      return () => {
+        if (frame !== 0) {
+          cancelAnimationFrame(frame);
+        }
+        unsubscribe();
+      };
+    },
+    [model]
   );
+
+  const getSnapshot = useCallback(() => signatureRef.current ?? '0:0', []);
+  const signature = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   const [directoryCount = 0, expandedDirectoryCount = 0] = signature
     .split(':')
     .map((value) => Number(value));

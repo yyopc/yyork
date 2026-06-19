@@ -1,21 +1,76 @@
-MIT License
+YYOIT License
+Version 1.0
 
-Copyright (c) 2021 BearStudio
+Copyright (c) 2026 yyopc
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+of this software and associated documentation files (the "Software"), to use,
+copy, study, and modify the Software for private or internal purposes, subject
+to the following conditions.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. Definitions
+
+"Original Author" means yyopc, the original author and owner of yyork.
+
+"Fork" means any copy, modification, adaptation, derivative work, renamed
+version, reimplementation substantially based on the Software, or product or
+service that incorporates a substantial portion of the Software.
+
+"Redistribute" means to publish, sell, sublicense, host for third-party access,
+transfer, provide, package, release, or otherwise make a Fork available to any
+third party, whether in source, binary, hosted, or bundled form.
+
+2. Private Use Grant
+
+You may use, copy, study, and modify the Software privately or inside your own
+organization. You may create private Forks for evaluation, development, and
+internal use.
+
+3. Fork Redistribution Condition
+
+You may Redistribute a Fork only if, before the first Redistribution, you and
+the Original Author have entered into a separate written agreement, signed by
+both parties, that makes the Original Author a cofounder of the project,
+company, organization, or other venture responsible for the Fork.
+
+That written agreement must define, at minimum, the Original Author's title,
+ownership or equity share, vesting or revenue rights, governance or voting
+rights, responsibilities, termination terms, and intellectual-property rights.
+
+If no such written agreement exists, this license grants you no permission to
+Redistribute the Fork.
+
+4. Original Copies
+
+You may share an unmodified copy of the Software only if you include this
+license and all copyright, permission, limitation, and warranty notices.
+
+5. No Trademark Grant
+
+This license does not grant permission to use the names "yyork", "yyopc",
+"YYOIT", or any related names, logos, marks, or branding to imply endorsement,
+partnership, or official status.
+
+6. No Implied Cofounder Relationship
+
+Redistributing a Fork without the written agreement required by Section 3 does
+not make the Original Author your cofounder. It is an unlicensed act. The
+Original Author has no obligation to accept any proposed cofounder role or enter
+into any agreement.
+
+7. Existing MIT-Licensed Copies
+
+This license applies only to copies or versions of the Software that expressly
+include this YYOIT License. Copies of the Software that were previously received
+under another license remain governed by the license under which they were
+received.
+
+8. Warranty Disclaimer
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, TITLE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM,
+OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
