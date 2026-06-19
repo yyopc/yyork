@@ -1,1 +1,6 @@
 We are gonna come up with a superset of MIT license called YYOIT license. Can we do that to impose author's will?
+
+
+---
+
+I'm the fucking owner of this repository. I'm the sole contributor of this shit.
