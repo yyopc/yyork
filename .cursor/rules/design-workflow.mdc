@@ -1,0 +1,52 @@
+---
+description: Workflow and scope discipline for Paper design work
+alwaysApply: true
+---
+
+# Design Workflow (Paper)
+
+How design tasks on the Paper canvas are run. Discipline first: respect the
+exact scope the user gives.
+
+## Scope
+
+- Build only the element the user scoped. If they say "the card", design the
+  card — not a surrounding shell, dashboard, nav, or demo frame.
+- If surrounding context would genuinely help review, propose it in one line
+  and wait. Never build unrequested scaffolding preemptively.
+
+## Artboards
+
+- A component gets its own artboard sized to the component
+  (`height: "fit-content"`, width to match the component), not a faux device
+  frame.
+- Use full device frames (e.g. 1440×900) only when the user asks for a full
+  screen or page.
+
+## Direction before building
+
+- Matching the existing yyork system: skip the formal brief, state the
+  direction in one line, then start.
+- Net-new or exploratory work: post a short brief (mood, palette, type) and
+  wait for explicit approval before any canvas mutation.
+
+## Iteration
+
+- Build the first pass, screenshot it, then stop and hand back for review. Do
+  not run multiple self-invented polish iterations before the user weighs in.
+
+## Variants
+
+- Default to one option. Produce 2–3 directions only when variants are
+  requested.
+
+## Fidelity
+
+- Default to matching existing tokens and components exactly (Geist, neutral
+  tokens, square corners, dense tool aesthetic). Diverge only when told to
+  explore.
+
+## Handoff to code
+
+- Stay in Paper. Translate a design into the codebase only when explicitly
+  asked.
