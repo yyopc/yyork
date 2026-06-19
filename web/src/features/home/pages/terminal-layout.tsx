@@ -103,8 +103,10 @@ export function TerminalLayout(props: { children: ReactNode }) {
             activeTab={context.canvasTab}
             previewUrl={context.canvasPreviewUrl}
             reviewPreferences={context.canvasReviewPreferences}
+            selectedFilePath={context.canvasSelectedFilePath}
             onPreviewUrlChange={context.onCanvasPreviewUrlChange}
             onReviewPreferencesChange={context.onCanvasReviewPreferencesChange}
+            onSelectedFilePathChange={context.onCanvasSelectedFilePathChange}
             onTabChange={context.onCanvasTabChange}
             target={context.canvasTarget}
           />

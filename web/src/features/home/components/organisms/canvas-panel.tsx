@@ -12,14 +12,20 @@ import type {
 import { FileTree as PierreFileTree, useFileTree } from '@pierre/trees/react';
 import { useQuery } from '@tanstack/react-query';
 import {
+  CodeIcon,
+  EyeIcon,
   FolderOpenIcon,
   ListCollapseIcon,
   ListTreeIcon,
   PanelRightCloseIcon,
   PanelRightOpenIcon,
+  WrapTextIcon,
 } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import {
   type ReactNode,
+  useCallback,
+  useRef,
   useState,
   useSyncExternalStore,
   type WheelEvent as ReactWheelEvent,
@@ -38,6 +44,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
+import { CanvasMarkdownPreview } from '@/features/home/components/molecules/canvas-markdown-preview';
 import { CanvasWebPreview } from '@/features/home/components/molecules/canvas-web-preview';
 import { CanvasDiffView } from '@/features/home/components/organisms/canvas-diff-view';
 import {
@@ -50,6 +57,11 @@ import {
   type CanvasTab,
   isCanvasTab,
 } from '@/features/home/domain/canvas-tabs';
+import {
+  type FileViewMode,
+  getFilePreviewKind,
+  resolveFileViewMode,
+} from '@/features/home/domain/file-preview';
 
 export type { CanvasTab } from '@/features/home/domain/canvas-tabs';
 
@@ -62,24 +74,8 @@ export interface CanvasTargetSummary {
 
 type FileCodeViewOptions = NonNullable<CodeViewProps<undefined>['options']>;
 
-const fileCodeViewOptions: FileCodeViewOptions = {
-  disableFileHeader: true,
-  itemMetrics: {
-    lineHeight: 17.4,
-  },
-  layout: {
-    gap: 0,
-    paddingBottom: 0,
-    paddingTop: 0,
-  },
-  overflow: 'scroll',
-  stickyHeaders: true,
-  theme: {
-    dark: 'pierre-dark',
-    light: 'pierre-light',
-  },
-};
 const FILES_LAYOUT_STORAGE_KEY = 'yyork.files.layout';
+const FILE_VIEW_MODE_STORAGE_KEY = 'yyork.files.view-mode';
 const FILE_PREVIEW_PANEL_ID = 'file-preview';
 const FILE_TREE_PANEL_ID = 'file-tree';
 const FILE_PREVIEW_DEFAULT_SIZE = 64;
@@ -148,6 +144,31 @@ function normalizeFileTreeLayout(value: unknown): Record<string, number> {
   };
 }
 
+function readStoredFileViewMode(): FileViewMode {
+  if (typeof window === 'undefined') {
+    return 'preview';
+  }
+
+  try {
+    const storedValue = window.localStorage.getItem(FILE_VIEW_MODE_STORAGE_KEY);
+    return storedValue === 'code' ? 'code' : 'preview';
+  } catch {
+    return 'preview';
+  }
+}
+
+function writeStoredFileViewMode(mode: FileViewMode) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(FILE_VIEW_MODE_STORAGE_KEY, mode);
+  } catch {
+    // Browser storage can be unavailable in private or restricted contexts.
+  }
+}
+
 function getWorkspaceFileTreeKey(input: {
   gitStatus: GitStatusEntry[];
   paths: string[];
@@ -169,10 +190,12 @@ export function CanvasPanel(props: {
   activeTab: CanvasTab;
   previewUrl?: string;
   reviewPreferences?: HomeWorkspaceCanvasReviewPreferences;
+  selectedFilePath?: string;
   onPreviewUrlChange: (url: string) => void;
   onReviewPreferencesChange: (
     preferences: HomeWorkspaceCanvasReviewPreferences
   ) => void;
+  onSelectedFilePathChange: (path: string | null) => void;
   onTabChange: (tab: CanvasTab) => void;
   target: CanvasTargetSummary;
 }) {
@@ -193,6 +216,8 @@ export function CanvasPanel(props: {
         <TabsContent value="files" className="min-h-0 w-full overflow-hidden">
           <CanvasFilesPanel
             active={props.activeTab === 'files'}
+            selectedFilePath={props.selectedFilePath}
+            onSelectedFilePathChange={props.onSelectedFilePathChange}
             target={props.target}
           />
         </TabsContent>
@@ -220,6 +245,8 @@ export function CanvasPanel(props: {
 
 function CanvasFilesPanel(props: {
   active: boolean;
+  selectedFilePath?: string;
+  onSelectedFilePathChange: (path: string | null) => void;
   target: CanvasTargetSummary;
 }) {
   const [fileTreeOpen, setFileTreeOpen] = useState(true);
@@ -287,7 +314,9 @@ function CanvasFilesPanel(props: {
           target: props.target,
         })}
         onFileTreeOpenChange={setFileTreeOpen}
+        onSelectedFilePathChange={props.onSelectedFilePathChange}
         paths={filesData.paths}
+        selectedFilePath={props.selectedFilePath}
         target={props.target}
       />
     </div>
@@ -298,11 +327,24 @@ function WorkspaceFileTree(props: {
   fileTreeOpen: boolean;
   gitStatus: GitStatusEntry[];
   onFileTreeOpenChange: (open: boolean) => void;
+  onSelectedFilePathChange: (path: string | null) => void;
   paths: string[];
+  selectedFilePath?: string;
   target: CanvasTargetSummary;
 }) {
-  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
+  const persistedSelectedFilePath = resolvePersistedSelectedFilePath(
+    props.selectedFilePath,
+    props.paths
+  );
+  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(
+    persistedSelectedFilePath
+  );
   const [fileTreeLayout] = useState(readStoredFileTreeLayout);
+  const [fileViewMode, setFileViewMode] = useState(readStoredFileViewMode);
+  const handleFileViewModeChange = (mode: FileViewMode) => {
+    setFileViewMode(mode);
+    writeStoredFileViewMode(mode);
+  };
   const { model } = useFileTree({
     dragAndDrop: false,
     flattenEmptyDirectories: true,
@@ -312,11 +354,15 @@ function WorkspaceFileTree(props: {
       set: 'standard',
     },
     initialExpansion: 2,
+    initialSelectedPaths: persistedSelectedFilePath
+      ? [persistedSelectedFilePath]
+      : undefined,
     onSelectionChange: (selectedPaths) => {
       const nextSelectedFilePath =
         getSelectedFilePathFromSelection(selectedPaths);
       if (nextSelectedFilePath) {
         setSelectedFilePath(nextSelectedFilePath);
+        props.onSelectedFilePathChange(nextSelectedFilePath);
       }
     },
     paths: props.paths,
@@ -331,8 +377,10 @@ function WorkspaceFileTree(props: {
     <CanvasFilePreview
       fileTreeOpen={props.fileTreeOpen}
       onFileTreeOpenChange={props.onFileTreeOpenChange}
+      onViewModeChange={handleFileViewModeChange}
       selectedPath={selectedFilePath}
       target={props.target}
+      viewMode={fileViewMode}
     />
   );
 
@@ -395,9 +443,19 @@ function WorkspaceFileTree(props: {
 function CanvasFilePreview(props: {
   fileTreeOpen: boolean;
   onFileTreeOpenChange: (open: boolean) => void;
+  onViewModeChange: (mode: FileViewMode) => void;
   selectedPath: string | null;
   target: CanvasTargetSummary;
+  viewMode: FileViewMode;
 }) {
+  const { resolvedTheme } = useTheme();
+  const [wrapLines, setWrapLines] = useState(false);
+  const previewKind = getFilePreviewKind(props.selectedPath);
+  const effectiveViewMode = resolveFileViewMode(previewKind, props.viewMode);
+  const fileCodeThemeType =
+    resolvedTheme === 'dark' || resolvedTheme === 'light'
+      ? resolvedTheme
+      : 'system';
   const {
     data: fileData,
     error: fileError,
@@ -412,26 +470,53 @@ function CanvasFilePreview(props: {
     })
   );
 
+  const fileCodeViewOptions: FileCodeViewOptions = {
+    disableFileHeader: true,
+    itemMetrics: {
+      lineHeight: 17.4,
+    },
+    layout: {
+      gap: 0,
+      paddingBottom: 0,
+      paddingTop: 0,
+    },
+    overflow: wrapLines ? 'wrap' : 'scroll',
+    stickyHeaders: true,
+    theme: {
+      dark: 'pierre-dark',
+      light: 'pierre-light',
+    },
+    themeType: fileCodeThemeType,
+  };
+
   return (
     <section
       aria-label="Selected file"
       className="yyork-file-preview-pane flex min-h-0 min-w-0 flex-col"
     >
       {props.selectedPath ? (
-        <div
-          className={`yyork-file-preview-header${
-            !props.fileTreeOpen ? ' yyork-file-preview-header--with-action' : ''
-          }`}
-        >
+        <div className="yyork-file-preview-header yyork-file-preview-header--with-action py-2">
           <span className="min-w-0 flex-1 truncate">{props.selectedPath}</span>
-          {!props.fileTreeOpen ? (
-            <div className="yyork-file-preview-header-action">
+          <div className="yyork-file-preview-header-controls">
+            {previewKind ? (
+              <FileViewModeToggle
+                onViewModeChange={props.onViewModeChange}
+                viewMode={effectiveViewMode}
+              />
+            ) : null}
+            {effectiveViewMode === 'code' ? (
+              <FileWrapToggle
+                wrapLines={wrapLines}
+                onWrapChange={setWrapLines}
+              />
+            ) : null}
+            {!props.fileTreeOpen ? (
               <FileTreeSidebarToggle
                 fileTreeOpen={props.fileTreeOpen}
                 onFileTreeOpenChange={props.onFileTreeOpenChange}
               />
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </div>
       ) : !props.fileTreeOpen ? (
         <div className="yyork-file-preview-floating-action">
@@ -483,21 +568,97 @@ function CanvasFilePreview(props: {
                 Showing the first 1 MB. Open in an IDE for the full file.
               </p>
             ) : null}
-            <div
-              key={fileData.path}
-              className="yyork-file-code-scroll"
-              onWheel={handleFileCodeViewWheel}
-            >
-              <CodeView
-                className="yyork-file-code-viewer"
-                items={getCodeViewItemsForFile(fileData)}
-                options={fileCodeViewOptions}
+            {effectiveViewMode === 'preview' && previewKind === 'markdown' ? (
+              <CanvasMarkdownPreview
+                key={fileData.path}
+                content={fileData.contents}
               />
-            </div>
+            ) : (
+              <div
+                key={fileData.path}
+                className="yyork-file-code-scroll"
+                onWheel={handleFileCodeViewWheel}
+              >
+                <CodeView
+                  className="yyork-file-code-viewer"
+                  items={getCodeViewItemsForFile(fileData)}
+                  options={fileCodeViewOptions}
+                />
+              </div>
+            )}
           </>
         )}
       </div>
     </section>
+  );
+}
+
+function FileViewModeToggle(props: {
+  onViewModeChange: (mode: FileViewMode) => void;
+  viewMode: FileViewMode;
+}) {
+  return (
+    <fieldset className="inline-flex shrink-0 rounded-sm bg-muted p-0.5">
+      <legend className="sr-only">File view mode</legend>
+      <Button
+        type="button"
+        variant={props.viewMode === 'preview' ? 'secondary' : 'ghost'}
+        size="xs"
+        className="h-6 rounded-sm px-1.5 text-xs shadow-none"
+        aria-pressed={props.viewMode === 'preview'}
+        onClick={() => {
+          props.onViewModeChange('preview');
+        }}
+      >
+        <EyeIcon data-icon="inline-start" aria-hidden="true" />
+        <span>Preview</span>
+      </Button>
+      <Button
+        type="button"
+        variant={props.viewMode === 'code' ? 'secondary' : 'ghost'}
+        size="xs"
+        className="h-6 rounded-sm px-1.5 text-xs shadow-none"
+        aria-pressed={props.viewMode === 'code'}
+        onClick={() => {
+          props.onViewModeChange('code');
+        }}
+      >
+        <CodeIcon data-icon="inline-start" aria-hidden="true" />
+        <span>Code</span>
+      </Button>
+    </fieldset>
+  );
+}
+
+function FileWrapToggle(props: {
+  onWrapChange: (wrap: boolean) => void;
+  wrapLines: boolean;
+}) {
+  const label = props.wrapLines ? 'Disable line wrap' : 'Wrap lines';
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7 rounded-sm text-muted-foreground hover:text-foreground aria-pressed:bg-accent aria-pressed:text-foreground"
+            aria-label={label}
+            aria-pressed={props.wrapLines}
+            onClick={() => {
+              props.onWrapChange(!props.wrapLines);
+            }}
+          />
+        }
+      >
+        <WrapTextIcon aria-hidden="true" />
+      </TooltipTrigger>
+      <TooltipContent side="left">
+        <p>{label}</p>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -587,6 +748,17 @@ interface FileTreeExpansionState {
   expandedDirectoryCount: number;
 }
 
+function resolvePersistedSelectedFilePath(
+  selectedFilePath: string | undefined,
+  paths: string[]
+): string | null {
+  if (!selectedFilePath || selectedFilePath.endsWith('/')) {
+    return null;
+  }
+
+  return paths.includes(selectedFilePath) ? selectedFilePath : null;
+}
+
 function getSelectedFilePathFromSelection(
   selectedPaths: readonly string[]
 ): string | null {
@@ -667,11 +839,49 @@ function useFileTreeExpansionState(
   model: FileTreeModel,
   directoryPaths: string[]
 ): FileTreeExpansionState {
-  const signature = useSyncExternalStore(
-    (listener) => model.subscribe(listener),
-    () => getFileTreeExpansionSignature(model, directoryPaths),
-    () => getFileTreeExpansionSignature(model, directoryPaths)
+  // Recomputing the expansion signature is O(directories), and the model emits
+  // one change event per directory during expand/collapse-all. Reading it on
+  // every emit makes bulk expansion O(directories^2) and freezes the tab on
+  // large trees. Cache the signature and coalesce recomputes into a single
+  // animation frame so the per-emit cost stays O(1).
+  const directoryPathsRef = useRef(directoryPaths);
+  directoryPathsRef.current = directoryPaths;
+  const signatureRef = useRef<string | null>(null);
+  if (signatureRef.current === null) {
+    signatureRef.current = getFileTreeExpansionSignature(model, directoryPaths);
+  }
+
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => {
+      let frame = 0;
+      const flush = () => {
+        frame = 0;
+        const next = getFileTreeExpansionSignature(
+          model,
+          directoryPathsRef.current
+        );
+        if (next !== signatureRef.current) {
+          signatureRef.current = next;
+          onStoreChange();
+        }
+      };
+      const unsubscribe = model.subscribe(() => {
+        if (frame === 0) {
+          frame = requestAnimationFrame(flush);
+        }
+      });
+      return () => {
+        if (frame !== 0) {
+          cancelAnimationFrame(frame);
+        }
+        unsubscribe();
+      };
+    },
+    [model]
   );
+
+  const getSnapshot = useCallback(() => signatureRef.current ?? '0:0', []);
+  const signature = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   const [directoryCount = 0, expandedDirectoryCount = 0] = signature
     .split(':')
     .map((value) => Number(value));

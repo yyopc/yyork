@@ -192,11 +192,21 @@ export function CanvasDiffView(props: {
         className="yyork-diff-virtualizer min-h-0 flex-1 overflow-auto"
         contentClassName="yyork-diff-virtualizer-content"
       >
-        <PatchDiff
-          className="yyork-diff-viewer"
-          options={diffOptions}
-          patch={diffSnapshot.patch}
-        />
+        {diffSnapshot.patch
+          .split(/(?=^diff --git )/m)
+          .filter(Boolean)
+          .map((filePatch) => {
+            const pathMatch = /^diff --git a\/.+ b\/(.+)$/m.exec(filePatch);
+            const key = pathMatch?.[1] ?? filePatch.slice(0, 40);
+            return (
+              <PatchDiff
+                key={key}
+                className="yyork-diff-viewer"
+                options={diffOptions}
+                patch={filePatch}
+              />
+            );
+          })}
       </Virtualizer>
     </CanvasDiffShell>
   );
