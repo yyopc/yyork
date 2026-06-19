@@ -1,1 +1,6 @@
 I saw that there's no release made for yyork yet.
+
+
+---
+
+are these changes safe enough to push the changes? btw this is gonna be a alpha version release so don't worry about stability but the functionally app shouldn't break and as much as I've used it doesn't. also we have mentioned it explicitly so its kinda expected Ig. 
