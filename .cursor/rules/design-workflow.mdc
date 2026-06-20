@@ -42,9 +42,25 @@ exact scope the user gives.
 
 ## Fidelity
 
-- Default to matching existing tokens and components exactly (Geist, neutral
-  tokens, square corners, dense tool aesthetic). Diverge only when told to
-  explore.
+- Default to matching existing tokens and components exactly: Geist type,
+  neutral tokens, the radius scale (`Card`/badge/kbd `rounded-sm` 6px, buttons
+  `rounded-md` 8px), the real `Kbd` component (`bg-muted`, font-sans, `+`
+  separators), and the dense tool aesthetic. Read the actual values from the
+  code, don't guess. Diverge only when told to explore.
+
+## Icons (SVG)
+
+- Paper bakes `currentColor` into literal `stroke`/`fill` values when an SVG is
+  created. Changing a parent's `color` afterwards will NOT recolor the icon.
+- Set icon color explicitly on the `<path>` nodes (`stroke`/`fill`), not on the
+  container. When duplicating a card for another theme, re-set the path strokes
+  for that theme — don't assume they follow the new background.
+- yyork renders all lucide icons at `stroke-width: 1`
+  (`.lucide { stroke-width: var(--icon-stroke-width) }`). Path-level
+  `strokeWidth` overrides the `<svg>`, so set `strokeWidth: "1"` on the path
+  nodes.
+- After theming or recoloring, screenshot and confirm every icon is visible
+  against its surface (watch for light-on-light / dark-on-dark).
 
 ## Handoff to code
 
