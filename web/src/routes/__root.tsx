@@ -2,6 +2,8 @@
 import { QueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext, Outlet } from '@tanstack/react-router';
 
+import { GlimmInterceptLinks } from '@/lib/glimm/intercept-links';
+
 import { PageError } from '@/components/errors/page-error';
 
 import { SettingsPrototypePage } from '@/features/settings-mock/pages/settings-prototype';
@@ -24,6 +26,7 @@ export function RootComponent() {
 
   return (
     <Providers>
+      <GlimmInterceptLinks />
       {isSettingsMock ? <SettingsPrototypePage /> : <Outlet />}
     </Providers>
   );

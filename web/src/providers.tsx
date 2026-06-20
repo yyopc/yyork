@@ -1,3 +1,4 @@
+import { GlimmProvider } from 'glimm/react';
 import { ThemeProvider } from 'next-themes';
 import type { ReactNode } from 'react';
 import '@/lib/dayjs/config';
@@ -20,7 +21,7 @@ export const Providers = (props: {
       forcedTheme={props.forcedTheme}
     >
       <QueryClientProvider>
-        {props.children}
+        <GlimmProvider palette="prism">{props.children}</GlimmProvider>
         <Sonner />
       </QueryClientProvider>
     </ThemeProvider>
