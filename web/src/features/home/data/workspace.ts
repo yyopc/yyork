@@ -88,6 +88,42 @@ const createProjectResponseSchema = z.object({
 
 export type CreateProjectResult = z.infer<typeof createProjectResponseSchema>;
 
+/** Optimistically surface a newly added project before the workspace refetch. */
+export function patchWorkspaceWithAddedProject(
+  queryClient: QueryClient,
+  result: CreateProjectResult
+) {
+  queryClient.setQueryData<SessionWorkspace>(
+    homeWorkspaceQueryKey,
+    (current) => {
+      const workspace = current ?? fallbackHomeWorkspace;
+      const hasProject = workspace.projects.some(
+        (project) => project.id === result.id
+      );
+
+      if (hasProject) {
+        return {
+          ...workspace,
+          activeProjectId: result.id,
+        };
+      }
+
+      return {
+        ...workspace,
+        activeProjectId: result.id,
+        projects: [
+          ...workspace.projects,
+          {
+            id: result.id,
+            name: result.name,
+            workerWorkspaceMode: 'local' satisfies WorkerWorkspaceMode,
+          },
+        ],
+      };
+    }
+  );
+}
+
 // chooseProjectDirectory opens the host machine's native folder picker and
 // returns the absolute path the user selected, or null when they cancel.
 // Browsers hide absolute paths from their own file APIs, so this round-trips to

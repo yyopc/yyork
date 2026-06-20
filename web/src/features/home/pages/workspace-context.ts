@@ -26,6 +26,7 @@ export interface WorkspaceContextValue {
   canvasSelectedFilePath?: string;
   canvasTab: CanvasTab;
   canvasTarget: CanvasTargetSummary;
+  hasProjects: boolean;
   kanbanColumns: KanbanColumnData[];
   onCanvasLayoutChange: (layout: HomeWorkspaceCanvasLayout) => void;
   onCanvasOpenChange: (open: boolean) => void;
@@ -36,6 +37,7 @@ export interface WorkspaceContextValue {
   onCanvasResizingChange: (resizing: boolean) => void;
   onCanvasSelectedFilePathChange: (path: string | null) => void;
   onCanvasTabChange: (tab: CanvasTab) => void;
+  onAddProject: () => void | Promise<void>;
   onWorkerWorkspaceModeChange: (mode: WorkerWorkspaceMode) => void;
   onWorkerSessionSelect: (selectionKey: string) => void;
   onWorkspaceRefresh: () => void;

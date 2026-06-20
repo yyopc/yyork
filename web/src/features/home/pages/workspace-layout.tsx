@@ -5,6 +5,7 @@ import {
   useParams,
   useSearch,
 } from '@tanstack/react-router';
+import { useGlimm } from 'glimm/react';
 import {
   LayoutDashboardIcon,
   PanelRightIcon,
@@ -42,9 +43,11 @@ import { openProjectIdeMutationOptions } from '@/features/home/data/project-ide'
 import {
   chooseProjectDirectoryMutationOptions,
   createProjectMutationOptions,
+  type CreateProjectResult,
   fallbackHomeWorkspace,
   homeWorkspaceQueryKey,
   homeWorkspaceQueryOptions,
+  patchWorkspaceWithAddedProject,
   renameSessionMutationOptions,
   stopSessionMutationOptions,
   updateProjectWorkerWorkspaceMutationOptions,
@@ -216,6 +219,7 @@ function useWorkspaceLayout() {
     stopSessionMutationOptions()
   );
   const queryClient = useQueryClient();
+  const { sweep } = useGlimm();
   const { mutateAsync: renameSession } = useMutation(
     renameSessionMutationOptions()
   );
@@ -689,6 +693,32 @@ function useWorkspaceLayout() {
     }
   };
 
+  const commitAddedProject = (result: CreateProjectResult) => {
+    updateHomeWorkspacePreferences({
+      hiddenProjectIds: (hiddenProjectIds ?? []).filter(
+        (projectId) => projectId !== result.id
+      ),
+      openProjectIds: updateOpenIds(
+        openProjectIds,
+        result.id,
+        true,
+        defaultOpenProjectIds
+      ),
+    });
+
+    patchWorkspaceWithAddedProject(queryClient, result);
+
+    // When the orchestrator already existed (created === false) no
+    // session.created event fires, so refresh explicitly instead of waiting
+    // on the light poll.
+    void queryClient.invalidateQueries({ queryKey: homeWorkspaceQueryKey });
+
+    void navigate({
+      to: '/board/$projectId',
+      params: { projectId: result.id },
+    });
+  };
+
   const handleAddProject = async () => {
     if (typeof window === 'undefined') {
       return;
@@ -703,31 +733,14 @@ function useWorkspaceLayout() {
       }
 
       const result = await createProject({ path: picked.path });
+      const leavingNoProjectsEmptyState = projects.length === 0;
 
-      // Re-adding a path that was previously removed from the sidebar must
-      // bring it back and open it — otherwise the add silently no-ops behind
-      // the hidden filter.
-      updateHomeWorkspacePreferences({
-        hiddenProjectIds: (hiddenProjectIds ?? []).filter(
-          (projectId) => projectId !== result.id
-        ),
-        openProjectIds: updateOpenIds(
-          openProjectIds,
-          result.id,
-          true,
-          defaultOpenProjectIds
-        ),
-      });
+      if (leavingNoProjectsEmptyState) {
+        sweep(() => commitAddedProject(result));
+        return;
+      }
 
-      // When the orchestrator already existed (created === false) no
-      // session.created event fires, so refresh explicitly instead of waiting
-      // on the light poll.
-      void queryClient.invalidateQueries({ queryKey: homeWorkspaceQueryKey });
-
-      void navigate({
-        to: '/board/$projectId',
-        params: { projectId: result.id },
-      });
+      commitAddedProject(result);
     } catch (error) {
       window.alert(
         error instanceof Error ? error.message : 'Failed to add project'
@@ -848,6 +861,7 @@ function useWorkspaceLayout() {
     canvasSelectedFilePath,
     canvasTab,
     canvasTarget,
+    hasProjects: projects.length > 0,
     kanbanColumns,
     onCanvasLayoutChange: handleCanvasLayoutChange,
     onCanvasOpenChange: handleCanvasOpenChange,
@@ -857,6 +871,7 @@ function useWorkspaceLayout() {
       dispatchLayout({ canvasResizing, type: 'canvas-resizing' }),
     onCanvasSelectedFilePathChange: handleCanvasSelectedFilePathChange,
     onCanvasTabChange: handleCanvasTabChange,
+    onAddProject: handleAddProject,
     onWorkerWorkspaceModeChange: handleWorkerWorkspaceModeChange,
     onWorkerSessionSelect: handleTerminalSessionOpen,
     onWorkspaceRefresh: () => void refetchWorkspace(),
