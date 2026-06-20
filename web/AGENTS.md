@@ -106,7 +106,10 @@ Do not edit these files by hand:
 2. After the user approves a Storybook iteration, port the approved changes into
    the app and keep or update the story as visual coverage for the final state.
 3. Before claiming UI work is done, open the relevant app or Storybook surface
-   in the Codex in-app browser and verify the rendered result there.
+   in the Codex in-app browser and verify the rendered result there. For the
+   yyork app, run root `pnpm dev` and open `https://yyork.localhost`; do not use
+   `http://127.0.0.1:3000` or `http://localhost:3000` unless you are explicitly
+   bypassing portless.
 4. Put pure TypeScript tests in `*.unit.spec.ts` and browser/component tests in
    `*.browser.spec.tsx`; Vitest is already configured for both projects.
 5. Use package scripts through pnpm:
@@ -115,7 +118,9 @@ Do not edit these files by hand:
    - `pnpm --filter @yyork/web build`
    - `pnpm --filter @yyork/web storybook`
    - `pnpm --filter @yyork/web e2e`
-6. For full local development, `pnpm dev` starts the Go backend and web dev
-   server together. `pnpm backend:dev` and `pnpm web:dev` run them separately.
-7. The web dev server uses a strict port. Set `VITE_PORT` when the default port
-   is occupied.
+6. For full local development, root `pnpm dev` starts the Go backend and web dev
+   server together through portless, so the stable app URL is
+   `https://yyork.localhost`.
+7. `pnpm --filter @yyork/web dev` and `pnpm --dir web dev` run the Vite server
+   directly on a strict port. Use them only for isolated web-package debugging,
+   and set `VITE_PORT` when that direct port is occupied.

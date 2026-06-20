@@ -47,3 +47,37 @@ func TestDefaultPromptsRenderContext(t *testing.T) {
 		}
 	}
 }
+
+func TestDefaultPromptsTellYyorkAgentsToUsePortlessURL(t *testing.T) {
+	t.Parallel()
+	pc := session.PromptContext{
+		ProjectPath:           "/home/u/yyork",
+		ProjectName:           "yyork",
+		WorkspacePath:         "/data/worktrees/abc123",
+		Branch:                "yyork/abc123",
+		BaseRef:               "refs/heads/main",
+		WorkspaceInstruction:  "Your workspace is an isolated git worktree.",
+		CompletionInstruction: "Commit your work on this branch and stay on it.",
+	}
+
+	renderers := map[string]func(session.PromptContext) (string, error){
+		"orchestrator": session.DefaultOrchestratorSystemPrompt,
+		"worker":       session.DefaultWorkerSystemPrompt,
+	}
+	for name, render := range renderers {
+		got, err := render(pc)
+		if err != nil {
+			t.Fatalf("%s: render: %v", name, err)
+		}
+		for _, want := range []string{
+			"pnpm dev",
+			"https://yyork.localhost",
+			"portless",
+			"http://127.0.0.1:3000",
+		} {
+			if !strings.Contains(got, want) {
+				t.Errorf("%s prompt missing %q in %q", name, want, got)
+			}
+		}
+	}
+}
