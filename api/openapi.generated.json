@@ -1,0 +1,172 @@
+{
+  "components": {
+    "schemas": {
+      "Project": {
+        "additionalProperties": false,
+        "properties": {
+          "cwd": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "workerWorkspaceMode": {
+            "$ref": "#/components/schemas/WorkerWorkspaceMode"
+          }
+        },
+        "required": ["id", "name", "workerWorkspaceMode"],
+        "type": "object"
+      },
+      "Session": {
+        "additionalProperties": false,
+        "properties": {
+          "agent": {
+            "type": "string"
+          },
+          "agentPluginId": {
+            "type": "string"
+          },
+          "cwd": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "issue": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TerminalSessionKind"
+          },
+          "metadata": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "recap": {
+            "type": "string"
+          },
+          "selected": {
+            "type": "boolean"
+          },
+          "state": {
+            "$ref": "#/components/schemas/WorkerSessionState"
+          },
+          "terminalSupported": {
+            "type": "boolean"
+          },
+          "title": {
+            "type": "string"
+          },
+          "workerId": {
+            "type": "string"
+          },
+          "zellijSession": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent",
+          "description",
+          "id",
+          "issue",
+          "metadata",
+          "project",
+          "recap",
+          "state",
+          "title",
+          "workerId"
+        ],
+        "type": "object"
+      },
+      "TerminalSessionKind": {
+        "enum": ["orchestrator", "worker"],
+        "type": "string"
+      },
+      "WorkerSessionState": {
+        "enum": ["working", "prompt", "triage", "done"],
+        "type": "string"
+      },
+      "WorkerWorkspaceMode": {
+        "enum": ["local", "new-worktree"],
+        "type": "string"
+      },
+      "Workspace": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "example": "//Workspace.json",
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "activeProjectId": {
+            "type": "string"
+          },
+          "orchestrators": {
+            "items": {
+              "$ref": "#/components/schemas/Session"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/Project"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/Session"
+            },
+            "nullable": true,
+            "type": "array"
+          }
+        },
+        "required": ["activeProjectId", "projects", "sessions"],
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "yyork API",
+    "version": "0.0.1"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/api/workspace": {
+      "get": {
+        "operationId": "getWorkspace",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workspace"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Get the dashboard workspace",
+        "tags": ["Workspace"]
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ]
+}

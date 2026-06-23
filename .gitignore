@@ -1,0 +1,107 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+node_modules/
+/.pnp
+.pnp.js
+.pnpm/
+.npm/
+.go/
+.direnv/
+
+# testing
+coverage/
+**/__screenshots__/**
+
+# production
+.output
+.vinxi
+dist/
+build/
+/yyork
+/third_party/zellij/*/VERSION
+/third_party/zellij/*/*.sha256
+/third_party/zellij/*/zellij
+/third_party/zellij/*/zellij.exe
+# Old generated app embed path; current builds go to internal/web/build/.
+/cmd/yyork/app/
+# Vite builds the web app into this dir for //go:embed; only .gitkeep is tracked.
+!/internal/web/build/
+/internal/web/build/*
+!/internal/web/build/.gitkeep
+experiments/fang-cli/yyork-fang
+**/public/storybook/
+storybook-static
+
+# misc
+.DS_Store
+*.pem
+.idea/
+.eslintcache
+.db
+tsconfig.tsbuildinfo
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# vercel
+.vercel
+
+# Build info
+build-info.gen.json
+
+# Prisma
+prisma/dev.db
+prisma/dev.db-journal
+src/server/db/generated
+
+# Emails
+.react-email
+
+# playwright
+test-results/
+playwright-report/
+playwright/.cache/
+**/e2e/.auth
+
+certificates
+
+*storybook.log
+app.config.timestamp_*.js
+.tanstack
+.vite/
+.nitro
+
+# vscode
+/.vscode/*
+!/.vscode/extensions.json
+!/.vscode/settings.example.json
+
+# zed
+/.zed/*
+!/.zed/settings.example.json
+
+# local agent / CLI session artifacts (not project config)
+.entire/
+.antigravitycli/
+.playwright-cli/
+.crush/
+crush.json
+
+.claude
+.codex
+opencode.json
+.cursor
+
+# playwright debug artifacts
+internal/web/output/
+.gstack/

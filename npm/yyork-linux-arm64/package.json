@@ -1,0 +1,21 @@
+{
+  "name": "@yyopc/yyork-linux-arm64",
+  "version": "0.1.0-alpha.1",
+  "private": false,
+  "description": "Prebuilt yyork app runtime for Linux arm64.",
+  "license": "SEE LICENSE IN LICENSE",
+  "files": [
+    "bin/**",
+    "LICENSE",
+    "README.md"
+  ],
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

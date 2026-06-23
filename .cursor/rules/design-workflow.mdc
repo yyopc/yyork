@@ -1,0 +1,68 @@
+---
+description: Workflow and scope discipline for Paper design work
+alwaysApply: true
+---
+
+# Design Workflow (Paper)
+
+How design tasks on the Paper canvas are run. Discipline first: respect the
+exact scope the user gives.
+
+## Scope
+
+- Build only the element the user scoped. If they say "the card", design the
+  card — not a surrounding shell, dashboard, nav, or demo frame.
+- If surrounding context would genuinely help review, propose it in one line
+  and wait. Never build unrequested scaffolding preemptively.
+
+## Artboards
+
+- A component gets its own artboard sized to the component
+  (`height: "fit-content"`, width to match the component), not a faux device
+  frame.
+- Use full device frames (e.g. 1440×900) only when the user asks for a full
+  screen or page.
+
+## Direction before building
+
+- Matching the existing yyork system: skip the formal brief, state the
+  direction in one line, then start.
+- Net-new or exploratory work: post a short brief (mood, palette, type) and
+  wait for explicit approval before any canvas mutation.
+
+## Iteration
+
+- Build the first pass, screenshot it, then stop and hand back for review. Do
+  not run multiple self-invented polish iterations before the user weighs in.
+
+## Variants
+
+- Default to one option. Produce 2–3 directions only when variants are
+  requested.
+
+## Fidelity
+
+- Default to matching existing tokens and components exactly: Geist type,
+  neutral tokens, the radius scale (`Card`/badge/kbd `rounded-sm` 6px, buttons
+  `rounded-md` 8px), the real `Kbd` component (`bg-muted`, font-sans, `+`
+  separators), and the dense tool aesthetic. Read the actual values from the
+  code, don't guess. Diverge only when told to explore.
+
+## Icons (SVG)
+
+- Paper bakes `currentColor` into literal `stroke`/`fill` values when an SVG is
+  created. Changing a parent's `color` afterwards will NOT recolor the icon.
+- Set icon color explicitly on the `<path>` nodes (`stroke`/`fill`), not on the
+  container. When duplicating a card for another theme, re-set the path strokes
+  for that theme — don't assume they follow the new background.
+- yyork renders all lucide icons at `stroke-width: 1`
+  (`.lucide { stroke-width: var(--icon-stroke-width) }`). Path-level
+  `strokeWidth` overrides the `<svg>`, so set `strokeWidth: "1"` on the path
+  nodes.
+- After theming or recoloring, screenshot and confirm every icon is visible
+  against its surface (watch for light-on-light / dark-on-dark).
+
+## Handoff to code
+
+- Stay in Paper. Translate a design into the codebase only when explicitly
+  asked.

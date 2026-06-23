@@ -1,0 +1,69 @@
+---
+title: Live workspace updates
+description: SQLite is truth; SSE, forwarded events, and the workspace contract make the dashboard converge quickly.
+status: current
+last_verified: 2026-06-21
+---
+
+## Decision
+
+The dashboard converges on local state through a narrow workspace contract:
+
+```text
+GET /api/workspace
+  -> backend projection from SQLite
+  -> generated OpenAPI/Zod contract
+  -> frontend parser
+```
+
+Live events are a freshness path, not the source of truth. When an event lands,
+the frontend invalidates the workspace query and reads the current projection
+again.
+
+## Why
+
+yyork has multiple writers:
+
+- the long-running server;
+- short-lived CLI commands such as spawn and stop;
+- hook callbacks from agent processes;
+- orchestrator-originated worker creation.
+
+An in-memory event bus only works inside one process. It cannot by itself make a
+short-lived CLI update an already-open browser tab. The bridge is:
+
+```text
+CLI or hook process
+  -> write SQLite
+  -> ForwardingPublisher
+  -> POST /api/events with runfile token
+  -> server bus
+  -> browser EventSource
+  -> invalidate /api/workspace
+```
+
+SQLite remains the durable truth even when an event is dropped.
+
+## Workspace contract boundary
+
+The generated contract is deliberately centered on `/api/workspace`, because it
+is the large nested response the frontend projects across the app. Simpler
+mutations can keep local validation until their response shape becomes shared
+enough to justify generation.
+
+The frontend should translate contract failures into product errors. It should
+not surface raw Zod issue dumps to the user.
+
+## Why there is still light polling
+
+The browser also refetches the workspace lightly. That is not the primary
+freshness mechanism. It covers orchestrator-originated session creation that can
+happen outside the dashboard's direct SSE path.
+
+## Primary sources
+
+- `internal/docs/content/docs/architecture/cross-process-event-publishing.mdx`
+- `api/generate-workspace-contract.go`
+- `api/session-workspace-contract.hbs`
+- `internal/web/src/features/home/data/workspace.ts`
+- `internal/server/sessions.go`
