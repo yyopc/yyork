@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+project_name: yyork
+
+git:
+  tag_sort: -version:refname
+
+before:
+  hooks:
+    - pnpm web:build
+
+builds:
+  - id: yyork
+    main: .
+    binary: yyork
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+      - -buildvcs=false
+    ldflags:
+      - -s -w -X github.com/yyopc/yyork/internal/cli.Version={{ .Version }}
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: yyork
+    ids:
+      - yyork
+    formats:
+      - tar.gz
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    files:
+      - LICENSE
+
+checksum:
+  name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'
+  algorithm: sha256
+
+release:
+  prerelease: auto
+
+snapshot:
+  version_template: '{{ .Version }}-snapshot'

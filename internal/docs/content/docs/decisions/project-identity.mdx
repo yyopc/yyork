@@ -1,0 +1,56 @@
+---
+title: Project identity
+description: Absolute paths remain the project source of truth, while stable ids keep routes and APIs clean.
+status: current
+last_verified: 2026-06-21
+---
+
+## Decision
+
+The absolute project path remains yyork's durable project source of truth, but
+the dashboard and API use a stable URL-safe project id as the handle.
+
+Current id shape:
+
+```text
+Project path -> clean absolute path -> sha256 -> first 16 bytes -> base32 -> p_<lowercase>
+```
+
+The id is intentionally derived, not separately stored. Moving a project still
+means the path identity changed.
+
+## Why
+
+The earlier model exposed filesystem paths directly in routes. That made URLs
+ugly and leaked local machine paths into the browser address bar.
+
+The current split keeps both properties yyork needs:
+
+- the path remains the storage and resolution truth;
+- the id is stable, copyable, URL-safe, and does not reveal the path.
+
+## What this means in code
+
+`session.ProjectID(projectPath)` derives the canonical id. Workspace projection
+uses it for `project.id`, while keeping `project.path` and `project.cwd` for
+filesystem operations.
+
+`ProjectMatches` and `SessionProjectMatches` still accept older path-shaped
+handles. That compatibility is deliberate so old URLs and CLI flags do not
+break immediately.
+
+## Consequences
+
+New dashboard routes and request payloads should use the project id when they
+identify a project. Backend code can resolve that id back to the stored path
+through the workspace/session data it already owns.
+
+Do not treat the project id as a replacement for authorization or filesystem
+validation. It is a route/API handle over local state, not a capability token.
+
+## Primary sources
+
+- `internal/session/project.go`
+- `internal/session/workspace_source.go`
+- `internal/server/projects.go`
+- `internal/web/src/features/home/data/workspace.ts`

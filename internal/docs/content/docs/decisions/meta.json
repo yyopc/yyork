@@ -1,0 +1,11 @@
+{
+  "title": "Design decisions",
+  "pages": [
+    "index",
+    "local-first-orchestration",
+    "project-identity",
+    "live-workspace-updates",
+    "agent-observability-hooks",
+    "canvas-local-preview"
+  ]
+}
