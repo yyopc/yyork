@@ -4,6 +4,10 @@
   "private": false,
   "description": "Prebuilt yyork app runtime for Linux arm64.",
   "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yyopc/yyork.git"
+  },
   "files": [
     "bin/**",
     "LICENSE",

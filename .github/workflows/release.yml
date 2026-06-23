@@ -236,6 +236,7 @@ jobs:
     if: ${{ needs.preflight.outputs.should_publish == 'true' }}
     permissions:
       contents: write
+      id-token: write
     steps:
       - name: Download npm packages
         uses: actions/download-artifact@v4
@@ -253,14 +254,9 @@ jobs:
         shell: bash
         env:
           NPM_DIST_TAG: ${{ needs.preflight.outputs.npm_dist_tag }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           VERSION: ${{ needs.preflight.outputs.version }}
         run: |
           set -euo pipefail
-          test -n "${NODE_AUTH_TOKEN:-}" || {
-            echo "NPM_TOKEN secret is required to publish."
-            exit 1
-          }
 
           cd dist/npm
           expected=(
@@ -308,7 +304,6 @@ jobs:
         shell: bash
         env:
           NPM_DIST_TAG: ${{ needs.preflight.outputs.npm_dist_tag }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           VERSION: ${{ needs.preflight.outputs.version }}
         run: |
           set -euo pipefail
