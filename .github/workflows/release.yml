@@ -302,7 +302,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
-        run: gh release upload "$TAG" dist/npm/*.tgz --clobber
+        run: gh release upload "$TAG" dist/npm/*.tgz --clobber --repo "$GITHUB_REPOSITORY"
 
       - name: Publish npm packages
         shell: bash
