@@ -13,11 +13,14 @@
           "name": {
             "type": "string"
           },
+          "path": {
+            "type": "string"
+          },
           "workerWorkspaceMode": {
             "$ref": "#/components/schemas/WorkerWorkspaceMode"
           }
         },
-        "required": ["id", "name", "workerWorkspaceMode"],
+        "required": ["id", "name", "path", "workerWorkspaceMode"],
         "type": "object"
       },
       "Session": {
@@ -48,6 +51,9 @@
             "type": "string"
           },
           "project": {
+            "type": "string"
+          },
+          "projectPath": {
             "type": "string"
           },
           "recap": {
@@ -104,7 +110,6 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "example": "//Workspace.json",
-            "format": "uri",
             "readOnly": true,
             "type": "string"
           },

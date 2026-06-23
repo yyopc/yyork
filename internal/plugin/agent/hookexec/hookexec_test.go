@@ -41,7 +41,7 @@ func TestSourceGoRunExecutableUsesMigratedRootPackage(t *testing.T) {
 func TestGoRunCommandChdirsIntoRoot(t *testing.T) {
 	// Regression: `direnv exec DIR` loads DIR's env but does not chdir, so the
 	// command must cd into the module root itself before `go run .`. Without
-	// the cd, an agent hook runs `go run .` in the session cwd (e.g. web/) and
+	// the cd, an agent hook runs `go run .` in the session cwd (e.g. internal/web/) and
 	// fails with "no Go files in <cwd>".
 	withDirenv := goRunCommand("/tmp/yyork root", "/usr/bin/direnv")
 	if !strings.HasPrefix(withDirenv, "cd '/tmp/yyork root' && ") {

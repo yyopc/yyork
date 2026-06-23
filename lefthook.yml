@@ -8,11 +8,11 @@ pre-commit:
         fi
     check:
       glob: '*.{js,ts,cjs,mjs,jsx,tsx,json,jsonc,css,scss}'
-      run: web/node_modules/.bin/oxfmt --config web/.oxfmtrc.json {staged_files}
+      run: internal/web/node_modules/.bin/oxfmt --config internal/web/.oxfmtrc.json {staged_files}
       stage_fixed: true
     oxlint:
       glob: '*.{js,ts,cjs,mjs,jsx,tsx}'
-      run: web/node_modules/.bin/oxlint --config web/oxlint.config.ts --tsconfig web/tsconfig.json --fix {staged_files}
+      run: internal/web/node_modules/.bin/oxlint --config internal/web/oxlint.config.ts --tsconfig internal/web/tsconfig.json --fix {staged_files}
       stage_fixed: true
 
 pre-push:

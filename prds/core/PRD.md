@@ -312,7 +312,7 @@ Existing test patterns in the codebase:
 
 - `cmd/yyork/main_test.go` — Go `testing` patterns for the CLI surface.
 - `internal/server/*_test.go` and `internal/terminal/*_test.go` — HTTP/websocket integration test patterns the new SSE endpoint follows.
-- `web/e2e/live-terminal-smoke.mjs` and the dozen `pnpm e2e:live-terminal:*` variants — real-runtime end-to-end coverage that catches dashboard regressions across the spawn changes.
+- `internal/web/e2e/live-terminal-smoke.mjs` and the dozen `pnpm e2e:live-terminal:*` variants — real-runtime end-to-end coverage that catches dashboard regressions across the spawn changes.
 
 ## Out of Scope
 

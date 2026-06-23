@@ -4,7 +4,7 @@
       "url": "http://localhost:40134/mcp"
     },
     "storybook-mcp-server": {
-      "url": "http://localhost:6006/mcp",
+      "url": "https://storybook.yyork.localhost/mcp",
       "type": "http"
     }
   }

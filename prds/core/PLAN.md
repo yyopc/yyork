@@ -247,11 +247,11 @@ M2, M3, M7 are independent and can run in parallel with M1 if useful.
 **Goal**: web dashboard reads from the new server endpoints, renders a flat running-sessions list, subscribes to SSE.
 
 **Work**:
-- `web/src/features/home/data/workspace.ts` (or equivalent) — switch from polling `GET /api/workspace` to:
+- `internal/web/src/features/home/data/workspace.ts` (or equivalent) — switch from polling `GET /api/workspace` to:
   - Initial fetch via `GET /api/workspace` for hydration.
   - SSE subscription to `GET /api/events` for live updates.
   - Reconnect on disconnect with exponential backoff.
-- Kanban scaffolding ([kanban-board.tsx](web/src/features/home/components/organisms/kanban-board.tsx) etc.) stays in the codebase but isn't rendered as the v1 surface — replace with a flat list component or render only the "running" column.
+- Kanban scaffolding ([kanban-board.tsx](internal/web/src/features/home/components/organisms/kanban-board.tsx) etc.) stays in the codebase but isn't rendered as the v1 surface — replace with a flat list component or render only the "running" column.
 - Remove any polling intervals from the data layer.
 
 **Acceptance**:
@@ -262,7 +262,7 @@ M2, M3, M7 are independent and can run in parallel with M1 if useful.
 - No periodic GETs in the network tab.
 
 **Tests**:
-- Light Playwright update in `web/e2e/` for the flat-list rendering + SSE-driven update path.
+- Light Playwright update in `internal/web/e2e/` for the flat-list rendering + SSE-driven update path.
 - `pnpm e2e:live-terminal` continues to pass (attach pipeline unchanged in semantics).
 
 **Risks**:

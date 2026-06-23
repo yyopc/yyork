@@ -37,6 +37,7 @@ import {
 import {
   ContextMenu,
   ContextMenuContent,
+  ContextMenuGroup,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
@@ -170,10 +171,10 @@ export function ProjectOrchestratorSidebar(props: {
 
         <SidebarGroup
           role="navigation"
-          className="gap-1 px-0"
+          className="min-h-0 flex-1 gap-1 overflow-hidden px-0"
           aria-label="Projects"
         >
-          <div className="flex h-5 items-center justify-between px-1">
+          <div className="flex h-5 shrink-0 items-center justify-between px-1">
             <SidebarGroupLabel className="h-auto px-0 text-xs leading-4 font-medium opacity-60">
               Projects
             </SidebarGroupLabel>
@@ -201,7 +202,7 @@ export function ProjectOrchestratorSidebar(props: {
               <PlusIcon aria-hidden="true" />
             </ActionTooltip>
           </div>
-          <SidebarGroupContent>
+          <SidebarGroupContent className="min-h-0 flex-1 overflow-y-auto">
             <SidebarMenu className="min-w-0">
               {props.projects.map((project) => (
                 <ProjectNavItem
@@ -245,7 +246,6 @@ export function ProjectOrchestratorSidebar(props: {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <div className="hidden min-h-0 flex-1 md:block" />
         <AppShortcutHints />
       </SidebarContent>
 
@@ -297,7 +297,11 @@ function PinnedSidebarGroup(props: {
   });
 
   return (
-    <SidebarGroup role="navigation" className="gap-1 px-0" aria-label="Pinned">
+    <SidebarGroup
+      role="navigation"
+      className="shrink-0 gap-1 px-0"
+      aria-label="Pinned"
+    >
       <SidebarGroupLabel className="h-5 px-1 text-xs leading-4 font-medium opacity-60">
         Pinned
       </SidebarGroupLabel>
@@ -642,59 +646,63 @@ function ProjectNavItem(props: {
   workerSessionGroups: WorkerSessionGroupData[];
 }) {
   const FolderToggleIcon = props.open ? FolderOpenIcon : FolderIcon;
+  const projectActionProps: ProjectActionMenuProps = {
+    onDelete: () => props.onProjectDelete?.(props.project.id),
+    onOpenKanban: () => props.onProjectBoardSelect(props.project.id),
+    onOpenProject: () => props.onProjectIdeOpen?.(props.project),
+    onRename: () => props.onProjectRename?.(props.project.id),
+    projectCwd: props.project.cwd,
+  };
 
   return (
     <SidebarMenuItem>
       <Collapsible open={props.open} onOpenChange={props.onOpenChange}>
-        <div className="relative flex min-w-0 items-center">
-          <ActionTooltip
-            label={
-              props.open
-                ? `Collapse ${props.project.name} workers`
-                : `Expand ${props.project.name} workers`
-            }
-            trigger={
-              <CollapsibleTrigger
-                render={
-                  <button
-                    type="button"
-                    aria-label={
-                      props.open
-                        ? `Collapse ${props.project.name} workers`
-                        : `Expand ${props.project.name} workers`
-                    }
-                  />
-                }
-                className="flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring [&>svg]:size-4 [&>svg]:opacity-60"
-              />
-            }
-          >
-            <FolderToggleIcon aria-hidden="true" />
-          </ActionTooltip>
-          <SidebarMenuButton
-            render={
-              <button
-                type="button"
-                aria-label={`Open ${props.project.name} board`}
-              />
-            }
-            isActive={props.isBoardActive}
-            size="sm"
-            className="h-7 min-w-0 flex-1 rounded-sm ps-2 pe-8 text-sm leading-5 font-normal [&>span:last-child]:pe-0!"
-            onClick={() => props.onProjectBoardSelect(props.project.id)}
-          >
-            <span>{props.project.name}</span>
-          </SidebarMenuButton>
-          <ProjectActionsMenu
-            onDelete={() => props.onProjectDelete?.(props.project.id)}
-            onOpenKanban={() => props.onProjectBoardSelect(props.project.id)}
-            onOpenProject={() => props.onProjectIdeOpen?.(props.project)}
-            onRename={() => props.onProjectRename?.(props.project.id)}
-            projectCwd={props.project.cwd}
-            projectName={props.project.name}
-            tooltipDevtoolActionsVisible={props.tooltipDevtoolActionsVisible}
-          />
-        </div>
+        <ProjectContextMenu {...projectActionProps}>
+          <div className="relative flex min-w-0 items-center">
+            <ActionTooltip
+              label={
+                props.open
+                  ? `Collapse ${props.project.name} workers`
+                  : `Expand ${props.project.name} workers`
+              }
+              trigger={
+                <CollapsibleTrigger
+                  render={
+                    <button
+                      type="button"
+                      aria-label={
+                        props.open
+                          ? `Collapse ${props.project.name} workers`
+                          : `Expand ${props.project.name} workers`
+                      }
+                    />
+                  }
+                  className="flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring [&>svg]:size-4 [&>svg]:opacity-60"
+                />
+              }
+            >
+              <FolderToggleIcon aria-hidden="true" />
+            </ActionTooltip>
+            <SidebarMenuButton
+              render={
+                <button
+                  type="button"
+                  aria-label={`Open ${props.project.name} board`}
+                />
+              }
+              isActive={props.isBoardActive}
+              size="sm"
+              className="h-7 min-w-0 flex-1 rounded-sm ps-2 pe-8 text-sm leading-5 font-normal [&>span:last-child]:pe-0!"
+              onClick={() => props.onProjectBoardSelect(props.project.id)}
+            >
+              <span>{props.project.name}</span>
+            </SidebarMenuButton>
+            <ProjectActionsMenu
+              {...projectActionProps}
+              projectName={props.project.name}
+            />
+          </div>
+        </ProjectContextMenu>
         <CollapsibleContent className="pt-1">
           <ProjectWorkerSessionTree
             groups={props.workerSessionGroups}
@@ -1063,15 +1071,112 @@ function ProjectWorkerSessionGroup(props: {
   );
 }
 
-function ProjectActionsMenu(props: {
+interface ProjectActionMenuProps {
   onDelete: () => void;
   onOpenKanban: () => void;
   onOpenProject: () => void;
   onRename: () => void;
   projectCwd?: string;
-  projectName: string;
-  tooltipDevtoolActionsVisible?: boolean;
-}) {
+}
+
+type ProjectActionMenuEntry =
+  | {
+      disabled?: boolean;
+      icon: ReactElement;
+      key: string;
+      label: string;
+      onClick: () => void;
+      type: 'item';
+      variant?: 'default' | 'destructive';
+    }
+  | {
+      key: string;
+      type: 'separator';
+    };
+
+function getProjectActionMenuEntries(
+  props: ProjectActionMenuProps
+): ProjectActionMenuEntry[] {
+  return [
+    {
+      disabled: !props.projectCwd,
+      icon: <FolderOpenIcon aria-hidden="true" />,
+      key: 'open-project',
+      label: 'Open project',
+      onClick: props.onOpenProject,
+      type: 'item',
+    },
+    {
+      icon: <SquareKanbanIcon aria-hidden="true" />,
+      key: 'open-kanban',
+      label: 'Open Kanban',
+      onClick: props.onOpenKanban,
+      type: 'item',
+    },
+    {
+      icon: <PencilIcon aria-hidden="true" />,
+      key: 'rename-project',
+      label: 'Rename project',
+      onClick: props.onRename,
+      type: 'item',
+    },
+    {
+      key: 'project-danger-separator',
+      type: 'separator',
+    },
+    {
+      icon: <Trash2Icon aria-hidden="true" />,
+      key: 'remove-project',
+      label: 'Remove project',
+      onClick: props.onDelete,
+      type: 'item',
+      variant: 'destructive',
+    },
+  ];
+}
+
+function ProjectContextMenu(
+  props: ProjectActionMenuProps & {
+    children: ReactNode;
+  }
+) {
+  const entries = getProjectActionMenuEntries(props);
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger render={<div className="contents" />}>
+        {props.children}
+      </ContextMenuTrigger>
+      <ContextMenuContent align="start" side="right" className="min-w-44">
+        <ContextMenuGroup>
+          {entries.map((entry) =>
+            entry.type === 'separator' ? (
+              <ContextMenuSeparator key={entry.key} />
+            ) : (
+              <ContextMenuItem
+                key={entry.key}
+                disabled={entry.disabled}
+                onClick={entry.onClick}
+                variant={entry.variant}
+              >
+                {entry.icon}
+                <span>{entry.label}</span>
+              </ContextMenuItem>
+            )
+          )}
+        </ContextMenuGroup>
+      </ContextMenuContent>
+    </ContextMenu>
+  );
+}
+
+function ProjectActionsMenu(
+  props: ProjectActionMenuProps & {
+    projectName: string;
+  }
+) {
+  const entries = getProjectActionMenuEntries(props);
+
   return (
     <DropdownMenu>
       <ActionTooltip
@@ -1082,9 +1187,7 @@ function ProjectActionsMenu(props: {
               <SidebarMenuAction
                 aria-label={`${props.projectName} actions`}
                 className={cn(
-                  getRowScopedActionClassName(
-                    props.tooltipDevtoolActionsVisible
-                  ),
+                  getRowScopedActionClassName(true),
                   projectMenuActionClassName
                 )}
               />
@@ -1096,26 +1199,21 @@ function ProjectActionsMenu(props: {
       </ActionTooltip>
       <DropdownMenuContent align="end" side="right" className="min-w-44">
         <DropdownMenuGroup>
-          <DropdownMenuItem
-            disabled={!props.projectCwd}
-            onClick={props.onOpenProject}
-          >
-            <FolderOpenIcon aria-hidden="true" />
-            <span>Open project</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={props.onOpenKanban}>
-            <SquareKanbanIcon aria-hidden="true" />
-            <span>Open Kanban</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={props.onRename}>
-            <PencilIcon aria-hidden="true" />
-            <span>Rename project</span>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onClick={props.onDelete}>
-            <Trash2Icon aria-hidden="true" />
-            <span>Remove project</span>
-          </DropdownMenuItem>
+          {entries.map((entry) =>
+            entry.type === 'separator' ? (
+              <DropdownMenuSeparator key={entry.key} />
+            ) : (
+              <DropdownMenuItem
+                key={entry.key}
+                disabled={entry.disabled}
+                onClick={entry.onClick}
+                variant={entry.variant}
+              >
+                {entry.icon}
+                <span>{entry.label}</span>
+              </DropdownMenuItem>
+            )
+          )}
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>

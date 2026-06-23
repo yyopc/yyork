@@ -39,6 +39,7 @@ func renderOpenAPI() ([]byte, error) {
 	if err := addWorkspaceEnumSchemas(api.OpenAPI()); err != nil {
 		return nil, err
 	}
+	removeWorkspaceSchemaURLFormat(api.OpenAPI())
 
 	spec, err := api.OpenAPI().Downgrade()
 	if err != nil {
@@ -125,6 +126,21 @@ func removeDefaultErrorSchemas(spec *huma.OpenAPI) {
 		return
 	}
 	delete(path.Get.Responses, "default")
+}
+
+func removeWorkspaceSchemaURLFormat(spec *huma.OpenAPI) {
+	if spec.Components == nil || spec.Components.Schemas == nil {
+		return
+	}
+	workspaceSchema := spec.Components.Schemas.Map()["Workspace"]
+	if workspaceSchema == nil || workspaceSchema.Properties == nil {
+		return
+	}
+	schemaProperty := workspaceSchema.Properties["$schema"]
+	if schemaProperty == nil {
+		return
+	}
+	schemaProperty.Format = ""
 }
 
 func stringEnumSchema(values ...string) *huma.Schema {

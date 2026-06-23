@@ -4,7 +4,6 @@ import {
   PanelLeftIcon,
   PlusIcon,
 } from 'lucide-react';
-import { type ForwardedRef,forwardRef } from 'react';
 
 import { appHotkeys } from '@/lib/app-hotkeys';
 import { cn } from '@/lib/tailwind/utils';
@@ -96,62 +95,64 @@ function AppPreview(props: {
 }) {
   return (
     <div className="relative flex h-[253px] w-[424px] items-start justify-start overflow-hidden pt-[26px] pl-14">
-      <div className="relative flex w-[368px] shrink-0 flex-col overflow-visible rounded-tl-xl border-t border-l border-border bg-background shadow-[0_16px_40px_rgba(10,10,10,0.14),0_2px_8px_rgba(10,10,10,0.08)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.55),0_2px_8px_rgba(0,0,0,0.4)]">
-        {/* Header */}
-        <div
-          aria-hidden="true"
-          className="flex h-[46px] shrink-0 self-stretch border-b border-border bg-sidebar"
-        >
-          <div className="flex w-[200px] shrink-0 items-center justify-between border-r border-border px-3">
-            <PanelLeftIcon className="size-[17px] text-muted-foreground" />
-            <div className="flex items-center gap-2 text-muted-foreground/70">
-              <ArrowLeftIcon className="size-4" />
-              <ArrowRightIcon className="size-4" />
-            </div>
-          </div>
-          <div className="flex min-w-0 grow items-center gap-2 px-3.5">
-            <span className="text-base leading-6 font-bold text-sidebar-foreground">
-              yyork
-            </span>
-            <span className="flex items-center rounded-full border border-sidebar-border bg-sidebar-primary px-1.5 py-0.5 text-[10px] leading-none font-semibold text-sidebar-primary-foreground">
-              alpha
-            </span>
-          </div>
-        </div>
-
-        {/* Body */}
-        <div className="flex h-[180px] shrink-0">
-          <div className="flex w-[200px] shrink-0 flex-col gap-[18px] border-r border-border bg-sidebar px-3 py-3.5">
-            <div aria-hidden="true" className="flex flex-col gap-2">
-              <span className="text-xs leading-4 font-medium text-muted-foreground">
-                Pinned
-              </span>
-              <span className="pl-0.5 text-[13px] leading-4 text-muted-foreground/55">
-                No pinned sessions
-              </span>
-            </div>
-            <div className="flex flex-col gap-2">
-              <div className="flex h-5 items-center justify-between">
-                <span
-                  aria-hidden="true"
-                  className="text-xs leading-4 font-medium text-muted-foreground"
-                >
-                  Projects
-                </span>
-                <AddProjectIcon
-                  anchorId="preview"
-                  interactive
-                  onAddProject={props.onAddProject}
-                />
-              </div>
-            </div>
-          </div>
-
+      <div className="relative w-[368px] shrink-0 overflow-visible">
+        <div className="flex flex-col overflow-hidden rounded-tl-xl border-t border-l border-border bg-background shadow-[0_16px_40px_rgba(10,10,10,0.14),0_2px_8px_rgba(10,10,10,0.08)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.55),0_2px_8px_rgba(0,0,0,0.4)]">
+          {/* Header */}
           <div
             aria-hidden="true"
-            className="flex grow overflow-hidden bg-background"
+            className="flex h-[46px] shrink-0 self-stretch border-b border-border bg-sidebar"
           >
-            <BoardColumn label="Working" />
+            <div className="flex w-[200px] shrink-0 items-center justify-between border-r border-border px-3">
+              <PanelLeftIcon className="size-[17px] text-muted-foreground" />
+              <div className="flex items-center gap-2 text-muted-foreground/70">
+                <ArrowLeftIcon className="size-4" />
+                <ArrowRightIcon className="size-4" />
+              </div>
+            </div>
+            <div className="flex min-w-0 grow items-center gap-2 px-3.5">
+              <span className="text-base leading-6 font-bold text-sidebar-foreground">
+                yyork
+              </span>
+              <span className="flex items-center rounded-full border border-sidebar-border bg-sidebar-primary px-1.5 py-0.5 text-[10px] leading-none font-semibold text-sidebar-primary-foreground">
+                alpha
+              </span>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="flex h-[180px] shrink-0">
+            <div className="flex w-[200px] shrink-0 flex-col gap-[18px] border-r border-border bg-sidebar px-3 py-3.5">
+              <div aria-hidden="true" className="flex flex-col gap-2">
+                <span className="text-xs leading-4 font-medium text-muted-foreground">
+                  Pinned
+                </span>
+                <span className="pl-0.5 text-[13px] leading-4 text-muted-foreground/55">
+                  No pinned sessions
+                </span>
+              </div>
+              <div className="flex flex-col gap-2">
+                <div className="flex h-5 items-center justify-between">
+                  <span
+                    aria-hidden="true"
+                    className="text-xs leading-4 font-medium text-muted-foreground"
+                  >
+                    Projects
+                  </span>
+                  <AddProjectIcon
+                    anchorId="preview"
+                    interactive
+                    onAddProject={props.onAddProject}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div
+              aria-hidden="true"
+              className="flex grow overflow-hidden bg-background"
+            >
+              <BoardColumn label="Working" />
+            </div>
           </div>
         </div>
 
@@ -162,15 +163,12 @@ function AppPreview(props: {
   );
 }
 
-const AddProjectIcon = forwardRef(function AddProjectIcon(
-  props: {
-    anchorId: AddProjectAnchorId;
-    className?: string;
-    interactive?: boolean;
-    onAddProject?: (source?: AddProjectSource) => void | Promise<void>;
-  },
-  ref: ForwardedRef<HTMLButtonElement>
-) {
+function AddProjectIcon(props: {
+  anchorId: AddProjectAnchorId;
+  className?: string;
+  interactive?: boolean;
+  onAddProject?: (source?: AddProjectSource) => void | Promise<void>;
+}) {
   const className = cn(
     'inline-flex size-5 shrink-0 items-center justify-center rounded-md bg-sidebar-accent align-[-0.125em] ring-1 ring-border',
     props.interactive &&
@@ -181,7 +179,6 @@ const AddProjectIcon = forwardRef(function AddProjectIcon(
   if (props.interactive) {
     return (
       <button
-        ref={ref}
         type="button"
         aria-label="Add project"
         className={className}
@@ -203,7 +200,7 @@ const AddProjectIcon = forwardRef(function AddProjectIcon(
       <PlusIcon className="size-3.5 text-sidebar-accent-foreground" />
     </span>
   );
-});
+}
 
 function AddProjectCallout(props: { className?: string }) {
   return (

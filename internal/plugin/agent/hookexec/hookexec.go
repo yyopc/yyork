@@ -105,7 +105,7 @@ func sourceGoRunExecutable(sourceRoot string) string {
 // goRunCommand builds the shell command that runs the yyork root package via
 // `go run .`. It always cd's into sourceRoot first: `go run .` resolves the
 // package against the process's working directory, and an agent hook inherits
-// the session's cwd, which is frequently a non-Go subdirectory (e.g. web/).
+// the session's cwd, which is frequently a non-Go subdirectory (e.g. internal/web/).
 // `direnv exec DIR` loads DIR's .envrc environment but does NOT change
 // directory, so without the cd the direnv branch runs `go run .` in the
 // session cwd and fails with "no Go files in <cwd>". The cd is required on

@@ -357,17 +357,17 @@ Detection can inspect known dev-server ports later. Do not block the MVP on auto
 Suggested feature-local structure:
 
 ```text
-web/src/features/home/components/organisms/canvas-panel.tsx
-web/src/features/home/components/organisms/canvas-file-tree.tsx
-web/src/features/home/components/organisms/canvas-diff-view.tsx
-web/src/features/home/components/organisms/canvas-browser-view.tsx
-web/src/features/home/data/canvas-tree.ts
-web/src/features/home/data/canvas-diff.ts
-web/src/features/home/data/canvas-preferences.ts
-web/src/features/home/domain/canvas.ts
+internal/web/src/features/home/components/organisms/canvas-panel.tsx
+internal/web/src/features/home/components/organisms/canvas-file-tree.tsx
+internal/web/src/features/home/components/organisms/canvas-diff-view.tsx
+internal/web/src/features/home/components/organisms/canvas-browser-view.tsx
+internal/web/src/features/home/data/canvas-tree.ts
+internal/web/src/features/home/data/canvas-diff.ts
+internal/web/src/features/home/data/canvas-preferences.ts
+internal/web/src/features/home/domain/canvas.ts
 ```
 
-Keep the Pierre adapters feature-local. Move to `web/src/components` only if a second feature uses them.
+Keep the Pierre adapters feature-local. Move to `internal/web/src/components` only if a second feature uses them.
 
 ## Visual design
 

@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/command';
 
 import { AppShortcutsDialog } from '@/features/home/components/molecules/app-shortcuts-dialog';
+import { ProjectSetupDialog } from '@/features/home/components/molecules/project-setup-dialog';
 import { StopSessionConfirmDialog } from '@/features/home/components/molecules/stop-session-confirm-dialog';
 import type {
   CanvasTab,
@@ -237,6 +238,7 @@ function useWorkspaceLayout() {
       initialFirstRunProjectSetup.selection
     );
   const [projectSetupStarting, setProjectSetupStarting] = useState(false);
+  const [projectSetupUsesDialog, setProjectSetupUsesDialog] = useState(false);
   const terminalRouteTarget = getTerminalRouteTarget(
     params.sessionId,
     getOptionalSearchString(search.project)
@@ -427,6 +429,7 @@ function useWorkspaceLayout() {
     setFirstRunProjectSetupPhase('empty');
     setStagedProjectPath(undefined);
     setFirstRunProjectSetupSelection(defaultFirstRunProjectSetupSelection);
+    setProjectSetupUsesDialog(false);
   }, [projects.length]);
 
   useEffect(() => {
@@ -804,21 +807,20 @@ function useWorkspaceLayout() {
         return; // user dismissed the picker
       }
 
-      const isFirstRun = projects.length === 0;
+      const savedDefaults = readAgentHarnessDefaults();
+      const nextSelection: ProjectSetupHarnessSelection = {
+        ...defaultFirstRunProjectSetupSelection,
+        ...savedDefaults,
+      };
 
-      if (isFirstRun) {
-        const nextSelection = firstRunProjectSetupSelection;
-        writeFirstRunProjectSetupDraft({
-          ...nextSelection,
-          projectPath: picked.path,
-        });
-        setStagedProjectPath(picked.path);
-        setFirstRunProjectSetupPhase('agents');
-        return;
-      }
-
-      const result = await createProject({ path: picked.path });
-      sweepProjectAdded(sweep, () => commitAddedProject(result));
+      writeFirstRunProjectSetupDraft({
+        ...nextSelection,
+        projectPath: picked.path,
+      });
+      setFirstRunProjectSetupSelection(nextSelection);
+      setStagedProjectPath(picked.path);
+      setFirstRunProjectSetupPhase('agents');
+      setProjectSetupUsesDialog(projects.length > 0);
     } catch (error) {
       clearStagedNamedropAnchor();
       window.alert(
@@ -831,6 +833,8 @@ function useWorkspaceLayout() {
     clearFirstRunProjectSetupDraft();
     setStagedProjectPath(undefined);
     setFirstRunProjectSetupPhase('empty');
+    setProjectSetupUsesDialog(false);
+    clearStagedNamedropAnchor();
   };
 
   const handleFirstRunProjectSetupSelectionChange = (
@@ -882,11 +886,12 @@ function useWorkspaceLayout() {
       }
 
       sweepProjectAdded(sweep, () => {
-        commitAddedProject(result);
         clearFirstRunProjectSetupDraft();
         setFirstRunProjectSetupPhase('empty');
         setStagedProjectPath(undefined);
         setFirstRunProjectSetupSelection(defaultFirstRunProjectSetupSelection);
+        setProjectSetupUsesDialog(false);
+        commitAddedProject(result);
       });
     } catch (error) {
       window.alert(
@@ -1111,6 +1116,7 @@ function useWorkspaceLayout() {
       handleFirstRunProjectSetupSelectionChange,
     stagedProjectPath,
     projectSetupStarting,
+    projectSetupUsesDialog,
     onWorkerWorkspaceModeChange: handleWorkerWorkspaceModeChange,
     onWorkerSessionSelect: handleTerminalSessionOpen,
     onWorkspaceRefresh: () => void refetchWorkspace(),
@@ -1131,6 +1137,7 @@ function useWorkspaceLayout() {
     canvasOpen,
     commandPaletteOpen,
     handleAddProject,
+    handleChangeStagedProject,
     handleCanvasOpenChange,
     handleConfirmSessionStop,
     handleProjectBoardSelect,
@@ -1175,6 +1182,10 @@ function WorkspaceLayoutView(props: ReturnType<typeof useWorkspaceLayout>) {
   const selectedProject = props.projects.find(
     (project) => project.id === props.selectedProjectId
   );
+  const showProjectSetupDialog =
+    props.workspaceContextValue.projectSetupUsesDialog &&
+    props.workspaceContextValue.firstRunProjectSetupPhase === 'agents' &&
+    Boolean(props.workspaceContextValue.stagedProjectPath);
 
   return (
     <WorkspaceContext value={props.workspaceContextValue}>
@@ -1225,6 +1236,22 @@ function WorkspaceLayoutView(props: ReturnType<typeof useWorkspaceLayout>) {
           }
         }}
         onConfirm={props.handleConfirmSessionStop}
+      />
+      <ProjectSetupDialog
+        open={showProjectSetupDialog}
+        projectPath={props.workspaceContextValue.stagedProjectPath ?? ''}
+        agentSetup={props.workspaceContextValue.firstRunProjectSetupSelection}
+        starting={props.workspaceContextValue.projectSetupStarting}
+        onOpenChange={(open) => {
+          if (!open) {
+            props.handleChangeStagedProject();
+          }
+        }}
+        onCancel={props.handleChangeStagedProject}
+        onAgentSetupChange={
+          props.workspaceContextValue.onFirstRunProjectSetupSelectionChange
+        }
+        onStartProject={props.workspaceContextValue.onStartProjectSetup}
       />
       <AppShortcutsDialog
         open={props.shortcutsDialogOpen}

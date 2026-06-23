@@ -50,9 +50,9 @@ behavior and security posture.
   - Reload is implemented by reassigning `iframe.src` with request-id query
     parameters because iframe reload behavior is limited.
 - Current yyork implementation:
-  - `web/src/features/home/components/molecules/canvas-web-preview.tsx`
-  - `web/src/features/home/data/browser-preview.ts`
-  - `web/src/features/home/data/browser-preview.unit.spec.ts`
+  - `internal/web/src/features/home/components/molecules/canvas-web-preview.tsx`
+  - `internal/web/src/features/home/data/browser-preview.ts`
+  - `internal/web/src/features/home/data/browser-preview.unit.spec.ts`
 
 Before coding a milestone, inspect the current `main` version of the VS Code
 files above. If we need more than occasional reference, clone the VS Code repo
@@ -223,7 +223,7 @@ Agentation integration note:
 
 - `agentation@3.0.2` is installed as a yyork web dependency only. User preview
   apps still must not install Agentation or add source imports.
-- `web/vite.preview.config.ts` emits a yyork-owned Agentation IIFE bundle into
+- `internal/web/vite.preview.config.ts` emits a yyork-owned Agentation IIFE bundle into
   the embedded dashboard assets at `__yyork_browser/agentation.js`.
 - The preview proxy injects that bundle into HTML responses alongside the
   preview bridge, so Agentation runs inside the proxied preview document and can

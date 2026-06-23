@@ -11,11 +11,13 @@ export function KanbanPage() {
 
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1">
-      <KanbanBoard
-        className="flex-1"
-        columns={context.kanbanColumns}
-        onSessionSelect={context.onWorkerSessionSelect}
-      />
+      {!showNoProjects ? (
+        <KanbanBoard
+          className="flex-1"
+          columns={context.kanbanColumns}
+          onSessionSelect={context.onWorkerSessionSelect}
+        />
+      ) : null}
       {context.workspaceState !== 'ready' ? (
         showNoProjects ? (
           <FirstRunProjectCard

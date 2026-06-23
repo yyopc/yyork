@@ -47,6 +47,7 @@ export interface WorkspaceContextValue {
   firstRunProjectSetupSelection: ProjectSetupHarnessSelection;
   stagedProjectPath?: string;
   projectSetupStarting: boolean;
+  projectSetupUsesDialog: boolean;
   onFirstRunProjectSetupSelectionChange: (
     selection: ProjectSetupHarnessSelection
   ) => void;

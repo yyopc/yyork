@@ -14,7 +14,7 @@ That command is a two-step pipeline:
    structs.
 2. `pnpm api:generate:zod` runs `openapi-zod-client` with
    `api/session-workspace-contract.hbs` to regenerate
-   `web/src/features/home/domain/session-workspace-contract.generated.ts`.
+   `internal/web/src/features/home/domain/session-workspace-contract.generated.ts`.
 
 If `openapi-zod-client` is not installed yet, install it as a dev dependency
 before running the full pipeline:
