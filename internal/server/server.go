@@ -33,6 +33,12 @@ type SessionStopper interface {
 	Stop(ctx context.Context, id string) error
 }
 
+// ProjectRemover removes a project from yyork's durable workspace state. The
+// session.Engine satisfies this by stopping every session for the project path.
+type ProjectRemover interface {
+	RemoveProject(ctx context.Context, projectPath string) error
+}
+
 // OrchestratorEnsurer makes sure a project has a running orchestrator session,
 // spawning one when the project has none. The session.Engine satisfies this
 // interface; the server depends on the narrow surface so adding a project from
@@ -80,6 +86,11 @@ type Config struct {
 	// endpoint returns 501.
 	Stopper SessionStopper
 
+	// ProjectRemover removes a project from backend workspace state. When set,
+	// the dashboard can remove projects via DELETE /api/projects/{projectID}.
+	// Optional — if nil, the endpoint returns 501.
+	ProjectRemover ProjectRemover
+
 	// Orchestrators ensures a project has an orchestrator session. When set,
 	// the dashboard can add projects via POST /api/projects. Optional — if
 	// nil, the endpoint returns 501.
@@ -116,6 +127,7 @@ type Server struct {
 	sessions            store.SessionRepo
 	projectSettings     store.ProjectSettingsRepo
 	stopper             SessionStopper
+	projectRemover      ProjectRemover
 	orchestrators       OrchestratorEnsurer
 	directoryChooser    DirectoryChooser
 	eventBus            *events.Bus
@@ -188,6 +200,7 @@ func New(cfg Config) *Server {
 		sessions:            cfg.Sessions,
 		projectSettings:     cfg.ProjectSettings,
 		stopper:             cfg.Stopper,
+		projectRemover:      cfg.ProjectRemover,
 		orchestrators:       cfg.Orchestrators,
 		directoryChooser:    directoryChooser,
 		eventBus:            cfg.EventBus,
@@ -204,6 +217,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/projects", s.handleCreateProject)
 	mux.HandleFunc("POST /api/projects/choose-directory", s.handleChooseProjectDirectory)
 	mux.HandleFunc("PATCH /api/projects/worker-workspace", s.handleUpdateProjectWorkerWorkspace)
+	mux.HandleFunc("DELETE /api/projects/{projectID}", s.handleRemoveProject)
 	mux.HandleFunc("POST /api/projects/{projectID}/ide", s.handleProjectIDE)
 	mux.HandleFunc("POST /api/sessions/{sessionID}/ide", s.handleSessionIDE)
 	mux.HandleFunc("GET /api/sessions/{sessionID}/files", s.handleSessionFiles)
@@ -365,7 +379,7 @@ func terminalSessionForRequest(workspace session.Workspace, projectID string, se
 
 	if projectID != "" {
 		for _, terminalSession := range sessions {
-			if terminalSession.Project == projectID && terminalSession.ID == sessionID {
+			if session.SessionProjectMatches(terminalSession, projectID) && terminalSession.ID == sessionID {
 				return terminalSession, true
 			}
 		}
@@ -388,12 +402,31 @@ func terminalSessionForRequest(workspace session.Workspace, projectID string, se
 
 func projectForRequest(workspace session.Workspace, projectID string) (session.Project, bool) {
 	for _, project := range workspace.Projects {
-		if project.ID == projectID {
+		if session.ProjectMatches(project, projectID) {
 			return project, true
 		}
 	}
 
 	return session.Project{}, false
+}
+
+func (s *Server) projectPathForRequest(ctx context.Context, projectID string) (string, bool, error) {
+	workspace, err := s.workspaceForRequest(ctx)
+	if err != nil {
+		return "", false, err
+	}
+
+	project, ok := projectForRequest(workspace, projectID)
+	if !ok {
+		return projectID, false, nil
+	}
+	if project.Path != "" {
+		return project.Path, true, nil
+	}
+	if project.CWD != "" {
+		return project.CWD, true, nil
+	}
+	return "", true, errors.New("project path is unavailable")
 }
 
 func sessionWorkspaceDirectory(cwd string) (string, int, error) {

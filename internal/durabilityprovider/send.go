@@ -59,7 +59,7 @@ func resolveSession(ws session.Workspace, projectID string, sessionID string) (s
 
 	if projectID != "" {
 		for _, candidate := range candidates {
-			if candidate.Project == projectID && candidate.ID == sessionID {
+			if session.SessionProjectMatches(candidate, projectID) && candidate.ID == sessionID {
 				return candidate, true
 			}
 		}

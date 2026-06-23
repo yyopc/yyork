@@ -13,11 +13,19 @@
           "name": {
             "type": "string"
           },
+          "path": {
+            "type": "string"
+          },
           "workerWorkspaceMode": {
             "$ref": "#/components/schemas/WorkerWorkspaceMode"
           }
         },
-        "required": ["id", "name", "workerWorkspaceMode"],
+        "required": [
+          "id",
+          "name",
+          "path",
+          "workerWorkspaceMode"
+        ],
         "type": "object"
       },
       "Session": {
@@ -48,6 +56,9 @@
             "type": "string"
           },
           "project": {
+            "type": "string"
+          },
+          "projectPath": {
             "type": "string"
           },
           "recap": {
@@ -87,15 +98,26 @@
         "type": "object"
       },
       "TerminalSessionKind": {
-        "enum": ["orchestrator", "worker"],
+        "enum": [
+          "orchestrator",
+          "worker"
+        ],
         "type": "string"
       },
       "WorkerSessionState": {
-        "enum": ["working", "prompt", "triage", "done"],
+        "enum": [
+          "working",
+          "prompt",
+          "triage",
+          "done"
+        ],
         "type": "string"
       },
       "WorkerWorkspaceMode": {
-        "enum": ["local", "new-worktree"],
+        "enum": [
+          "local",
+          "new-worktree"
+        ],
         "type": "string"
       },
       "Workspace": {
@@ -104,7 +126,6 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "example": "//Workspace.json",
-            "format": "uri",
             "readOnly": true,
             "type": "string"
           },
@@ -133,7 +154,11 @@
             "type": "array"
           }
         },
-        "required": ["activeProjectId", "projects", "sessions"],
+        "required": [
+          "activeProjectId",
+          "projects",
+          "sessions"
+        ],
         "type": "object"
       }
     }
@@ -160,7 +185,9 @@
           }
         },
         "summary": "Get the dashboard workspace",
-        "tags": ["Workspace"]
+        "tags": [
+          "Workspace"
+        ]
       }
     }
   },

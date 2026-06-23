@@ -189,7 +189,12 @@ func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) {
 	var rows []store.Session
 	var err error
 	if project := r.URL.Query().Get("project"); project != "" {
-		rows, err = s.sessions.ListByProject(ctx, project)
+		projectPath, _, resolveErr := s.projectPathForRequest(ctx, project)
+		if resolveErr != nil {
+			http.Error(w, resolveErr.Error(), http.StatusInternalServerError)
+			return
+		}
+		rows, err = s.sessions.ListByProject(ctx, projectPath)
 	} else {
 		rows, err = s.sessions.List(ctx)
 	}
