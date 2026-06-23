@@ -1,6 +1,6 @@
 {
   "name": "@yyopc/yyork",
-  "version": "0.0.1",
+  "version": "0.1.0-alpha.1",
   "private": false,
   "description": "Agent routing platform with an interface to the agent router.",
   "homepage": "https://github.com/yyopc/yyork#readme",
@@ -21,16 +21,10 @@
     "yyork": "./bin/yyork.mjs"
   },
   "files": [
-    "main.go",
-    "go.mod",
-    "go.sum",
-    "cmd/yyork/dashboard/**",
     ".agents/skills/yyork-cli/**",
-    "internal/**/*.go",
-    "internal/session/prompts/*.md",
-    "internal/store/migrations/*.sql",
     "bin/yyork.mjs",
-    "bin/install-yyork.mjs"
+    "bin/install-yyork.mjs",
+    "bin/native-package.mjs"
   ],
   "type": "module",
   "publishConfig": {
@@ -38,21 +32,32 @@
   },
   "scripts": {
     "prepare": "pnpm --filter @yyork/web exec lefthook install --force || true",
-    "prepack": "pnpm web:build",
     "postinstall": "node ./bin/install-yyork.mjs",
     "release:check": "node ./bin/check-release.mjs",
-    "release:dry-run": "pnpm release:check && pnpm publish --dry-run --access public --publish-branch main",
-    "release:publish": "pnpm release:check && pnpm publish --access public --publish-branch main",
+    "release:fetch-zellij": "node ./bin/fetch-zellij.mjs",
+    "release:fetch-zellij:all": "node ./bin/fetch-zellij.mjs --all",
+    "release:pack:native": "pnpm web:build && node ./bin/pack-native-package.mjs",
+    "release:pack:npm": "node ./bin/pack-npm-release.mjs",
+    "release:dry-run": "pnpm release:check",
+    "release:publish": "echo \"Use the GitHub Actions Release workflow; release publishing is disabled locally.\" && exit 1",
     "api:generate": "pnpm api:generate:openapi && pnpm api:generate:zod",
     "api:generate:openapi": "go run ./api/generate-workspace-contract.go",
-    "api:generate:zod": "openapi-zod-client ./api/openapi.generated.json -o ./web/src/features/home/domain/session-workspace-contract.generated.ts -t ./api/session-workspace-contract.hbs --export-schemas && pnpm --filter @yyork/web exec oxfmt src/features/home/domain/session-workspace-contract.generated.ts",
+    "api:generate:zod": "openapi-zod-client ./api/openapi.generated.json -o ./internal/web/src/features/home/domain/session-workspace-contract.generated.ts -t ./api/session-workspace-contract.hbs --export-schemas && pnpm --filter @yyork/web exec oxfmt src/features/home/domain/session-workspace-contract.generated.ts",
     "yyork": "go run .",
-    "dev": "portless run",
+    "dev": "run-p dev:stack docs:dev mock:dev",
+    "dev:stack": "portless run",
     "dev:app": "go run . dev",
     "web:dev": "pnpm --filter @yyork/web dev",
     "web:build": "pnpm --filter @yyork/web build",
     "web:lint": "pnpm --filter @yyork/web lint",
     "web:test": "pnpm --filter @yyork/web test:ci",
+    "docs:dev": "portless docs.yyork -- pnpm --filter @yyork/docs exec react-router dev",
+    "docs:dev:direct": "pnpm --filter @yyork/docs dev",
+    "storybook:dev": "portless storybook.yyork -- pnpm --filter @yyork/web storybook",
+    "storybook:dev:direct": "pnpm --filter @yyork/web storybook:direct",
+    "mock:dev": "portless mock.yyork --force -- pnpm --filter @yyork/web mock:dev",
+    "mock:dev:direct": "pnpm --filter @yyork/web mock:dev:direct",
+    "docs:build": "pnpm --filter @yyork/docs build",
     "backend:build": "pnpm web:build && go build -o ./yyork .",
     "backend:test": "go test ./...",
     "build": "pnpm web:build && pnpm backend:build",
@@ -60,30 +65,24 @@
     "lint:ts": "pnpm --filter @yyork/web lint:ts",
     "test": "pnpm backend:test && pnpm web:test",
     "test:ci": "pnpm --filter @yyork/web test:ci",
+    "doctor": "pnpm --filter @yyork/web run doctor",
+    "doctor:full": "pnpm --filter @yyork/web run doctor:full",
     "e2e": "pnpm --filter @yyork/web e2e",
-    "e2e:live-terminal": "pnpm --dir web e2e:live-terminal",
-    "e2e:live-terminal:reconnect": "pnpm --dir web e2e:live-terminal:reconnect",
-    "e2e:live-terminal:soak": "pnpm --dir web e2e:live-terminal:soak",
-    "e2e:live-terminal:switch": "pnpm --dir web e2e:live-terminal:switch",
-    "e2e:live-terminal:watch": "pnpm --dir web e2e:live-terminal:watch",
-    "e2e:live-terminal:switch:watch": "pnpm --dir web e2e:live-terminal:switch:watch",
-    "e2e:live-terminal:soak:watch": "pnpm --dir web e2e:live-terminal:soak:watch",
-    "e2e:live-terminal:reuse": "pnpm --dir web e2e:live-terminal:reuse",
-    "e2e:live-terminal:reuse:reconnect": "pnpm --dir web e2e:live-terminal:reuse:reconnect",
-    "e2e:live-terminal:reuse:watch": "pnpm --dir web e2e:live-terminal:reuse:watch",
-    "e2e:live-terminal:reuse:reconnect:watch": "pnpm --dir web e2e:live-terminal:reuse:reconnect:watch",
-    "e2e:live-terminal:reuse:switch:watch": "pnpm --dir web e2e:live-terminal:reuse:switch:watch",
-    "e2e:live-terminal:reuse:soak:watch": "pnpm --dir web e2e:live-terminal:reuse:soak:watch",
-    "e2e:live-terminal:manual": "pnpm --dir web e2e:live-terminal:manual",
-    "e2e:live-terminal:manual-soak": "pnpm --dir web e2e:live-terminal:manual-soak"
+    "e2e:live-terminal": "pnpm --dir internal/web e2e:live-terminal"
   },
   "devDependencies": {
-    "npm-run-all": "4.1.5",
+    "npm-run-all": "catalog:",
     "openapi-zod-client": "^1.18.3",
     "portless": "0.14.0"
   },
+  "optionalDependencies": {
+    "@yyopc/yyork-darwin-arm64": "workspace:0.1.0-alpha.1",
+    "@yyopc/yyork-darwin-x64": "workspace:0.1.0-alpha.1",
+    "@yyopc/yyork-linux-arm64": "workspace:0.1.0-alpha.1",
+    "@yyopc/yyork-linux-x64": "workspace:0.1.0-alpha.1"
+  },
   "engines": {
-    "node": ">=24"
+    "node": ">=18"
   },
   "packageManager": "pnpm@10.28.0",
   "pnpm": {

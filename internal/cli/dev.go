@@ -19,8 +19,8 @@ import (
 )
 
 const (
+	devAPIAliasName            = "api.yyork"
 	devBrowserPreviewAliasName = "yyork-preview.yyork"
-	devMockAliasName           = "mock.yyork"
 )
 
 // newDevCmd builds the dev-stack launcher. It is hidden because it is a
@@ -71,13 +71,13 @@ func (c devConfig) viteOrigin() string {
 }
 
 // resolveDevConfig derives the dev wiring from environment variables.
-	//
-	//   - web host: VITE_HOST -> HOST (portless) -> 127.0.0.1
-	//     If running under portless and only HOST is present, we bind Vite on
-	//     0.0.0.0 so the proxy can forward from the stable .localhost URL.
-	//   - web port: PORT (portless) -> VITE_PORT -> 3000
-	//   - backend:  127.0.0.1:YYORK_BACKEND_PORT, or 127.0.0.1:0 (ephemeral) when
-	//     unset. YYORK_BACKEND_HOST overrides the host.
+//
+//   - web host: VITE_HOST -> HOST (portless) -> 127.0.0.1
+//     If running under portless and only HOST is present, we bind Vite on
+//     0.0.0.0 so the proxy can forward from the stable .localhost URL.
+//   - web port: PORT (portless) -> VITE_PORT -> 3000
+//   - backend:  127.0.0.1:YYORK_BACKEND_PORT, or 127.0.0.1:0 (ephemeral) when
+//     unset. YYORK_BACKEND_HOST overrides the host.
 func resolveDevConfig(getenv func(string) string) (devConfig, error) {
 	webPort, err := resolvePort(firstNonEmpty(getenv("PORT"), getenv("VITE_PORT")), 3000)
 	if err != nil {
@@ -157,11 +157,12 @@ func registerDevPreviewAlias(ctx context.Context, cmd *cobra.Command, cfg devCon
 	return registerDevPortlessAlias(ctx, cmd, devBrowserPreviewAliasName, port)
 }
 
-func registerDevMockAlias(ctx context.Context, cmd *cobra.Command, cfg devConfig) error {
-	if cfg.portlessURL == "" {
-		return nil
+func registerDevAPIAlias(ctx context.Context, cmd *cobra.Command, cfg devConfig, apiAddr net.Addr) error {
+	port, ok, err := devPreviewAliasPort(cfg, apiAddr)
+	if err != nil || !ok {
+		return err
 	}
-	return registerDevPortlessAlias(ctx, cmd, devMockAliasName, strconv.Itoa(cfg.webPort))
+	return registerDevPortlessAlias(ctx, cmd, devAPIAliasName, port)
 }
 
 func registerDevPortlessAlias(ctx context.Context, cmd *cobra.Command, name string, port string) error {
@@ -221,12 +222,12 @@ func runDev(cmd *cobra.Command, runApp appRunner, webFS fs.FS) error {
 	}
 
 	backendOrigin := "http://" + apiAddr.String()
-	if err := registerDevPreviewAlias(ctx, cmd, cfg, apiAddr); err != nil {
+	if err := registerDevAPIAlias(ctx, cmd, cfg, apiAddr); err != nil {
 		cancel()
 		<-appErrCh
 		return fmt.Errorf("dev: %w", err)
 	}
-	if err := registerDevMockAlias(ctx, cmd, cfg); err != nil {
+	if err := registerDevPreviewAlias(ctx, cmd, cfg, apiAddr); err != nil {
 		cancel()
 		<-appErrCh
 		return fmt.Errorf("dev: %w", err)
@@ -234,8 +235,8 @@ func runDev(cmd *cobra.Command, runApp appRunner, webFS fs.FS) error {
 
 	// Vite is the browser-facing process; portless proxies its PORT. It reads
 	// VITE_BACKEND_ORIGIN/VITE_PORT/VITE_HOST from the environment (see
-	// web/vite.config.ts). CommandContext kills it when ctx is canceled.
-	vite := exec.CommandContext(ctx, "pnpm", "--dir", "web", "dev")
+	// internal/web/vite.config.ts). CommandContext kills it when ctx is canceled.
+	vite := exec.CommandContext(ctx, "pnpm", "--dir", "internal/web", "dev")
 	vite.Env = append(os.Environ(),
 		"VITE_BACKEND_ORIGIN="+backendOrigin,
 		"VITE_PORT="+strconv.Itoa(cfg.webPort),
@@ -290,7 +291,7 @@ func runDev(cmd *cobra.Command, runApp appRunner, webFS fs.FS) error {
 }
 
 // printDevBanner mirrors the previous JS launcher's banner. The "yyork web:"
-// and "yyork backend:" tokens are a machine contract: web/e2e parses them to
+// and "yyork backend:" tokens are a machine contract: internal/web/e2e parses them to
 // discover the running stack's origins.
 func printDevBanner(w io.Writer, webOrigin, backendOrigin string) {
 	fmt.Fprintf(w, "\n  yyork web:      %s\n  yyork backend:  %s\n\n", webOrigin, backendOrigin)

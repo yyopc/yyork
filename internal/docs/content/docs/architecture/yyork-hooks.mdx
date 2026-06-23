@@ -1,0 +1,280 @@
+---
+title: "The yyork hooks command"
+description: "How detached agent workers call back into yyork to publish SessionInfo and planned activity state."
+status: current
+last_verified: 2026-06-01
+---
+> **TL;DR**
+>
+> yyork spawns each worker as a **detached agent process** inside a throwaway worktree under Zellij. The server never shares memory with it, so it cannot see what the agent is doing. The bridge is a hook: at spawn time the agent plugin writes a native hook config into the worktree, and every fired hook shells out to `yyork hooks  `.
+>
+> That callback reads the native payload from **stdin**, reads the yyork session id from `YYORK_SESSION_ID`, opens `~/.yyork/state.db`, **merges normalized metadata** into the matching row, and publishes `session.updated` so an open board re-queries and re-renders. It prints `{}` and exits `0` on every path — a hook must never break the user's agent.
+>
+> **Today** the Codex plugin reports SessionInfo this way: native session id, title, summary. **Next** the same pipe carries *activity* — `working` `waiting-for-input` `idle` — to replace the `State: StateWorking` placeholder the dashboard hardcodes today.
+
+## 01 The problem
+
+### The orchestrator is blind to its own workers
+
+A `yyork spawn` forks a git worktree, asks the agent plugin for a launch command, and hands that argv to the durability provider (Zellij). The agent then runs **headless and detached**: the user attaches to its pane in the browser terminal when they want to, but the yyork server is not in the loop on a keystroke-by-keystroke basis. It owns a SQLite row and nothing more.
+
+The dashboard needs two things the server cannot observe directly:
+
+- **Identity — “what is this session?”** The native agent's own session id (for resume and cross-referencing), a human title, a one-line summary. We call this *SessionInfo*.
+- **Activity — “what is it doing right now?”** Is the agent grinding on a task, blocked waiting for the user to approve a command, or idle between turns? This is the field that turns a static list of cards into a live operations board.
+
+> **cause**
+
+SessionInfo already flows for Codex through hooks. **Activity does not flow at all.** The store-to-UI adapter stamps every card with the same value:
+
+internal/session/workspace_source.go:102 — `State: StateWorking, // v1: no activity-state capture yet.`
+
+Every worker looks busy forever, even one parked on an approval prompt for ten minutes. The `yyork hooks` command is the channel through which real activity will arrive.
+
+Why a hook and not a poll or a transcript scan? A poll can't tell *working* from *blocked* — both look like a quiet process. Scraping agent transcript/cache files was the old approach and the Agent Plugin PRD explicitly retired it: *“SessionInfo must not infer display info by reading agent transcript/cache files.”* A hook is the agent **telling us**, at the exact moment a meaningful thing happens, in a payload the agent vendor designed for this.
+
+## 02 The command surface
+
+### A hidden verb, dispatched per agent and per event
+
+The hooks verb is internal — it is not in the help table or the planned-command roadmap. It exists to be invoked *by an agent*, not by a human. Dispatch is two positional arguments: the agent plugin, then the native event name.
+
+```
+// main.go:60
+case "hooks":
+    return runHooks(ctx, commandArgs, stdout, stderr)
+
+// hooks.go — only Codex is wired today; the shape generalizes per agent.
+func runHooks(ctx context.Context, args []string, ...) int {
+    if len(args) != 2 || args[0] != "codex" {
+        fmt.Fprintln(stderr, "hooks: expected `yyork hooks codex "+
+            "`")
+        return 1
+    }
+    return runCodexHook(ctx, args[1], os.Stdin, stdout, stderr)
+}
+```
+
+### How the hook gets there: installed at spawn, into the worktree
+
+An agent only knows to call back because the plugin *installs* a hook config when the session is created. The engine calls `GetAgentHooks` after the worktree exists but before the agent launches, so the very first startup hook can already find a row to update.
+
+###### laggard Claude Code
+
+`internal/plugin/agent/claudecode/claudecode.go`
+
+- `GetAgentHooks` is a **no-op** today.
+- `SessionInfo` still derives title from the transcript (`ai-title` → `last-prompt`).
+- So Claude Code does *not* use the hooks command yet.
+- Bringing it onto hooks is part of the planned work (§05).
+
+```
+{
+  "hooks": {
+    "SessionStart":     [{ "hooks": [{ "command": "yyork hooks codex session-start",      "timeout": 30 }] }],
+    "UserPromptSubmit": [{ "hooks": [{ "command": "yyork hooks codex user-prompt-submit", "timeout": 30 }] }],
+    "Stop":             [{ "hooks": [{ "command": "yyork hooks codex stop",                "timeout": 30 }] }]
+  }
+}
+```
+
+At launch the engine injects `YYORK_SESSION_ID=` into the agent's environment (`internal/session/engine.go:322`), and inserts the session row *before* the agent starts (`engine.go:312`). Those two facts are the whole contract the callback relies on: an env var that identifies the row, and a row that already exists.
+
+## 03 What a callback does
+
+### Read stdin, find the row, merge, publish, exit clean
+
+Every invocation runs the same six-beat path. The guiding rule is **do no harm**: an unknown session, a missing row, an empty payload, or a torn-down server all resolve to `print {} · exit 0`, because a non-zero exit or stray stderr would surface as an error inside the user's agent.
+
+#### Gate on YYORK_SESSION_ID
+
+If the env var is empty, this is a plain Codex session the user happens to have the hook installed in — not a yyork worker. Print `{}`, exit 0, touch nothing.
+
+hooks.go — `os.Getenv("YYORK_SESSION_ID")`
+
+2
+
+#### Decode the native payload from stdin
+
+Read at most **1 MiB** (`io.LimitReader(stdin, 1<<20)`) and JSON-decode it. An empty stdin (`io.EOF`) is fine; only a malformed body is an error.
+
+hooks.go — `codexHookPayload{ hook_event_name, prompt, last_assistant_message, session_id }`
+
+3
+
+#### Open the shared store
+
+Open `~/.yyork/state.db` via `store.DefaultPath()`. Same database the server and every other CLI verb use — the durable source of truth.
+
+hooks.go — `store.Open(ctx, dbPath)`
+
+4
+
+#### Compute the normalized fields for this event
+
+Map the native event to the yyork metadata keys (table below). If there's nothing to write, fall straight through to the response. A missing row (`ErrSessionNotFound`) is a graceful no-op.
+
+hooks.go — `codexHookMetadataFields(...)`
+
+5
+
+#### Merge metadata into the row
+
+`repo.MergeMetadata` overlays only the changed keys onto the row's JSON blob — it never clobbers the rest of the metadata (e.g. the launch `prompt`).
+
+hooks.go — `repo.MergeMetadata(ctx, aoSessionID, fields)`
+
+6
+
+#### Publish session.updated, then print {}
+
+Only when something actually changed: build a `session.updated` event and hand it to a `ForwardingPublisher`, which relays it to a running server (best-effort). Then print `{}` and exit 0.
+
+hooks.go — `control.NewForwardingPublisher().Publish(events.NewSessionUpdated(id))`
+
+> **warn**
+
+The Codex `Stop` hook fires when the agent finishes *a turn* and yields, not when the process dies. Session **termination** is a separate concern, detected by the reconciler when the Zellij session disappears (it emits `session.terminated`, not a hook). Conflating the two is the easiest mistake here: a worker that stops to await your next prompt is alive and idle, not gone.
+
+## 04 SessionInfo today
+
+### Three events, three normalized keys
+
+The shipped mapping is deliberately small. Each Codex event contributes exactly one field, and the write rules encode the display semantics the dashboard wants.
+
+| Native event | Metadata key | Source & rule |
+| --- | --- | --- |
+| session-start | agentSessionId | The Codex-native `session_id` from the payload. Written verbatim when present — the link from a yyork row to the agent's own thread. |
+| user-prompt-submit | title | The submitted `prompt`, whitespace-collapsed and capped at **120** chars. **First write wins** — set only if no title exists yet, so a later prompt never re-titles the session. |
+| stop | summary | The `last_assistant_message`, collapsed and capped at **500** chars. **Last write wins** — each completed turn refreshes the summary to the most recent assistant reply. |
+
+```
+case "user-prompt-submit":
+    title := compactHookText(payload.Prompt, hookTitleMaxLen) // collapse ws, cap 120, ellipsize
+    if title == "" { return fields, nil }
+    row, err := repo.Get(ctx, aoSessionID)
+    if err != nil { return nil, err }
+    if stringMetadata(row.Metadata, hookMetadataTitle) == "" {
+        fields[hookMetadataTitle] = title // ← only when unset: first prompt is the title
+    }
+```
+
+Downstream, the store-to-UI adapter prefers these keys in order, and falls back to the raw launch prompt only when a hook hasn't landed yet — so a freshly spawned worker still shows *something* before its first turn completes.
+
+```
+title       := metadata.title   ?: metadata.prompt ?: row.ID   // title → prompt → id
+description := metadata.summary ?: metadata.prompt            // summary → prompt
+State       := StateWorking                                  // ← hardcoded; §05 fixes this
+```
+
+> **sec**
+
+Codex emits its own field names; Claude Code emits different ones. The `agent.SessionInfo` contract (`AgentSessionID`, `Title`, `Summary`) is the normalized shape every plugin translates *into*. The hooks command is where a Codex payload becomes those neutral keys — so the dashboard never learns a single agent-specific field name.
+
+## 05 Planned: agent activity
+
+### Carry “what is it doing?” down the same pipe
+
+SessionInfo answers *what* a session is. Activity answers *where it is right now*. The plan reuses every piece of the shipped pipeline — install-at-spawn, stdin payload, merge, `session.updated` — and adds (a) a normalized activity field, (b) more event mappings, and (c) Claude Code finally on hooks.
+
+### The activity states
+
+A small, closed vocabulary the dashboard can render as a status dot. These map onto the session `State` enum the adapter currently hardcodes.
+
+    `working`
+    `waiting-for-input`
+    `idle`
+    `error`
+    `done`
+
+| State | Meaning | Entered when |
+| --- | --- | --- |
+| `working` | Agent is actively producing — thinking, calling tools, editing. | A prompt is submitted, or a tool starts running. |
+| `waiting-for-input` | Blocked on the human — an approval prompt or a question. | The agent emits a notification/approval-request hook. |
+| `idle` | A turn finished; the worker is alive but quiet. | The `Stop` / turn-end hook fires. |
+| `error` | The last turn failed (non-zero, crash, refusal). | An error hook fires, if the agent exposes one. |
+| `done` | Terminal — the session ended. | *Not* a hook: the reconciler's `session.terminated` path owns this. |
+
+### New normalized keys
+
+Following the PRD's “normalized metadata, plugin-specific stays nil” rule, activity rides in the same JSON blob the hooks already merge:
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| activity | string | One of the states above. Read by `toLegacySession` to set `State` instead of the constant. |
+| lastActivityAt | RFC3339 | Stamp of the most recent state change. Lets the board show “idle for 4m” and lets a UI dim stale cards. |
+
+### Mapping native hooks to states
+
+Each plugin owns its own translation, exactly as it does for SessionInfo. The events below extend the install template; the callback adds an `activity` field for each.
+
+| yyork state | Codex hook | Claude Code hook |
+| --- | --- | --- |
+| `working` | `SessionStart`, `UserPromptSubmit` | `UserPromptSubmit`, `PreToolUse` |
+| `waiting-for-input` | approval / notification hook | `Notification` |
+| `idle` | `Stop` | `Stop` |
+| `error` | error hook (if exposed) | `SubagentStop` / error signal |
+
+> **finding**
+
+Wiring Claude Code's hooks for activity also moves its SessionInfo onto the hook pipe — replacing today's transcript scrape with hook-derived `title`/`summary`, which the Agent Plugin PRD wants. One install template, both payoffs. (The transcript path stays only where the PRD still allows it: `GetRestoreCommand`'s native-id derivation.)
+
+### Event model: reuse vs. extend
+
+###### later a session.activity event
+
+- Carry the new state in the event payload — no re-query round-trip.
+- Needs a new `events.Type` + an entry in `control.ToEvent`.
+- Justified only if activity churn makes re-query chatty.
+
+## 06 The full loop
+
+### From a tool call in the worktree to a status dot in the browser
+
+Activity rides the same cross-process rails as every other lifecycle event: the callback is a short-lived process whose own event bus has no subscribers, so it forwards over localhost to the running server, which republishes on its in-process bus and fans out over SSE. (See the *Cross-Process Event Publishing* brief for the runfile + token mechanics.)
+
+agent in worktree
+
+native hook fires → `yyork hooks codex ` with payload on stdin
+
+→ *stdin payload · + YYORK_SESSION_ID*
+
+hooks callback
+
+merge metadata into `state.db` → `Publish(session.updated)`
+
+forwarder → server
+
+POST `/api/events` + token → server republishes on its bus
+
+→ *text/event-stream · GET /api/events*
+
+browser board
+
+EventSource fires → re-query `/api/sessions` → title / summary / status dot update
+
+> **sec**
+
+Two layers protect this. The callback only acts on sessions carrying `YYORK_SESSION_ID` — a hook installed in some unrelated Codex session does nothing. And the `session.updated` publish goes through the same `0600`-runfile + `X-yyork-Token` control endpoint as every CLI event, so a browser page can't forge an activity update onto an open board. The 1 MiB stdin cap bounds a malformed or hostile payload.
+
+## 07 Guarantees & decisions
+
+| Property | Behavior |
+| --- | --- |
+| source of truth | The **SQLite store**. Hooks merge into it; events are just the live-update shortcut. A board that misses an event re-reads `/api/sessions` and is correct. |
+| never break the agent | Every path — no AO session, no row, empty/malformed-but-EOF payload, dead server — ends in `print {} · exit 0`. A hook failure must not leak into the user's agent run. |
+| additive merge | `MergeMetadata` overlays only changed keys; the launch `prompt` and unrelated fields survive every callback. |
+| title once, summary latest | The first prompt becomes the durable title; each completed turn refreshes the summary. Activity (planned) is always last-writer-wins. |
+| plugin owns translation | The hooks command turns agent-specific payloads into the neutral `SessionInfo` keys. The dashboard never learns a vendor's field names. |
+| install before launch | Hooks are written into the worktree and the row is inserted *before* the agent starts, so the earliest `SessionStart` already finds a row to update. |
+| bounded & best-effort | 1 MiB stdin cap; 30s hook timeout in the template; the forwarder swallows errors and never blocks the agent on a missing server. |
+
+## 08 Open questions
+
+- **Activity granularity.** Turn-level (`UserPromptSubmit`/`Stop`) is cheap and ships first. Tool-level (`PreToolUse`/`PostToolUse`) shows “running tests” vs “thinking” but multiplies hook traffic. Start coarse?
+- **Claude Code hook rollout.** Flip `GetAgentHooks` from no-op to a real installer and move `SessionInfo` off the transcript — sequencing vs. the in-flight resume work that still relies on the transcript path.
+- **Stale activity.** If a worker dies mid-turn, no `Stop` fires and the card is frozen `working`. Should the reconciler clear `activity` on terminate, or should the UI age it out via `lastActivityAt`?
+- **Event shape.** Reuse `session.updated` (v1) or add a dedicated `session.activity` that carries state in the payload — decide once we see real activity churn.
+- **Richer telemetry.** The same pipe could carry token/cost counters or files-touched. Worth a separate metadata namespace, or scope creep?
+
+---

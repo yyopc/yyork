@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="web/public/favicon.svg" alt="yyork" width="84" />
+  <img src="internal/web/public/favicon.svg" alt="yyork" width="84" />
 </p>
 <h1 align="center">yyork</h1>
 <p align="center">Run AI coding agents in parallel, each inside its own durable workspace.</p>
 
 <p align="center">
-  <img src="yyork-light.png#gh-light-mode-only" alt="yyork dashboard showing parallel AI coding agents in isolated workspaces" width="100%" />
-  <img src="yyork-dark.png#gh-dark-mode-only" alt="yyork dashboard showing parallel AI coding agents in isolated workspaces" width="100%" />
+  <img src="yyork-light.png#gh-light-mode-only" alt="yyork app showing parallel AI coding agents in isolated workspaces" width="100%" />
+  <img src="yyork-dark.png#gh-dark-mode-only" alt="yyork app showing parallel AI coding agents in isolated workspaces" width="100%" />
 </p>
 
 > [!WARNING]
@@ -14,11 +14,11 @@
 
 ## What it does
 
-yyork is a local dashboard for supervising multiple AI coding agents at once.
+yyork is a local app for supervising multiple AI coding agents at once.
 
 - Each session runs in its own `git worktree` and branch.
 - [Zellij](https://zellij.dev) keeps agent sessions durable, invisibly — a session looks like a bare terminal running the agent CLI.
-- The dashboard shows live session state from your machine.
+- The app shows live session state from your machine.
 - A per-session canvas adds the workspace file tree, a review diff of the session's changes, and an embedded browser preview of your dev server.
 - Annotations dropped on the previewed page go straight back to the session's agent.
 - Claude Code and Codex run as their normal CLIs; yyork wraps the workspace around them.
@@ -29,12 +29,15 @@ yyork is a local dashboard for supervising multiple AI coding agents at once.
 npm i -g @yyopc/yyork
 ```
 
-The npm package ships the built dashboard and compiles the local `yyork` binary
-during install. It also installs the bundled `yyork-cli` agent skill into
-`~/.agents/skills/yyork-cli`.
+The npm package installs a prebuilt native `yyork` binary for your OS/CPU
+through optional platform packages such as `@yyopc/yyork-darwin-arm64` and
+`@yyopc/yyork-linux-x64`. It also installs the bundled `yyork-cli` agent skill
+into `~/.agents/skills/yyork-cli` and runs `yyork doctor` as a warning-only
+postinstall check.
 
-Requirements: Go 1.25+, Node.js 24+, Zellij, git, and an agent CLI on your
-`PATH`.
+Requirements: npm/Node.js for the npm launcher, plus git and at least one
+supported agent CLI on your `PATH` to run sessions. Native packages carry a
+pinned bundled Zellij runtime for yyork's private session management.
 
 ## Basic flow
 
@@ -47,7 +50,7 @@ yyork session list
 yyork stop <sessionId>
 ```
 
-`yyork ~/Projects/my-app` starts the dashboard and ensures the project has a
+`yyork ~/Projects/my-app` starts the app and ensures the project has a
 yyork-owned orchestrator in its own worktree and Zellij session. That
 orchestrator can delegate workers with `yyork spawn --type worker --prompt ...`;
 nested spawns keep targeting the original project.
@@ -74,11 +77,20 @@ Inside that shell, `yyork` is a development shortcut for `pnpm dev`.
 ```bash
 nix develop
 pnpm release:check
-pnpm release:publish
 ```
 
-`release:check` builds the dashboard, packs the npm tarball, installs it into an
-isolated temp prefix, and runs the installed `yyork` binary. `release:publish`
-publishes `@yyopc/yyork` publicly from `main`; run `npm login` first.
+`release:check` builds the app, stages the native package for the current
+OS/CPU, packs the thin `@yyopc/yyork` wrapper, installs both into an isolated
+temp prefix with `go` intentionally unavailable, and runs the installed
+`yyork` binary. The native package step fetches and caches the pinned Zellij
+binary under `third_party/zellij/<platform>/` before copying it into the
+tarball.
+
+Distribution builds run in GitHub Actions. The release workflow uses
+GoReleaser to build stripped platform-specific `yyork` archives and publish
+the GitHub release assets. A dependent npm packaging job wraps those exact
+archives into native npm packages with bundled Zellij, smoke-tests install with
+`go` unavailable, uploads the npm tarballs, and publishes the native packages
+before the `@yyopc/yyork` wrapper.
 
 YYOIT © [yyopc](https://github.com/yyopc)

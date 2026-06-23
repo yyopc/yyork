@@ -154,6 +154,7 @@ func Run(ctx context.Context, cfg Config) error {
 		Sessions:        dataStore.Sessions(),
 		ProjectSettings: dataStore.ProjectSettings(),
 		Stopper:         engine,
+		ProjectRemover:  engine,
 		Orchestrators:   engine,
 		EventBus:        bus,
 		ControlToken:    controlToken,

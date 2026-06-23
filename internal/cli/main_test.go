@@ -58,7 +58,7 @@ func TestRootHelpListsImplementedAndPlannedSurface(t *testing.T) {
 		t.Fatal("help should not start the server")
 	}
 	for _, want := range []string{
-		"spawn", "session", "stop", "send", // implemented verbs
+		"spawn", "session", "stop", "send", "doctor", // implemented verbs
 		"Planned",          // planned group title
 		"status",           // a planned verb
 		"--addr", "--open", // server flags

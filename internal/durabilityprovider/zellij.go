@@ -8,12 +8,25 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/yyopc/yyork/internal/session"
 )
 
 const zellijRuntimeName = "zellij"
+const zellijPathEnv = "YYORK_ZELLIJ"
+
+const (
+	ZellijBinarySourceOverride = "override"
+	ZellijBinarySourceBundled  = "bundled"
+	ZellijBinarySourcePath     = "path"
+)
+
+type ZellijBinary struct {
+	Path   string
+	Source string
+}
 
 // commandRunner runs an external command to completion. Injected for tests.
 type commandRunner func(ctx context.Context, name string, args ...string) error
@@ -70,36 +83,17 @@ func (z *ZellijProvider) SendMessage(ctx context.Context, sess session.Session, 
 	return nil
 }
 
-// resolvePath finds the zellij binary from common package-manager locations.
+// resolvePath finds the zellij binary yyork should use for its managed runtime.
 func (z *ZellijProvider) resolvePath() (string, error) {
 	if z.path != "" {
 		return z.path, nil
 	}
 
-	candidates := []string{
-		"/opt/homebrew/bin/zellij",
-		"/usr/local/bin/zellij",
-		"/usr/bin/zellij",
-		"/run/current-system/sw/bin/zellij",
+	binary, err := ResolveZellijBinary()
+	if err != nil {
+		return "", err
 	}
-	if home, err := os.UserHomeDir(); err == nil {
-		candidates = append(candidates, filepath.Join(home, ".nix-profile", "bin", "zellij"))
-	}
-	if user := os.Getenv("USER"); user != "" {
-		candidates = append(candidates, filepath.Join("/etc/profiles/per-user", user, "bin", "zellij"))
-	}
-
-	for _, candidate := range candidates {
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate, nil
-		}
-	}
-
-	if path, err := exec.LookPath("zellij"); err == nil {
-		return path, nil
-	}
-
-	return "", errors.New("zellij binary not found")
+	return binary.Path, nil
 }
 
 func defaultCommandRunner(ctx context.Context, name string, args ...string) error {
@@ -115,4 +109,96 @@ func defaultCommandRunner(ctx context.Context, name string, args ...string) erro
 	}
 
 	return nil
+}
+
+// ResolveZellijBinary locates the zellij binary yyork should use for its own
+// session runtime. Packaged builds should ship a bundled zellij next to the
+// yyork app; PATH fallback keeps source checkouts usable.
+func ResolveZellijBinary() (ZellijBinary, error) {
+	return resolveZellijBinary(zellijResolver{
+		getenv:     os.Getenv,
+		lookPath:   exec.LookPath,
+		executable: os.Executable,
+		stat:       os.Stat,
+		goos:       runtime.GOOS,
+		goarch:     runtime.GOARCH,
+	})
+}
+
+type zellijResolver struct {
+	getenv     func(string) string
+	lookPath   func(string) (string, error)
+	executable func() (string, error)
+	stat       func(string) (os.FileInfo, error)
+	goos       string
+	goarch     string
+}
+
+func resolveZellijBinary(r zellijResolver) (ZellijBinary, error) {
+	name := zellijExecutableName(r.goos)
+	if override := strings.TrimSpace(r.getenv(zellijPathEnv)); override != "" {
+		if isExecutable(r, override) {
+			return ZellijBinary{Path: override, Source: ZellijBinarySourceOverride}, nil
+		}
+		return ZellijBinary{}, fmt.Errorf("zellij binary from %s is not executable: %s", zellijPathEnv, override)
+	}
+
+	if exe, err := r.executable(); err == nil && exe != "" {
+		for _, candidate := range bundledZellijCandidates(exe, r.goos, r.goarch) {
+			if isExecutable(r, candidate) {
+				return ZellijBinary{Path: candidate, Source: ZellijBinarySourceBundled}, nil
+			}
+		}
+	}
+
+	if path, err := r.lookPath(name); err == nil && path != "" {
+		return ZellijBinary{Path: path, Source: ZellijBinarySourcePath}, nil
+	}
+
+	return ZellijBinary{}, errors.New("zellij binary not found")
+}
+
+func bundledZellijCandidates(executablePath, goos, goarch string) []string {
+	name := zellijExecutableName(goos)
+	exeDir := filepath.Dir(executablePath)
+	prefix := filepath.Dir(exeDir)
+
+	candidates := []string{
+		filepath.Join(exeDir, name),
+		filepath.Join(prefix, "libexec", "yyork", "bin", name),
+		filepath.Join(prefix, "vendor", "zellij", name),
+	}
+	for _, platformDir := range zellijPlatformDirs(goos, goarch) {
+		candidates = append(candidates, filepath.Join(prefix, "vendor", "zellij", platformDir, name))
+	}
+	return candidates
+}
+
+func zellijPlatformDirs(goos, goarch string) []string {
+	dirs := []string{goos + "-" + goarch}
+	switch goarch {
+	case "amd64":
+		dirs = append(dirs, goos+"-x64")
+	case "386":
+		dirs = append(dirs, goos+"-ia32")
+	}
+	return dirs
+}
+
+func zellijExecutableName(goos string) string {
+	if goos == "windows" {
+		return "zellij.exe"
+	}
+	return "zellij"
+}
+
+func isExecutable(r zellijResolver, path string) bool {
+	info, err := r.stat(path)
+	if err != nil || info.IsDir() {
+		return false
+	}
+	if r.goos == "windows" {
+		return true
+	}
+	return info.Mode()&0o111 != 0
 }

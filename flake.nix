@@ -31,8 +31,8 @@
             && !(lib.hasPrefix ".pnpm/" rel)
             && !(lib.hasPrefix "dist/" rel)
             && !(lib.hasPrefix "node_modules/" rel)
-            && !(lib.hasPrefix "web/dist/" rel)
-            && !(lib.hasPrefix "web/node_modules/" rel)
+            && !(lib.hasPrefix "internal/web/build/" rel)
+            && !(lib.hasPrefix "internal/web/node_modules/" rel)
             && rel != "yyork";
         };
         yyork = pkgs.writeShellApplication {
@@ -43,6 +43,7 @@
             pkgs.zellij
           ];
           text = ''
+            export YYORK_ZELLIJ="${pkgs.zellij}/bin/zellij"
             export GOWORK=off
             cd ${src}
             exec go run . "$@"
@@ -112,9 +113,9 @@
             yyorkDev
             portlessDev
             go
+            pkgs.goreleaser
             pkgs.nodejs_24
             pkgs.pnpm_10
-            pkgs.just
           ];
 
           shellHook = ''

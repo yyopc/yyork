@@ -1,0 +1,21 @@
+{
+  "name": "@yyopc/yyork-darwin-x64",
+  "version": "0.1.0-alpha.1",
+  "private": false,
+  "description": "Prebuilt yyork app runtime for macOS x64.",
+  "license": "SEE LICENSE IN LICENSE",
+  "files": [
+    "bin/**",
+    "LICENSE",
+    "README.md"
+  ],
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

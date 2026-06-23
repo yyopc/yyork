@@ -1,0 +1,67 @@
+---
+title: Local-first orchestration
+description: yyork owns spawn, state, worktrees, and terminal durability instead of depending on an external orchestrator.
+status: current
+last_verified: 2026-06-21
+---
+
+## Decision
+
+yyork is the local orchestrator. It should create agent sessions, persist their
+state, keep terminals durable, and expose the dashboard from the same tool.
+
+The user should not need a separate `ao` process or a separate spawn CLI to do
+the core loop:
+
+```text
+yyork <project>
+  -> ensure project orchestrator
+  -> spawn worker sessions
+  -> watch them in the dashboard
+  -> stop or inspect them from yyork
+```
+
+## Why
+
+The original pain was split ownership. The dashboard could show sessions, but
+write-side behavior lived elsewhere. That made yyork hard to dogfood and made
+bugs cross process boundaries that yyork did not control.
+
+Owning the loop gives yyork a small set of local invariants:
+
+- session rows live in `~/.yyork/state.db`;
+- runtime files live under `~/.yyork`;
+- worker code runs in a yyork-created git worktree;
+- the terminal substrate is Zellij;
+- the dashboard reads yyork's own workspace projection.
+
+## Consequences
+
+New orchestration features should first ask where they belong in this local
+stack:
+
+| Concern | Owner |
+| --- | --- |
+| Durable app state | SQLite store under `~/.yyork/state.db` |
+| Runtime files | `internal/paths` and the yyork data dir |
+| Worker isolation | git worktrees created by the session engine |
+| Terminal durability | Zellij provider and browser attach path |
+| Dashboard projection | `/api/workspace` and the generated frontend parser |
+
+Do not reintroduce an external source of truth for sessions unless it replaces
+this stack deliberately.
+
+## Tradeoff
+
+The local-first design makes yyork easier to inspect and dogfood, but it also
+means yyork must own cleanup, reconciliation, release packaging, and platform
+quirks. Ghost-session handling and release smoke tests are direct consequences
+of that ownership.
+
+## Primary sources
+
+- `README.md`
+- `prds/core/PRD.md`
+- `internal/paths/paths.go`
+- `internal/session/workspace_source.go`
+- `internal/cli/commands.go`

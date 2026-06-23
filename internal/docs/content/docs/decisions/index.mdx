@@ -1,0 +1,39 @@
+---
+title: Design decisions
+description: Durable product and architecture choices that guide yyork implementation.
+status: current
+last_verified: 2026-06-21
+---
+
+This section records the decisions yyork has already made while becoming a
+local-first dashboard for parallel coding agents.
+
+The goal is not to mirror every PRD. A decision page should answer four
+questions:
+
+1. What did we choose?
+2. Why did we choose it?
+3. What does that imply for future work?
+4. Which source files or PRDs prove the choice?
+
+## Seeded decisions
+
+| Decision | Why it matters |
+| --- | --- |
+| [Local-first orchestration](/docs/decisions/local-first-orchestration) | yyork owns spawn, persistence, terminals, and workspaces instead of wrapping an external orchestrator. |
+| [Project identity](/docs/decisions/project-identity) | Absolute paths remain the durable project source, while stable URL-safe ids keep routes and APIs usable. |
+| [Live workspace updates](/docs/decisions/live-workspace-updates) | SQLite is truth; SSE and the workspace contract keep the dashboard fresh without turning the API into a polling dump. |
+| [Agent observability hooks](/docs/decisions/agent-observability-hooks) | Agent plugins report title, recap, state, and tool activity through hooks instead of transcript scraping. |
+| [Canvas and local preview](/docs/decisions/canvas-local-preview) | Canvas is a contextual inspection panel, and Browser is local-preview-first rather than a general web browser. |
+
+## How to add the next decision
+
+Prefer a short explanation page over an exhaustive design document. Include:
+
+- the decision in one sentence;
+- the tradeoff it accepts;
+- the files or PRDs future agents should read before changing it;
+- any known follow-up work.
+
+Keep old investigations under [Investigations](/docs/investigations) unless the
+result became a standing rule.

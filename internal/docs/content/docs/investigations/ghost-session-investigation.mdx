@@ -1,0 +1,187 @@
+---
+title: "The Ghost Session"
+description: "Investigation into zombie session rows that outlive their zellij sessions."
+status: archived
+last_verified: 2026-06-07
+---
+> **TL;DR**
+>
+> The sidebar reads **SQLite rows**. The detail panel runs **`zellij attach `**. They are two different sources of truth, and nothing keeps them in sync after the server boots.
+>
+> A small fraction of spawned sessions die seconds after birth (an **intermittent race**, not an agent bug), and their row lingers forever as a zombie. Click it and you get zellij's raw "not found" piped straight into the panel.
+>
+> **Switching from claude-code to codex fixed nothing.** It was a coin flip that landed your way once. I watched a codex session die and a claude-code session live, side by side.
+
+## 01 The symptom
+
+### Two panels, one lie
+
+You spawned `zj2tq9`. It appeared in the left rail under *yyork › Working*, looking like a healthy session. Clicking it painted the detail panel with:
+
+```
+No session with the name 'zj2tq9' found!
+```
+
+First question: where does that exact string come from? It is not in our code. It is zellij's own error, printed when you attach to a session that does not exist. And a quirk worth noting, it exits `0` while doing so:
+
+```
+$ zellij attach __definitely_missing_xyz
+No session with the name '__definitely_missing_xyz' found!
+$ echo "exit=$?"
+exit=0   # prints an error, exits success. lovely.
+```
+
+sidebar
+
+lists **every** SQLite row, hardcodes `State=Working`
+
+→ *StoreWorkspaceSource · .Workspace()*
+
+`zj2tq9` renders as a clickable *Working* session
+
+detail panel
+
+runs `zellij attach zj2tq9`, pipes raw stderr to the terminal
+
+→ *session gone*
+
+`No session with the name 'zj2tq9' found!`
+
+## 02 Ground truth
+
+### The row outlived its session
+
+Five rows in SQLite. The live zellij set had four of them. `zj2tq9` was simply gone, not even in zellij's resurrectable "EXITED" state. And the stored zellij name equals the id, so this was never a name-mismatch.
+
+```
+# sqlite: id | zellij_session | workspace
+zj2tq9 | zj2tq9 | ~/.yyork/worktrees/zj2tq9   ← no live session
+6xvvnf | 6xvvnf | ...                              ← alive
+e0tt49 | e0tt49 | ...                              ← alive (EXITED)
+2dyg4m | 2dyg4m | ...                              ← alive (EXITED)
+pmf10a | pmf10a | ...                              ← alive
+```
+
+> **finding**
+> The spawn write was legitimate. `CreateSession` gates on `waitForSessionUp`, which polls `zellij list-sessions` for up to 2.5s and rolls the whole spawn back if the name never shows. So `zj2tq9` *was* alive at `03:14:36`. It died later, and the row stayed. This is a lifecycle problem, not a bad insert.
+
+## 03 The mirage
+
+### zellij keeps state in two places
+
+Here is where the investigation almost went off a cliff. I reproduced spawns and they appeared to *vanish instantly*, every time. That turned out to be a measurement artifact, and understanding it is the key to the whole bug.
+
+zellij splits its bookkeeping across two directories:
+
+###### 🔌 Socket dir
+
+`$ZELLIJ_SOCKET_DIR//`
+
+- the live IPC socket
+- what `attach` actually needs
+- wrong dir → *"No session found"*
+
+yyork deliberately pins a short socket dir to dodge macOS's long `$TMPDIR` blowing past the Unix-socket length limit. `ConfigureSocketDir()` sets it to `/tmp/zellij-`. But the shell I was debugging from runs with `TMPDIR=/tmp/claude-501`, so a bare `zellij` there reads a *different* default socket dir.
+
+yyork spawn
+
+ConfigureSocketDir → creates session in
+`/tmp/zellij-501`
+
+→ *alive here✓
+
+`zellij -s 1e6w3v ...` · → Tab #1 (reachable)
+
+my debug shell
+
+TMPDIR=/tmp/claude-501 → looks in · `/tmp/claude-501/zellij-501`
+
+→ ✗ *wrong namespace*
+
+"present=0" everywhere · → I cried *"they vanish!"*
+
+> **ruled**
+> ~~Sessions vanish the moment you spawn them~~
+> False. They were alive the whole time in `/tmp/zellij-501`. Probing with the right `ZELLIJ_SOCKET_DIR` showed Tab #1. The dashboard's attach path inherits the server's env (`mergeTerminalEnv(os.Environ(), …)`), so creator and attacher actually agree on the dir. Good news, it isn't a socket mismatch in normal operation.
+
+## 04 The red herring
+
+### "codex works, claude-code doesn't"
+
+The most tempting wrong turn. You re-ran with `--agent codex`, got `y3wjfr`, and it worked. Natural conclusion: claude-code is broken. So I spawned both, repeatedly, and watched them in the correct socket dir.
+
+| Session | Agent | Outcome |  |
+| --- | --- | --- | --- |
+| zj2tq9 | claude-code | `● died` | your run |
+| y3wjfr | codex | `● lived` | your run |
+| gw2r3e | codex | `● died <6s` | my repro |
+| 5sg50y | claude-code | `● lived 90s+` | my repro |
+| y85n2v | claude-code | `● lived` | my repro |
+| yzkspb · 1e6w3v | codex | `● lived` | my repro |
+| 6 sequential + 11 parallel | codex | `● all lived` | stress test |
+
+> **cause**
+> Both agents have sessions on **both sides**. I watched a **codex** session die while a **claude-code** session right next to it stayed healthy, the exact inverse of your sample. They run through the identical keep-alive wrapper `; exec bash -i`, so there is no mechanism for one to be durable and the other not.
+> **Picking codex does not save you.** You will hit the same ghost eventually.
+
+## 05 Root cause
+
+### A race, then two structural bugs that preserve the evidence
+
+A small fraction of sessions die seconds after birth. It is intermittent and load-sensitive. I could not force it on command, 6/6 sequential and 11/11 parallel spawns all survived, yet `gw2r3e` and `zj2tq9` definitively died. That signature is a race in the create/teardown window.
+
+Three things line up to turn that rare death into the permanent ghost you clicked:
+
+> **cause**
+> `CreateSession` confirms the session is up with `waitForSessionUp` **before** it detaches the zellij client, then detaches, then returns success. It never re-verifies that the session survived the detach + client-exit + process-exit dance. The row is persisted on an "it was alive a second ago" check.
+
+> **cause**
+> `Reconcile` / `ReconcileAll` exist, but the only caller is `app.go:77` at server startup. Nothing reconciles when listing sessions, when opening one, or on a timer. So any session that dies while the server runs leaves a zombie row until the next restart.
+
+> **cause**
+> `StoreWorkspaceSource.Workspace` maps every row to a session with hardcoded `State: StateWorking` (*"v1: no activity-state capture yet"*) and `AttachCommand: ["zellij","attach", id]`. Dead rows look working; clicking them leaks zellij's raw stderr into the panel.
+
+t0
+
+start zellij client
+
+→
+
+t1 · waitForSessionUp
+
+name appears · "live!"
+
+persist row here*
+
+t2 · detach + exit
+
+client torn down
+race window
+**never re-checked**
+
+## 06 The fix
+
+### Make the ghost impossible, two ways
+
+#### Re-verify after detach in CreateSession
+
+Probe `SessionExists` once more after the client detaches and the teardown settles. If it is gone, fail the spawn and roll back instead of persisting a row for a session that did not survive its own birth. Closes the race at the source.
+
+2
+
+#### Reconcile on read, not just at boot
+
+Probe liveness in `StoreWorkspaceSource.Workspace` (or a periodic sweep), filter or mark dead rows, and publish `session.terminated` so the SSE stream refreshes the sidebar. Any later death stops lying in the rail.
+
+3
+
+#### Handle attach failure gracefully
+
+When `zellij attach` reports "no session", detect it in the terminal layer, trigger `Reconcile(id)`, and render a friendly *"session ended"* state instead of dumping raw zellij stderr into the panel.
+
+> **warn**
+> `ConfigureSocketDir` is a no-op if `ZELLIJ_SOCKET_DIR` is already set. Launch the server from a shell that exports it and the creator and attacher diverge, and then *every* attach 404s. Worth pinning the dir explicitly rather than trusting "unset at launch".
+
+---
+
+To clear the current zombie right now: `./yyork stop zj2tq9`, or restart the server so `ReconcileAll` sweeps it at boot. The defensive fix (#1 + #2) is the standup-safe move: it makes the bug benign without having to catch the exact failing interleaving first.

@@ -1,0 +1,68 @@
+---
+title: Agent observability hooks
+description: yyork observes agent progress through normalized hooks, not transcript scraping.
+status: current
+last_verified: 2026-06-21
+---
+
+## Decision
+
+Agent plugins report display and activity metadata through yyork-installed
+hooks in the per-session worktree.
+
+The hidden callback surface is:
+
+```text
+yyork hooks <codex|claude-code> <event>
+```
+
+The callback reads the native hook payload from stdin, reads `YYORK_SESSION_ID`
+from the environment, merges normalized metadata into `~/.yyork/state.db`, and
+publishes `session.updated`.
+
+## Why
+
+The dashboard needs to answer two questions for each worker:
+
+- What is this session?
+- What is it doing right now?
+
+Transcript and cache scraping makes those answers agent-specific and fragile.
+Hooks let each plugin translate native events into yyork's small normalized
+metadata shape.
+
+## Normalized metadata
+
+Current hook metadata includes:
+
+| Key | Meaning |
+| --- | --- |
+| `agentSessionId` | Native agent session id. |
+| `title` | First user prompt, compacted for display. |
+| `recap` | Latest assistant stop/final-message recap. |
+| `state` | Dashboard activity state: `working`, `prompt`, or `triage`. |
+| `lastActivityAt` | Timestamp for the latest activity change. |
+| `currentToolCall` | Compact description of the active tool, when known. |
+| `toolCallBulletins` | Recent bounded activity summaries. |
+| `triageReason` | Why the agent needs human attention. |
+
+The workspace adapter prefers user-set display names, then hook title, then the
+launch prompt. A bare session id is the fallback, not the normal display model.
+
+## Consequences
+
+Adding another agent should extend the plugin's hook installation and event
+translation, not teach the dashboard that agent's native payload names.
+
+Hook callbacks must be safe no-ops outside yyork sessions. A native agent hook
+should not break a user's normal Codex or Claude Code session just because a
+yyork hook config exists.
+
+## Primary sources
+
+- `prds/plugins/agents/PRD.md`
+- `internal/cli/hooks.go`
+- `internal/plugin/agent/agent.go`
+- `internal/plugin/agent/codex`
+- `internal/plugin/agent/claudecode`
+- `internal/session/workspace_source.go`

@@ -1,0 +1,185 @@
+---
+title: "Cross-Process Event Publishing"
+description: "How CLI processes forward lifecycle events to the long-lived server over localhost."
+status: current
+last_verified: 2026-05-31
+---
+> **TL;DR**
+>
+> The event bus in `internal/events` is **in-process only**. The long-lived server's bus fans out to the dashboard's SSE stream; a one-shot CLI `spawn` runs in a **different process** whose bus has no subscribers, so its events would fire into the void.
+>
+> The bridge: the server advertises its **address + a shared secret** in a `0600` runfile at `~/.yyork/server.json`. The CLI swaps in a **ForwardingPublisher** that reads the runfile and `POST`s the event to the server's `/api/events` control endpoint, which **republishes it on the in-process bus** — and the SSE fan-out already there delivers it to open boards.
+>
+> The secret is the whole security story: a `0600` file a browser page *cannot read* means a malicious page *cannot forge* a publish. SQLite stays the source of truth; SSE is just the live-update shortcut.
+
+## 01 The problem
+
+### An in-process bus has no reach across processes
+
+The pub/sub bus is a deliberately tiny in-memory thing: subscribers register a buffered channel, `Publish` fans out to them, and a full channel *drops* rather than blocks (so a slow board never stalls the engine). There is no persistence and no replay.
+
+```
+// The engine depends on this interface, not on *Bus, so different
+// processes can supply different implementations.
+type Publisher interface {
+    Publish(Event)
+}
+
+// Publish never blocks: a subscriber whose buffer is full has the
+// event dropped silently. Late subscribers see no past events.
+func (b *Bus) Publish(e Event) { /* RLock → fan out to channels */ }
+```
+
+That's perfect *inside* the server: the engine publishes `session.created`, the SSE handler is a subscriber, the board updates. But yyork has two kinds of process:
+
+- **The server** (`internal/app/app.go`) — long-lived, owns the bus, serves the dashboard and its SSE stream.
+- **The CLI** (`cmd/yyork`) — `spawn` / `stop` run, mutate state, and *exit immediately*. They build their own engine, with their own bus, with **zero subscribers**.
+
+yyork spawn
+
+engine inserts row, then `bus.Publish(session.created)`
+
+→ *in-process bus · 0 subscribers*
+
+event dropped — process exits. The open board never hears about it.
+
+The row *does* land in the shared SQLite store, so a fresh page load would show it. But an *already-open* board would sit stale until you reloaded — or until something polled. The whole point of the bridge is to avoid polling.
+
+## 02 The bridge
+
+### One interface, two implementations
+
+Because the engine only knows the `events.Publisher` interface, swapping behavior per process is a one-line change at construction. The server uses the real fan-out bus; the CLI uses a forwarder.
+
+###### cli ForwardingPublisher
+
+`cmd/yyork/commands.go:63`
+
+- Implements the same `Publish(Event)`.
+- Reads the runfile to find the server.
+- `Publish` → HTTP POST to the server.
+- Best-effort: no server → no-op.
+
+```
+eng, err := session.NewEngine(session.EngineConfig{
+    Repo:     dataStore.Sessions(),
+    Worktree: worktree.New(),
+    Provider: durabilityprovider.NewZellijProvider(),
+    Plugins:  registry,
+    Bus:      control.NewForwardingPublisher(), // ← the swap
+})
+```
+
+### The runfile is the rendezvous
+
+For the CLI to reach the server, the server has to *announce itself*. On boot it generates a fresh 256-bit token and writes a small JSON file next to `state.db`, then cleans it up on shutdown.
+
+```
+{
+  "addr":  "127.0.0.1:7331",   // where to POST
+  "pid":   48213,              // who owns this runfile
+  "token": "a3f1…" // shared secret for the control endpoint
+}
+```
+
+> **warn**
+
+The runfile is a single shared file keyed to one port. When a server is replaced, the old process may still be draining connections while the new one has already written *its* runfile. An unconditional delete in the old process's shutdown path would wipe the new server's advertisement. So removal is gated on the advertised PID — a stale server leaves a runfile it no longer owns alone.
+
+## 03 The journey of one event
+
+### From spawn in the terminal to a pixel in the browser
+
+#### Engine mutates state, then publishes
+
+On success the engine **inserts the session row into the shared SQLite store first**, then publishes — so the durable source of truth is committed before anyone is told.
+
+internal/session/engine.go:319 — `e.bus.Publish(events.NewSessionCreated(id))`
+
+2
+
+#### ForwardingPublisher reads the runfile
+
+No runfile, or an empty addr? Return silently — there's no open board to update. Otherwise flatten the event into an `Envelope{type, id}`.
+
+internal/control/control.go — `Publish()` reads `~/.yyork/server.json`
+
+3
+
+#### POST to the localhost control endpoint
+
+Sends the envelope to `http:///api/events` with the secret in the `X-yyork-Token` header, under a **750 ms timeout**. It *blocks* (no detached goroutine) because the CLI process is about to exit — a goroutine would race the exit and lose the event. Every error is swallowed.
+
+control.forwardTimeout = 750ms · header X-yyork-Token
+
+4
+
+#### Server verifies, validates, republishes
+
+The handler rejects an empty/wrong token (constant-time compare), caps the body at 4 KB, rejects unknown event types, then calls `eventBus.Publish(event)` on the *server's* in-process bus.
+
+internal/server/sessions.go — `handlePublishEvent`
+
+5
+
+#### SSE fan-out delivers to every open board
+
+The republished event hits the same fan-out the engine would have used in-process. Each subscribed `GET /api/events` stream writes `event: session.created\ndata: {…}` and flushes. The browser's `EventSource` wakes up and re-queries `/api/sessions` for fresh state.
+
+internal/server/sessions.go — `handleEventsStream` · 30s keepalive
+
+cli process
+
+`spawn` → INSERT row → `Publish` → ForwardingPublisher
+
+→ *POST /api/events · + token (750ms)*
+
+server process
+
+verify token → validate type → `eventBus.Publish`
+
+server bus
+
+fan out to every SSE subscriber
+
+→ *text/event-stream · GET /api/events*
+
+browser board
+
+EventSource fires → re-query `/api/sessions` → live update
+
+## 04 The trust boundary
+
+### Why a 0600 file is the entire CSRF defense
+
+The control endpoint listens on localhost. That alone is **not** safe: any web page in the user's browser can fire a `POST` at `127.0.0.1`. If the endpoint accepted unauthenticated publishes, a malicious page could inject phantom sessions onto every open board.
+
+> **sec**
+
+The token lives only in a file written with `0600` permissions. A browser page can issue the request but **cannot read the file**, so it cannot present a valid token. Only processes the user already trusts — a real `yyork` CLI invocation — can. The localhost surface stays closed to the web.
+
+Three more guards stack on top of the token check, so even a request that *somehow* reaches the handler can't do damage:
+
+| Guard | What it stops | Where |
+| --- | --- | --- |
+| constant-time compare | Timing side-channels that could leak the token byte by byte. An empty server token rejects *everything* — a server with no runfile never accepts publishes. | subtle.ConstantTimeCompare |
+| type allowlist | A caller injecting arbitrary event types onto the bus. `ToEvent` maps only the known lifecycle types; anything else is a 400. | control.ToEvent |
+| 4 KB body cap | A malicious or buggy client streaming an unbounded body into the decoder. | http.MaxBytesReader |
+
+## 05 What this buys (and what it deliberately doesn't)
+
+### Guarantees, by design
+
+| Property | Behavior |
+| --- | --- |
+| source of truth | The shared **SQLite store**, not the bus. A spawn's row is committed before any event fires; a board that missed the live event simply re-reads `/api/sessions` and is correct. |
+| events are a shortcut | SSE exists to avoid polling. It is **best-effort and lossy on purpose** — the bus drops on full buffers, the forwarder swallows errors, and there is no replay buffer for late subscribers. |
+| no server → no-op | If nothing is listening, the forwarder reads no runfile and returns. The CLI still works; the row still lands; the next board load picks it up. Zero coupling between "did a server happen to be open." |
+| bounded blocking | The CLI blocks at most 750 ms on a dead/stale endpoint, so `spawn` never hangs the terminal waiting on a server that isn't there. |
+| process-agnostic engine | The engine code is identical in both worlds. It publishes to an interface and never learns whether its events stayed in-process or crossed a socket. |
+
+> **finding**
+
+You run `yyork spawn --prompt "…"` in a terminal. A board you opened ten minutes ago, in a tab you forgot about, sees the new session appear **within milliseconds** — no refresh, no polling loop, no persistent connection between the two processes. They never meet; they just both know the runfile.
+
+---

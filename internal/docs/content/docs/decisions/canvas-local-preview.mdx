@@ -1,0 +1,69 @@
+---
+title: Canvas and local preview
+description: Canvas is contextual inspection, and Browser is a local preview surface rather than a general web browser.
+status: current
+last_verified: 2026-06-21
+---
+
+## Decision
+
+Canvas is a right-side inspection panel for the selected project or worker. It
+is not a top-level workspace mode and not a second permanent sidebar.
+
+The Canvas tabs are:
+
+- Files
+- Review
+- Browser
+
+Only the active tab should mount its heavy renderer. Inactive tabs keep
+lightweight preferences, such as selected file, review layout, or last Browser
+URL.
+
+## Browser scope
+
+yyork Browser is local-preview-first:
+
+- `https://yyork.localhost`
+- other `*.localhost` portless previews
+- `http://localhost:*`
+- `http://127.0.0.1:*`
+- `http://[::1]:*`
+
+It should not pretend to be a general embedded browser for arbitrary internet
+sites. Unsupported external URLs get a clear blocked state and an external-open
+escape hatch.
+
+## Why
+
+yyork is a web dashboard. A normal web app cannot reliably iframe arbitrary
+sites because of `X-Frame-Options`, CSP `frame-ancestors`, cookies, storage, and
+cross-origin restrictions.
+
+Local previews are the actual dogfooding workflow. Keeping Browser local-first
+lets yyork support the important path deeply: iframe preview, preview proxy,
+bridge-injected events, Agentation annotations, reload controls, and persisted
+target-specific URLs.
+
+## Consequences
+
+New Browser features should preserve the split:
+
+| Feature | Direction |
+| --- | --- |
+| Local app preview | Build it into yyork Browser. |
+| Arbitrary external browsing | Open in the user's real browser. |
+| DOM events for agent feedback | Capture through yyork-owned preview injection. |
+| User app dependencies | Do not require them. yyork owns injected scripts. |
+
+If arbitrary browsing becomes a core product requirement, yyork needs a desktop
+shell or webview-backed runtime. The Vite web dashboard should not grow a fake
+Chrome.
+
+## Primary sources
+
+- `prds/canvas/PRD.md`
+- `prds/canvas/BROWSER_PLAN.md`
+- `internal/web/src/features/home/components/organisms/canvas-panel.tsx`
+- `internal/web/src/features/home/components/molecules/canvas-web-preview.tsx`
+- `internal/web/src/features/home/data/browser-preview.ts`

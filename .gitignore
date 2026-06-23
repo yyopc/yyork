@@ -19,8 +19,16 @@ coverage/
 dist/
 build/
 /yyork
-# Vite builds the dashboard into this dir for //go:embed; only .gitkeep is tracked.
-/cmd/yyork/dashboard/app/
+/third_party/zellij/*/VERSION
+/third_party/zellij/*/*.sha256
+/third_party/zellij/*/zellij
+/third_party/zellij/*/zellij.exe
+# Old generated app embed path; current builds go to internal/web/build/.
+/cmd/yyork/app/
+# Vite builds the web app into this dir for //go:embed; only .gitkeep is tracked.
+!/internal/web/build/
+/internal/web/build/*
+!/internal/web/build/.gitkeep
 experiments/fang-cli/yyork-fang
 **/public/storybook/
 storybook-static
@@ -95,4 +103,5 @@ opencode.json
 .cursor
 
 # playwright debug artifacts
-web/output/
+internal/web/output/
+.gstack/

@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-// postinstall: compile the yyork Go binary into dist/ when @yyopc/yyork is
-// installed as a package. The published tarball ships the embedded dashboard
-// (cmd/yyork/dashboard/app/**, built by `prepack`), so this only needs Go.
+// postinstall: finish package-level setup for @yyopc/yyork. The actual app is
+// shipped as a prebuilt native package; this step only installs the bundled
+// agent skill and runs a warning-only runtime check.
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { resolveYyorkBinary } from './native-package.mjs';
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -14,54 +16,19 @@ if (!isPackageInstall() && process.env.YYORK_FORCE_POSTINSTALL !== '1') {
   process.exit(0);
 }
 
-if (!hasCommand('go', ['version'])) {
-  console.error(
-    'yyork npm install requires Go 1.25+ on PATH to build the local yyork binary.'
-  );
+let binaryPath;
+try {
+  binaryPath = resolveYyorkBinary();
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 }
 
-const packageJSON = JSON.parse(readFileSync(resolve(rootDir, 'package.json')));
-const distDir = resolve(rootDir, 'dist');
-const binaryPath = resolve(
-  distDir,
-  process.platform === 'win32' ? 'yyork.exe' : 'yyork'
-);
-
-mkdirSync(distDir, { recursive: true });
-
-const ldflags = [
-  '-s',
-  '-w',
-  `-X github.com/yyopc/yyork/internal/cli.Version=${packageJSON.version}`,
-].join(' ');
-
-const result = spawnSync(
-  'go',
-  ['build', '-trimpath', '-ldflags', ldflags, '-o', binaryPath, '.'],
-  {
-    cwd: rootDir,
-    shell: process.platform === 'win32',
-    stdio: 'inherit',
-  }
-);
-
-if (result.signal) {
-  process.kill(process.pid, result.signal);
-}
-if (result.status !== 0 || !existsSync(binaryPath)) {
-  process.exit(result.status ?? 1);
-}
-
 installGlobalAgentSkill();
+runInstallDoctor(binaryPath);
 
 function isPackageInstall() {
   return rootDir.split(sep).includes('node_modules');
-}
-
-function hasCommand(command, args) {
-  const result = spawnSync(command, args, { stdio: 'ignore' });
-  return result.status === 0;
 }
 
 function installGlobalAgentSkill() {
@@ -77,4 +44,28 @@ function installGlobalAgentSkill() {
   mkdirSync(resolve(targetDir, '..'), { recursive: true });
   rmSync(targetDir, { recursive: true, force: true });
   cpSync(sourceDir, targetDir, { recursive: true });
+}
+
+function runInstallDoctor(binaryPath) {
+  console.log('\nyyork doctor: checking local runtime dependencies...');
+  const result = spawnSync(binaryPath, ['doctor'], {
+    cwd: rootDir,
+    shell: process.platform === 'win32',
+    stdio: 'inherit',
+  });
+
+  if (result.error) {
+    console.warn(`yyork doctor could not run: ${result.error.message}`);
+    return;
+  }
+  if (result.signal) {
+    console.warn(`yyork doctor stopped with signal ${result.signal}.`);
+    return;
+  }
+  if (result.status !== 0) {
+    console.warn(
+      'yyork installed, but doctor found missing dependencies. ' +
+        'Install the missing tools before running sessions.'
+    );
+  }
 }

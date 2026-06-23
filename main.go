@@ -10,19 +10,18 @@ import (
 	"github.com/yyopc/yyork/internal/cli"
 )
 
-// dashboardEmbed bundles the built dashboard into the Go binary at compile
-// time. Vite builds into `cmd/yyork/dashboard/app/` (see web/vite.config.ts);
-// the committed `cmd/yyork/dashboard/.gitkeep` keeps this pattern matching on a
-// fresh checkout before any web build has run.
+// appEmbed bundles the built web app into the Go binary at compile time. Vite
+// builds into `internal/web/build/` (see internal/web/vite.config.ts); the
+// committed `internal/web/build/.gitkeep` keeps this pattern matching on a fresh
+// checkout before any web build has run.
 //
-//go:embed all:cmd/yyork/dashboard
-var dashboardEmbed embed.FS
+//go:embed all:internal/web/build
+var appEmbed embed.FS
 
-// dashboardFS returns the embedded dashboard filesystem rooted at the
-// `cmd/yyork/dashboard/app/` prefix, plus a boolean reporting whether the embed
-// contains a real built dashboard.
-func dashboardFS() (fs.FS, bool) {
-	sub, err := fs.Sub(dashboardEmbed, "cmd/yyork/dashboard/app")
+// appFS returns the embedded web app filesystem rooted at `internal/web/build/`,
+// plus a boolean reporting whether the embed contains a real built app.
+func appFS() (fs.FS, bool) {
+	sub, err := fs.Sub(appEmbed, "internal/web/build")
 	if err != nil {
 		return nil, false
 	}
@@ -36,6 +35,6 @@ func dashboardFS() (fs.FS, bool) {
 }
 
 func main() {
-	webFS, _ := dashboardFS()
+	webFS, _ := appFS()
 	cli.Main(webFS)
 }

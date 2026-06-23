@@ -81,7 +81,7 @@ func newRootCmd(runApp appRunner, webFS fs.FS) *cobra.Command {
 	// with the same title.
 	root.SetHelpCommandGroupID(groupCore)
 	root.SetCompletionCommandGroupID(groupCore)
-	root.AddCommand(newSpawnCmd(), newSessionCmd(), newStopCmd(), newSendCmd(), newHooksCmd())
+	root.AddCommand(newSpawnCmd(), newSessionCmd(), newStopCmd(), newSendCmd(), newDoctorCmd(), newHooksCmd())
 	root.AddCommand(newDevCmd(runApp, webFS))
 	root.AddCommand(plannedCmds()...)
 	return root
@@ -223,6 +223,15 @@ func runSpawn(cmd *cobra.Command, req session.SpawnRequest, jsonOutput bool) err
 			req.WorkspaceMode = mode
 		}
 	}
+	if req.Kind != session.KindOrchestrator {
+		agentPlugin, ok, err := configuredWorkerAgentPlugin(cmd.Context(), projectPath)
+		if err != nil {
+			return err
+		}
+		if ok {
+			req.AgentPlugin = agentPlugin
+		}
+	}
 
 	eng, closeFn, err := buildEngine(cmd.Context())
 	if err != nil {
@@ -304,6 +313,31 @@ func configuredWorkerWorkspaceMode(ctx context.Context, projectPath string) (ses
 		)
 	}
 	return mode, true, nil
+}
+
+func configuredWorkerAgentPlugin(ctx context.Context, projectPath string) (string, bool, error) {
+	dbPath, err := store.DefaultPath()
+	if err != nil {
+		return "", false, err
+	}
+	dataStore, err := store.Open(ctx, dbPath)
+	if err != nil {
+		return "", false, fmt.Errorf("open store: %w", err)
+	}
+	defer func() { _ = dataStore.Close() }()
+
+	settings, err := dataStore.ProjectSettings().Get(ctx, projectPath)
+	if errors.Is(err, store.ErrProjectSettingsNotFound) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("read project settings: %w", err)
+	}
+	agentPlugin, ok := session.NormalizeAgentPlugin(settings.WorkerAgentPlugin)
+	if !ok || agentPlugin == "" {
+		return "", false, nil
+	}
+	return agentPlugin, true, nil
 }
 
 func resolveProjectPathForSpawn() (string, error) {
@@ -404,7 +438,7 @@ func runSessionList(cmd *cobra.Command, projectFilter string, jsonOutput bool) e
 	if projectFilter != "" {
 		filtered := rows[:0]
 		for _, row := range rows {
-			if row.Project == projectFilter {
+			if session.SessionProjectMatches(row, projectFilter) {
 				filtered = append(filtered, row)
 			}
 		}
@@ -436,7 +470,7 @@ func runSessionList(cmd *cobra.Command, projectFilter string, jsonOutput bool) e
 			kind = session.KindWorker
 		}
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
-			row.ID, row.Project, kind, row.Agent, row.State)
+			row.ID, sessionProjectPath(row), kind, row.Agent, row.State)
 	}
 	return tw.Flush()
 }
@@ -531,11 +565,13 @@ func runSend(cmd *cobra.Command, sessionID, projectID string, args []string, jso
 	if err := durabilityprovider.SendToSession(ctx, registry, workspace, projectID, sessionID, message); err != nil {
 		return fmt.Errorf("send: %w", err)
 	}
+	resolvedProjectID, resolvedProjectPath := resolvedProjectForSend(workspace, projectID, sessionID)
 
 	if jsonOutput {
 		return writeJSON(cmd, cliSendOutput{
 			SessionID:   sessionID,
-			ProjectPath: projectID,
+			ProjectID:   resolvedProjectID,
+			ProjectPath: resolvedProjectPath,
 			Sent:        true,
 		})
 	}
@@ -545,6 +581,7 @@ func runSend(cmd *cobra.Command, sessionID, projectID string, args []string, jso
 
 type cliSessionOutput struct {
 	ID            string         `json:"id"`
+	ProjectID     string         `json:"projectId,omitempty"`
 	ProjectPath   string         `json:"projectPath"`
 	Kind          session.Kind   `json:"kind"`
 	Agent         string         `json:"agent"`
@@ -568,6 +605,7 @@ type cliStopOutput struct {
 
 type cliSendOutput struct {
 	SessionID   string `json:"sessionId"`
+	ProjectID   string `json:"projectId,omitempty"`
 	ProjectPath string `json:"projectPath,omitempty"`
 	Sent        bool   `json:"sent"`
 }
@@ -580,6 +618,7 @@ func writeJSON(cmd *cobra.Command, v any) error {
 func cliSessionFromStore(row store.Session) cliSessionOutput {
 	return cliSessionOutput{
 		ID:            row.ID,
+		ProjectID:     session.ProjectID(row.ProjectPath),
 		ProjectPath:   row.ProjectPath,
 		Kind:          kindFromMetadata(row.Metadata),
 		Agent:         row.AgentPlugin,
@@ -604,7 +643,8 @@ func cliSessionFromWorkspace(row session.Session) cliSessionOutput {
 	}
 	return cliSessionOutput{
 		ID:            row.ID,
-		ProjectPath:   row.Project,
+		ProjectID:     row.Project,
+		ProjectPath:   sessionProjectPath(row),
 		Kind:          kind,
 		Agent:         agent,
 		State:         row.State,
@@ -614,6 +654,27 @@ func cliSessionFromWorkspace(row session.Session) cliSessionOutput {
 		Recap:         row.Recap,
 		Metadata:      metadataOrNil(metadata),
 	}
+}
+
+func sessionProjectPath(row session.Session) string {
+	if row.ProjectPath != "" {
+		return row.ProjectPath
+	}
+	return row.Project
+}
+
+func resolvedProjectForSend(workspace session.Workspace, projectID string, sessionID string) (string, string) {
+	rows := append([]session.Session{}, workspace.Orchestrators...)
+	rows = append(rows, workspace.Sessions...)
+	for _, row := range rows {
+		if row.ID != sessionID {
+			continue
+		}
+		if projectID == "" || session.SessionProjectMatches(row, projectID) {
+			return row.Project, sessionProjectPath(row)
+		}
+	}
+	return projectID, projectID
 }
 
 func decodeSessionMetadata(raw string) map[string]any {

@@ -1,2 +1,26 @@
 packages:
-  - web
+  - npm/*
+  - internal/web
+  - internal/docs
+
+catalog:
+  react: 19.3.0-canary-d5736f09-20260507
+  react-dom: 19.3.0-canary-d5736f09-20260507
+  '@types/react': 19.2.10
+  '@types/react-dom': 19.2.3
+  tailwind-merge: 3.4.0
+  lucide-react: 0.563.0
+  oxlint: 1.54.0
+  typescript: 5.9.3
+  clsx: 2.1.1
+  npm-run-all: 4.1.5
+
+catalogs:
+  web:
+    vite: 7.3.2
+    tailwindcss: 4.1.18
+    '@tailwindcss/postcss': 4.1.18
+  docs:
+    vite: 8.0.16
+    tailwindcss: 4.3.1
+    '@tailwindcss/vite': 4.3.1

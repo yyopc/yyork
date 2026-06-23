@@ -1,0 +1,326 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish npm packages after building release artifacts.
+        required: false
+        default: false
+        type: boolean
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Release preflight
+    timeout-minutes: 10
+    runs-on: ubuntu-24.04
+    outputs:
+      npm_dist_tag: ${{ steps.version.outputs.npm_dist_tag }}
+      should_publish: ${{ steps.mode.outputs.should_publish }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: ./.github/actions/setup-pnpm
+        with:
+          node-version: 24
+
+      - name: Validate release version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="$(node -p "require('./package.json').version")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ "$version" == *-* ]]; then
+            prerelease="${version#*-}"
+            echo "npm_dist_tag=${prerelease%%.*}" >> "$GITHUB_OUTPUT"
+          else
+            echo "npm_dist_tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ "$GITHUB_REF" == refs/tags/v* && "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match package.json version $version."
+            exit 1
+          fi
+
+      - name: Select release mode
+        id: mode
+        shell: bash
+        env:
+          REQUESTED_PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.publish == true }}
+          TAG_PUSH: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$REQUESTED_PUBLISH" == "true" && "$GITHUB_REF" != refs/tags/v* ]]; then
+            echo "workflow_dispatch publish=true must run from a v* tag ref."
+            exit 1
+          fi
+
+          if [[ "$TAG_PUSH" == "true" || "$REQUESTED_PUBLISH" == "true" ]]; then
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  goreleaser:
+    name: GoReleaser artifacts
+    timeout-minutes: 30
+    runs-on: ubuntu-24.04
+    needs:
+      - preflight
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Setup pnpm
+        uses: ./.github/actions/setup-pnpm
+        with:
+          node-version: 24
+
+      - name: Select GoReleaser args
+        id: args
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ needs.preflight.outputs.should_publish }}" == "true" ]]; then
+            echo "args=release --clean" >> "$GITHUB_OUTPUT"
+          else
+            echo "args=release --snapshot --clean" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: ${{ steps.args.outputs.args }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Upload GoReleaser artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: yyork-goreleaser-assets
+          path: |
+            dist/*.tar.gz
+            dist/*checksums.txt
+            dist/artifacts.json
+            dist/metadata.json
+          if-no-files-found: error
+          retention-days: 14
+
+  pack-npm:
+    name: Pack npm packages
+    timeout-minutes: 20
+    runs-on: ubuntu-24.04
+    needs:
+      - goreleaser
+      - preflight
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: ./.github/actions/setup-pnpm
+        with:
+          node-version: 24
+
+      - name: Cache bundled Zellij
+        uses: actions/cache@v4
+        with:
+          path: third_party/zellij
+          key: zellij-all-${{ hashFiles('bin/zellij-artifacts.mjs') }}
+
+      - name: Download GoReleaser artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: yyork-goreleaser-assets
+          path: dist/goreleaser
+
+      - name: Pack native and wrapper npm tarballs
+        run: |
+          node ./bin/pack-npm-release.mjs \
+            --artifacts-dir dist/goreleaser \
+            --pack-destination dist/npm
+
+      - name: Smoke install without Go
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          no_go_bin="$(mktemp -d)"
+          install_prefix="$(mktemp -d)"
+          install_home="$(mktemp -d)"
+          doctor_json="$(mktemp)"
+
+          cat > "$no_go_bin/go" <<'EOF'
+          #!/bin/sh
+          echo "go intentionally unavailable in release smoke" >&2
+          exit 127
+          EOF
+          chmod +x "$no_go_bin/go"
+
+          native_tarball="$(ls dist/npm/yyopc-yyork-linux-x64-*.tgz)"
+          wrapper_tarball="$(ls dist/npm/yyopc-yyork-[0-9]*.tgz)"
+
+          env \
+            HOME="$install_home" \
+            USERPROFILE="$install_home" \
+            PATH="$no_go_bin:$PATH" \
+            npm install -g "$native_tarball" "$wrapper_tarball" \
+              --prefix "$install_prefix" \
+              --omit=optional
+
+          yyork_bin="$install_prefix/bin/yyork"
+          env HOME="$install_home" USERPROFILE="$install_home" PATH="$no_go_bin:$PATH" \
+            "$yyork_bin" --version
+
+          set +e
+          env HOME="$install_home" USERPROFILE="$install_home" PATH="$no_go_bin:$PATH" \
+            "$yyork_bin" doctor --json > "$doctor_json"
+          doctor_status=$?
+          set -e
+
+          node - "$doctor_json" "$doctor_status" <<'NODE'
+          const fs = require('node:fs');
+          const doctorPath = process.argv[2];
+          const status = Number(process.argv[3]);
+          const output = JSON.parse(fs.readFileSync(doctorPath, 'utf8'));
+          const zellij = output.checks?.find((check) => check.id === 'zellij');
+          if (zellij?.status !== 'ok' || zellij?.source !== 'bundled') {
+            throw new Error(`Expected bundled zellij, got ${JSON.stringify(zellij)}`);
+          }
+          if (status === 0) {
+            console.log('yyork doctor passed with bundled zellij.');
+          } else {
+            console.log('yyork doctor reported non-zellij issues after bundled zellij check.');
+          }
+          NODE
+
+      - name: Upload npm packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: yyork-npm-packages
+          path: dist/npm/*.tgz
+          if-no-files-found: error
+          retention-days: 14
+
+  publish-npm:
+    name: Publish npm packages
+    timeout-minutes: 20
+    runs-on: ubuntu-24.04
+    needs:
+      - pack-npm
+      - preflight
+    if: ${{ needs.preflight.outputs.should_publish == 'true' }}
+    permissions:
+      contents: write
+    steps:
+      - name: Download npm packages
+        uses: actions/download-artifact@v4
+        with:
+          name: yyork-npm-packages
+          path: dist/npm
+
+      - name: Setup npm publishing
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Validate npm package set
+        shell: bash
+        env:
+          NPM_DIST_TAG: ${{ needs.preflight.outputs.npm_dist_tag }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          test -n "${NODE_AUTH_TOKEN:-}" || {
+            echo "NPM_TOKEN secret is required to publish."
+            exit 1
+          }
+
+          cd dist/npm
+          expected=(
+            "yyopc-yyork-darwin-arm64-$VERSION.tgz"
+            "yyopc-yyork-darwin-x64-$VERSION.tgz"
+            "yyopc-yyork-linux-arm64-$VERSION.tgz"
+            "yyopc-yyork-linux-x64-$VERSION.tgz"
+            "yyopc-yyork-$VERSION.tgz"
+          )
+          packages=(
+            "@yyopc/yyork-darwin-arm64"
+            "@yyopc/yyork-darwin-x64"
+            "@yyopc/yyork-linux-arm64"
+            "@yyopc/yyork-linux-x64"
+            "@yyopc/yyork"
+          )
+
+          for tarball in "${expected[@]}"; do
+            test -f "$tarball" || {
+              echo "Missing expected npm tarball: $tarball"
+              ls -lh
+              exit 1
+            }
+          done
+
+          for package_name in "${packages[@]}"; do
+            if npm view "$package_name@$VERSION" version >/dev/null 2>&1; then
+              echo "$package_name@$VERSION already exists on npm."
+              exit 1
+            fi
+          done
+
+          for tarball in "${expected[@]}"; do
+            npm publish "$tarball" --access public --tag "$NPM_DIST_TAG" --dry-run
+          done
+
+      - name: Upload npm tarballs to GitHub release
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release upload "$TAG" dist/npm/*.tgz --clobber
+
+      - name: Publish npm packages
+        shell: bash
+        env:
+          NPM_DIST_TAG: ${{ needs.preflight.outputs.npm_dist_tag }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          cd dist/npm
+          for tarball in \
+            "yyopc-yyork-darwin-arm64-$VERSION.tgz" \
+            "yyopc-yyork-darwin-x64-$VERSION.tgz" \
+            "yyopc-yyork-linux-arm64-$VERSION.tgz" \
+            "yyopc-yyork-linux-x64-$VERSION.tgz"
+          do
+            npm publish "$tarball" --access public --tag "$NPM_DIST_TAG"
+          done
+
+          npm publish "yyopc-yyork-$VERSION.tgz" --access public --tag "$NPM_DIST_TAG"
