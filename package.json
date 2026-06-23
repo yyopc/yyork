@@ -1,6 +1,6 @@
 {
   "name": "@yyopc/yyork",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "private": false,
   "description": "Agent routing platform with an interface to the agent router.",
   "homepage": "https://github.com/yyopc/yyork#readme",
@@ -76,10 +76,10 @@
     "portless": "0.14.0"
   },
   "optionalDependencies": {
-    "@yyopc/yyork-darwin-arm64": "workspace:0.1.0-alpha.2",
-    "@yyopc/yyork-darwin-x64": "workspace:0.1.0-alpha.2",
-    "@yyopc/yyork-linux-arm64": "workspace:0.1.0-alpha.2",
-    "@yyopc/yyork-linux-x64": "workspace:0.1.0-alpha.2"
+    "@yyopc/yyork-darwin-arm64": "workspace:0.1.0-alpha.3",
+    "@yyopc/yyork-darwin-x64": "workspace:0.1.0-alpha.3",
+    "@yyopc/yyork-linux-arm64": "workspace:0.1.0-alpha.3",
+    "@yyopc/yyork-linux-x64": "workspace:0.1.0-alpha.3"
   },
   "engines": {
     "node": ">=18"
