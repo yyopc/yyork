@@ -206,6 +206,7 @@ func TestTerminalSessionForRequestRejectsAmbiguousLegacySessionLookup(t *testing
 
 func TestHandleProjectIDEOpensProjectWorkspace(t *testing.T) {
 	projectWorkspace := t.TempDir()
+	projectID := session.ProjectID(projectWorkspace)
 	opener := &recordingIDEOpener{}
 	server := New(Config{
 		IDEOpener: opener,
@@ -213,13 +214,14 @@ func TestHandleProjectIDEOpensProjectWorkspace(t *testing.T) {
 			Projects: []session.Project{
 				{
 					CWD:  projectWorkspace,
-					ID:   "project-a",
+					ID:   projectID,
 					Name: "Project A",
+					Path: projectWorkspace,
 				},
 			},
 		},
 	})
-	request := httptest.NewRequest(http.MethodPost, "/api/projects/project-a/ide", nil)
+	request := httptest.NewRequest(http.MethodPost, "/api/projects/"+projectID+"/ide", nil)
 	response := httptest.NewRecorder()
 
 	server.Handler().ServeHTTP(response, request)
@@ -229,6 +231,27 @@ func TestHandleProjectIDEOpensProjectWorkspace(t *testing.T) {
 	}
 	if len(opener.cwd) != 1 || opener.cwd[0] != projectWorkspace {
 		t.Fatalf("expected project workspace to open, got %#v", opener.cwd)
+	}
+}
+
+func TestProjectForRequestAcceptsLegacyProjectPath(t *testing.T) {
+	projectPath := "/repo/app"
+	workspace := session.Workspace{
+		Projects: []session.Project{
+			{
+				ID:   session.ProjectID(projectPath),
+				Name: "app",
+				Path: projectPath,
+			},
+		},
+	}
+
+	project, ok := projectForRequest(workspace, projectPath)
+	if !ok {
+		t.Fatal("expected project lookup to accept the legacy path")
+	}
+	if project.Path != projectPath {
+		t.Fatalf("project path = %q, want %q", project.Path, projectPath)
 	}
 }
 

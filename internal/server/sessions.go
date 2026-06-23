@@ -16,7 +16,7 @@ import (
 
 // sessionDTO is the JSON shape /api/sessions returns. It mirrors
 // store.Session but with explicit JSON tags and ISO-8601 timestamps so the
-// dashboard doesn't need to format Unix epochs.
+// app doesn't need to format Unix epochs.
 type sessionDTO struct {
 	ID            string         `json:"id"`
 	ProjectPath   string         `json:"projectPath"`
@@ -116,7 +116,7 @@ type renameRequest struct {
 
 // handleRenameSession sets (or clears) the user-facing display name for a
 // session by updating the SQLite metadata row. On success it publishes a
-// session.updated event so every open dashboard refreshes via SSE.
+// session.updated event so every open app refreshes via SSE.
 func (s *Server) handleRenameSession(w http.ResponseWriter, r *http.Request) {
 	if s.sessions == nil {
 		http.Error(w, "session store unavailable", http.StatusServiceUnavailable)
@@ -189,7 +189,12 @@ func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) {
 	var rows []store.Session
 	var err error
 	if project := r.URL.Query().Get("project"); project != "" {
-		rows, err = s.sessions.ListByProject(ctx, project)
+		projectPath, _, resolveErr := s.projectPathForRequest(ctx, project)
+		if resolveErr != nil {
+			http.Error(w, resolveErr.Error(), http.StatusInternalServerError)
+			return
+		}
+		rows, err = s.sessions.ListByProject(ctx, projectPath)
 	} else {
 		rows, err = s.sessions.List(ctx)
 	}
@@ -208,7 +213,7 @@ func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) {
 // handlePublishEvent is the cross-process ingress to the in-process event
 // bus. Short-lived CLI commands (spawn/stop) run in their own process, so the
 // events their engine publishes never reach this server's bus — and thus never
-// reach the dashboard's SSE stream. This endpoint accepts a flattened event
+// reach the app's SSE stream. This endpoint accepts a flattened event
 // from such a process and republishes it on EventBus, where the existing
 // /api/events SSE fan-out delivers it to open boards.
 //

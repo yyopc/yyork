@@ -33,10 +33,16 @@ type SessionStopper interface {
 	Stop(ctx context.Context, id string) error
 }
 
+// ProjectRemover removes a project from yyork's durable workspace state. The
+// session.Engine satisfies this by stopping every session for the project path.
+type ProjectRemover interface {
+	RemoveProject(ctx context.Context, projectPath string) error
+}
+
 // OrchestratorEnsurer makes sure a project has a running orchestrator session,
 // spawning one when the project has none. The session.Engine satisfies this
 // interface; the server depends on the narrow surface so adding a project from
-// the dashboard reuses the exact spawn path the CLI uses.
+// the app reuses the exact spawn path the CLI uses.
 type OrchestratorEnsurer interface {
 	EnsureOrchestrator(ctx context.Context, req session.SpawnRequest) (store.Session, bool, error)
 }
@@ -46,20 +52,20 @@ type Config struct {
 	Registry        *plugin.Registry
 	TerminalManager *terminal.Manager
 
-	// WebDir is a filesystem path to serve the dashboard from (dev mode).
+	// WebDir is a filesystem path to serve the app from (dev mode).
 	// Takes priority over WebFS when both are set.
 	WebDir string
 
-	// WebFS is an embedded dashboard filesystem (single-binary mode).
+	// WebFS is an embedded app filesystem (single-binary mode).
 	// Used when WebDir is empty.
 	WebFS fs.FS
 
-	// DashboardDevOrigin is the live dashboard origin — the Vite dev
+	// DashboardDevOrigin is the live app origin — the Vite dev
 	// server — that self-target browser previews proxy to instead of the
 	// in-process WebDir/WebFS assets. `yyork dev` sets it so the in-app
 	// browser previews the running source (with HMR), not the build-time
 	// snapshot embedded in this binary. Leave empty in production, where
-	// the embedded assets are the live dashboard.
+	// the embedded assets are the live app.
 	DashboardDevOrigin string
 
 	Workspace           session.Workspace
@@ -71,17 +77,22 @@ type Config struct {
 	// returns an empty list.
 	Sessions store.SessionRepo
 
-	// ProjectSettings stores project-scoped dashboard and CLI defaults.
+	// ProjectSettings stores project-scoped app and CLI defaults.
 	// Optional — if nil, settings updates return 501.
 	ProjectSettings store.ProjectSettingsRepo
 
-	// Stopper terminates a session by id. When set, the dashboard can stop
+	// Stopper terminates a session by id. When set, the app can stop
 	// sessions via DELETE /api/sessions/{sessionID}. Optional — if nil, the
 	// endpoint returns 501.
 	Stopper SessionStopper
 
+	// ProjectRemover removes a project from backend workspace state. When set,
+	// the app can remove projects via DELETE /api/projects/{projectID}.
+	// Optional — if nil, the endpoint returns 501.
+	ProjectRemover ProjectRemover
+
 	// Orchestrators ensures a project has an orchestrator session. When set,
-	// the dashboard can add projects via POST /api/projects. Optional — if
+	// the app can add projects via POST /api/projects. Optional — if
 	// nil, the endpoint returns 501.
 	Orchestrators OrchestratorEnsurer
 
@@ -116,6 +127,7 @@ type Server struct {
 	sessions            store.SessionRepo
 	projectSettings     store.ProjectSettingsRepo
 	stopper             SessionStopper
+	projectRemover      ProjectRemover
 	orchestrators       OrchestratorEnsurer
 	directoryChooser    DirectoryChooser
 	eventBus            *events.Bus
@@ -134,7 +146,7 @@ type IDEOpener interface {
 
 // DirectoryChooser opens the host OS's native folder picker and returns the
 // absolute path the user selected. ok is false when the user cancels. Browsers
-// hide absolute filesystem paths from their file APIs, so the dashboard can't
+// hide absolute filesystem paths from their file APIs, so the app can't
 // produce one itself — but yyork runs locally, so the picker runs server-side
 // and the dialog appears on the user's own machine.
 type DirectoryChooser interface {
@@ -188,6 +200,7 @@ func New(cfg Config) *Server {
 		sessions:            cfg.Sessions,
 		projectSettings:     cfg.ProjectSettings,
 		stopper:             cfg.Stopper,
+		projectRemover:      cfg.ProjectRemover,
 		orchestrators:       cfg.Orchestrators,
 		directoryChooser:    directoryChooser,
 		eventBus:            cfg.EventBus,
@@ -204,6 +217,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/projects", s.handleCreateProject)
 	mux.HandleFunc("POST /api/projects/choose-directory", s.handleChooseProjectDirectory)
 	mux.HandleFunc("PATCH /api/projects/worker-workspace", s.handleUpdateProjectWorkerWorkspace)
+	mux.HandleFunc("DELETE /api/projects/{projectID}", s.handleRemoveProject)
 	mux.HandleFunc("POST /api/projects/{projectID}/ide", s.handleProjectIDE)
 	mux.HandleFunc("POST /api/sessions/{sessionID}/ide", s.handleSessionIDE)
 	mux.HandleFunc("GET /api/sessions/{sessionID}/files", s.handleSessionFiles)
@@ -365,7 +379,7 @@ func terminalSessionForRequest(workspace session.Workspace, projectID string, se
 
 	if projectID != "" {
 		for _, terminalSession := range sessions {
-			if terminalSession.Project == projectID && terminalSession.ID == sessionID {
+			if session.SessionProjectMatches(terminalSession, projectID) && terminalSession.ID == sessionID {
 				return terminalSession, true
 			}
 		}
@@ -388,12 +402,31 @@ func terminalSessionForRequest(workspace session.Workspace, projectID string, se
 
 func projectForRequest(workspace session.Workspace, projectID string) (session.Project, bool) {
 	for _, project := range workspace.Projects {
-		if project.ID == projectID {
+		if session.ProjectMatches(project, projectID) {
 			return project, true
 		}
 	}
 
 	return session.Project{}, false
+}
+
+func (s *Server) projectPathForRequest(ctx context.Context, projectID string) (string, bool, error) {
+	workspace, err := s.workspaceForRequest(ctx)
+	if err != nil {
+		return "", false, err
+	}
+
+	project, ok := projectForRequest(workspace, projectID)
+	if !ok {
+		return projectID, false, nil
+	}
+	if project.Path != "" {
+		return project.Path, true, nil
+	}
+	if project.CWD != "" {
+		return project.CWD, true, nil
+	}
+	return "", true, errors.New("project path is unavailable")
 }
 
 func sessionWorkspaceDirectory(cwd string) (string, int, error) {
@@ -446,7 +479,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Prefer the on-disk dashboard when WebDir is set (dev workflow).
+	// Prefer the on-disk app when WebDir is set (dev workflow).
 	if s.webDir != "" {
 		if _, err := os.Stat(filepath.Join(s.webDir, "index.html")); err == nil {
 			s.serveSPA(w, r, os.DirFS(s.webDir))
@@ -454,7 +487,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fall back to the embedded dashboard when present (single-binary).
+	// Fall back to the embedded app when present (single-binary).
 	if s.webFS != nil {
 		if _, err := fs.Stat(s.webFS, "index.html"); err == nil {
 			s.serveSPA(w, r, s.webFS)
@@ -472,7 +505,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
   <body>
     <main>
       <h1>yyork</h1>
-      <p>Build the web dashboard first with <code>pnpm web:build</code>.</p>
+      <p>Build the web app first with <code>pnpm web:build</code>.</p>
     </main>
   </body>
 </html>`)

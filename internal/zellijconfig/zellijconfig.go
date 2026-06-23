@@ -15,7 +15,7 @@
 // The "yyork" theme covers whatever little zellij still draws (the brief
 // loading screen, search prompts). It is defined in terms of ANSI palette
 // indices (0-15) rather than RGB values. yyork's web terminal remaps those
-// indices to its own light/dark palette (see web/src/styles/app.css,
+// indices to its own light/dark palette (see internal/web/src/styles/app.css,
 // --terminal-color-*), so any residual zellij-drawn UI follows the active
 // yyork theme automatically, from a single source of truth.
 //
@@ -58,7 +58,7 @@ show_release_notes false
 advanced_mouse_actions false
 
 // Colors are ANSI palette indices (0-15), not RGB. yyork's web terminal
-// remaps 0-15 to its own light/dark palette (web/src/styles/app.css,
+// remaps 0-15 to its own light/dark palette (internal/web/src/styles/app.css,
 // --terminal-color-*), so anything zellij still draws (loading screen,
 // search prompts) follows the active yyork theme.
 themes {

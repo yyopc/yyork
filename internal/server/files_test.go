@@ -16,7 +16,7 @@ func TestHandleSessionFilesReturnsWorkspaceFileTree(t *testing.T) {
 	workspacePath := t.TempDir()
 	writeTestFile(t, filepath.Join(workspacePath, ".git", "config"))
 	writeTestFile(t, filepath.Join(workspacePath, "cmd", "yyork", "main.go"))
-	writeTestFile(t, filepath.Join(workspacePath, "web", "src", "main.tsx"))
+	writeTestFile(t, filepath.Join(workspacePath, "internal", "web", "src", "main.tsx"))
 	writeTestFile(t, filepath.Join(workspacePath, "node_modules", "ignored", "index.js"))
 	writeTestFile(t, filepath.Join(workspacePath, "yyork"))
 
@@ -52,10 +52,11 @@ func TestHandleSessionFilesReturnsWorkspaceFileTree(t *testing.T) {
 		"cmd/",
 		"cmd/yyork/",
 		"cmd/yyork/main.go",
+		"internal/",
+		"internal/web/",
+		"internal/web/src/",
+		"internal/web/src/main.tsx",
 		"node_modules/",
-		"web/",
-		"web/src/",
-		"web/src/main.tsx",
 		"yyork",
 	}
 	if !stringSlicesEqual(payload.Paths, wantPaths) {
@@ -210,9 +211,9 @@ func TestHandleSessionFileContentRejectsSymlinkOutsideWorkspace(t *testing.T) {
 }
 
 func TestParseGitStatusOutput(t *testing.T) {
-	status := parseGitStatusOutput([]byte(" M web/src/main.tsx\x00A  README.md\x00?? scratch.txt\x00R  new-name.go\x00old-name.go\x00"))
+	status := parseGitStatusOutput([]byte(" M internal/web/src/main.tsx\x00A  README.md\x00?? scratch.txt\x00R  new-name.go\x00old-name.go\x00"))
 	want := []fileTreeGitStatusEntry{
-		{Path: "web/src/main.tsx", Status: "modified"},
+		{Path: "internal/web/src/main.tsx", Status: "modified"},
 		{Path: "README.md", Status: "added"},
 		{Path: "scratch.txt", Status: "untracked"},
 		{Path: "new-name.go", Status: "renamed"},

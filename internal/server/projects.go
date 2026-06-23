@@ -15,15 +15,17 @@ import (
 )
 
 type createProjectRequest struct {
-	Path string `json:"path"`
+	Path              string `json:"path"`
+	AgentPlugin       string `json:"agentPlugin,omitempty"`
+	WorkerAgentPlugin string `json:"workerAgentPlugin,omitempty"`
 }
 
 type createProjectResponse struct {
-	// ID is the project's canonical id — the resolved git repository root.
-	// It matches the project id the workspace exposes (project paths are the
-	// id in StoreWorkspaceSource), so the dashboard can un-hide and navigate
-	// to the new project without a second round-trip.
+	// ID is the project's canonical URL-safe id. Path carries the resolved git
+	// repository root that backs that id.
 	ID string `json:"id"`
+	// Path is the resolved absolute repository root.
+	Path string `json:"path"`
 	// Name is the basename of the repository root, the same fallback the
 	// workspace uses when a row carries no explicit project name.
 	Name string `json:"name"`
@@ -42,11 +44,41 @@ type updateProjectWorkerWorkspaceResponse struct {
 	WorkerWorkspaceMode string `json:"workerWorkspaceMode"`
 }
 
+func (s *Server) handleRemoveProject(w http.ResponseWriter, r *http.Request) {
+	if s.projectRemover == nil {
+		http.Error(w, "project removal is not enabled", http.StatusNotImplemented)
+		return
+	}
+
+	projectID := strings.TrimSpace(r.PathValue("projectID"))
+	if projectID == "" {
+		http.Error(w, "project id is required", http.StatusBadRequest)
+		return
+	}
+
+	projectPath, ok, err := s.projectPathForRequest(r.Context(), projectID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !ok {
+		http.Error(w, "project not found", http.StatusNotFound)
+		return
+	}
+
+	if err := s.projectRemover.RemoveProject(r.Context(), projectPath); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // handleCreateProject adds a project to the workspace by ensuring it has a
 // running orchestrator session. Projects are not first-class rows — a project
 // exists because at least one session lives in its directory — so "adding" a
 // project means spawning its orchestrator. The spawn emits a session.created
-// event, which the dashboard's SSE subscription turns into a workspace refresh.
+// event, which the app's SSE subscription turns into a workspace refresh.
 func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 	if s.orchestrators == nil {
 		http.Error(w, "project creation is not enabled", http.StatusNotImplemented)
@@ -65,16 +97,40 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sess, created, err := s.orchestrators.EnsureOrchestrator(r.Context(), session.SpawnRequest{
+	agentPlugin, ok := session.NormalizeAgentPlugin(payload.AgentPlugin)
+	if !ok {
+		http.Error(w, "agentPlugin must be claude-code or codex", http.StatusBadRequest)
+		return
+	}
+	workerAgentPlugin, ok := session.NormalizeAgentPlugin(payload.WorkerAgentPlugin)
+	if !ok {
+		http.Error(w, "workerAgentPlugin must be claude-code or codex", http.StatusBadRequest)
+		return
+	}
+
+	spawnReq := session.SpawnRequest{
 		ProjectPath: root,
-	})
+	}
+	if agentPlugin != "" {
+		spawnReq.AgentPlugin = agentPlugin
+	}
+
+	sess, created, err := s.orchestrators.EnsureOrchestrator(r.Context(), spawnReq)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	if s.projectSettings != nil && workerAgentPlugin != "" {
+		if err := s.projectSettings.SetWorkerAgentPlugin(r.Context(), root, workerAgentPlugin); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
 	writeJSON(w, http.StatusOK, createProjectResponse{
-		ID:      sess.ProjectPath,
+		ID:      session.ProjectID(sess.ProjectPath),
+		Path:    sess.ProjectPath,
 		Name:    filepath.Base(sess.ProjectPath),
 		Created: created,
 	})
@@ -103,7 +159,13 @@ func (s *Server) handleUpdateProjectWorkerWorkspace(w http.ResponseWriter, r *ht
 		return
 	}
 
-	if err := s.projectSettings.SetWorkerWorkspaceMode(r.Context(), projectID, string(mode)); err != nil {
+	projectPath, _, err := s.projectPathForRequest(r.Context(), projectID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := s.projectSettings.SetWorkerWorkspaceMode(r.Context(), projectPath, string(mode)); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -115,7 +177,7 @@ func (s *Server) handleUpdateProjectWorkerWorkspace(w http.ResponseWriter, r *ht
 }
 
 // handleChooseProjectDirectory opens the host OS's native folder picker and
-// returns the absolute path the user selected. It's the dashboard's way of
+// returns the absolute path the user selected. It's the app's way of
 // producing a real filesystem path — a browser tab can't, by design — so the
 // "Add project" button can feel native instead of asking the user to type a
 // path. Returns 204 when the user cancels the dialog.
@@ -135,7 +197,7 @@ func (s *Server) handleChooseProjectDirectory(w http.ResponseWriter, r *http.Req
 
 // nativeDirectoryChooser opens the host OS's folder picker. macOS only for now
 // — yyork's home platform — via AppleScript's `choose folder`. Other platforms
-// return an error so the dashboard can fall back to a typed path.
+// return an error so the app can fall back to a typed path.
 type nativeDirectoryChooser struct{}
 
 func (nativeDirectoryChooser) Choose(ctx context.Context) (string, bool, error) {
@@ -172,7 +234,7 @@ func isOsascriptUserCancel(err error) bool {
 
 // resolveGitProjectRoot turns a user-supplied path into the absolute root of
 // the git repository that contains it. A subdirectory resolves to its repo
-// root, mirroring the CLI's `yyork <path>` behavior, so the dashboard accepts
+// root, mirroring the CLI's `yyork <path>` behavior, so the app accepts
 // any path inside the project the user means.
 func resolveGitProjectRoot(ctx context.Context, path string) (string, error) {
 	trimmed := strings.TrimSpace(path)

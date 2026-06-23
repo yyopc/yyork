@@ -1,5 +1,7 @@
 package session
 
+import "strings"
+
 type State string
 type Kind string
 type WorkerWorkspaceMode string
@@ -38,6 +40,17 @@ func NormalizeWorkerWorkspaceMode(raw string) (WorkerWorkspaceMode, bool) {
 	}
 }
 
+func NormalizeAgentPlugin(raw string) (string, bool) {
+	switch strings.TrimSpace(raw) {
+	case "":
+		return "", true
+	case "claude-code", "codex":
+		return strings.TrimSpace(raw), true
+	default:
+		return "", false
+	}
+}
+
 type Session struct {
 	AttachCommand     []string `json:"-"`
 	Agent             string   `json:"agent"`
@@ -49,6 +62,7 @@ type Session struct {
 	Kind              Kind     `json:"kind,omitempty"`
 	Metadata          string   `json:"metadata"`
 	Project           string   `json:"project"`
+	ProjectPath       string   `json:"projectPath,omitempty"`
 	Recap             string   `json:"recap"`
 	Selected          bool     `json:"selected,omitempty"`
 	State             State    `json:"state"`
@@ -63,6 +77,7 @@ type Project struct {
 	CWD                 string              `json:"cwd,omitempty"`
 	ID                  string              `json:"id"`
 	Name                string              `json:"name"`
+	Path                string              `json:"path"`
 	WorkerWorkspaceMode WorkerWorkspaceMode `json:"workerWorkspaceMode"`
 }
 
@@ -85,7 +100,7 @@ func (w Workspace) Session(id string) (Session, bool) {
 
 func (w Workspace) ProjectSession(projectID string, id string) (Session, bool) {
 	for _, session := range w.allTerminalSessions() {
-		if session.Project == projectID && session.ID == id {
+		if SessionProjectMatches(session, projectID) && session.ID == id {
 			return session, true
 		}
 	}

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -81,14 +82,54 @@ func TestHandleCreateProjectEnsuresOrchestrator(t *testing.T) {
 	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if body.ID != root {
-		t.Fatalf("expected id %q, got %q", root, body.ID)
+	if body.ID != session.ProjectID(root) {
+		t.Fatalf("expected id %q, got %q", session.ProjectID(root), body.ID)
+	}
+	if body.Path != root {
+		t.Fatalf("expected path %q, got %q", root, body.Path)
 	}
 	if body.Name != filepath.Base(root) {
 		t.Fatalf("expected name %q, got %q", filepath.Base(root), body.Name)
 	}
 	if !body.Created {
 		t.Fatal("expected created=true")
+	}
+}
+
+func TestHandleCreateProjectPassesAgentPlugins(t *testing.T) {
+	root := initGitRepo(t)
+	ensurer := &fakeOrchestratorEnsurer{created: true}
+	settings := &fakeProjectSettingsRepo{}
+	server := New(Config{Orchestrators: ensurer, ProjectSettings: settings})
+
+	response := postProject(
+		t,
+		server,
+		`{"path":`+jsonString(root)+`,"agentPlugin":"codex","workerAgentPlugin":"claude-code"}`,
+	)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected add project to succeed, got %d: %s", response.Code, response.Body.String())
+	}
+	if ensurer.gotReq.AgentPlugin != "codex" {
+		t.Fatalf("expected orchestrator agent codex, got %q", ensurer.gotReq.AgentPlugin)
+	}
+	if settings.gotProjectPath != root {
+		t.Fatalf("expected worker agent stored for %q, got %q", root, settings.gotProjectPath)
+	}
+	if settings.gotWorkerAgentPlugin != "claude-code" {
+		t.Fatalf("expected worker agent claude-code, got %q", settings.gotWorkerAgentPlugin)
+	}
+}
+
+func TestHandleCreateProjectRejectsUnknownAgentPlugin(t *testing.T) {
+	root := initGitRepo(t)
+	server := New(Config{Orchestrators: &fakeOrchestratorEnsurer{}})
+
+	response := postProject(t, server, `{"path":`+jsonString(root)+`,"agentPlugin":"unknown"}`)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", response.Code)
 	}
 }
 
@@ -163,9 +204,10 @@ func (f *fakeDirectoryChooser) Choose(context.Context) (string, bool, error) {
 }
 
 type fakeProjectSettingsRepo struct {
-	gotProjectPath string
-	gotMode        string
-	err            error
+	gotProjectPath       string
+	gotMode              string
+	gotWorkerAgentPlugin string
+	err                  error
 }
 
 func (f *fakeProjectSettingsRepo) Get(context.Context, string) (store.ProjectSettings, error) {
@@ -182,9 +224,35 @@ func (f *fakeProjectSettingsRepo) SetWorkerWorkspaceMode(_ context.Context, proj
 	return f.err
 }
 
+func (f *fakeProjectSettingsRepo) SetWorkerAgentPlugin(_ context.Context, projectPath string, agentPlugin string) error {
+	f.gotProjectPath = projectPath
+	f.gotWorkerAgentPlugin = agentPlugin
+	return f.err
+}
+
+type fakeProjectRemover struct {
+	gotProjectPath string
+	called         bool
+	err            error
+}
+
+func (f *fakeProjectRemover) RemoveProject(_ context.Context, projectPath string) error {
+	f.called = true
+	f.gotProjectPath = projectPath
+	return f.err
+}
+
 func postChooseDirectory(t *testing.T, server *Server) *httptest.ResponseRecorder {
 	t.Helper()
 	request := httptest.NewRequest(http.MethodPost, "/api/projects/choose-directory", nil)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	return response
+}
+
+func deleteProject(t *testing.T, server *Server, projectID string) *httptest.ResponseRecorder {
+	t.Helper()
+	request := httptest.NewRequest(http.MethodDelete, "/api/projects/"+projectID, nil)
 	response := httptest.NewRecorder()
 	server.Handler().ServeHTTP(response, request)
 	return response
@@ -240,11 +308,93 @@ func TestHandleChooseProjectDirectorySurfacesError(t *testing.T) {
 	}
 }
 
+func TestHandleRemoveProjectRemovesBackendProjectState(t *testing.T) {
+	projectPath := "/repo/app"
+	projectID := session.ProjectID(projectPath)
+	remover := &fakeProjectRemover{}
+	server := New(Config{
+		ProjectRemover: remover,
+		Workspace: session.Workspace{
+			Projects: []session.Project{
+				{ID: projectID, Path: projectPath, Name: "app"},
+			},
+		},
+	})
+
+	response := deleteProject(t, server, projectID)
+
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d: %s", response.Code, response.Body.String())
+	}
+	if !remover.called {
+		t.Fatal("expected project remover to be called")
+	}
+	if remover.gotProjectPath != projectPath {
+		t.Fatalf("project path = %q, want %q", remover.gotProjectPath, projectPath)
+	}
+}
+
+func TestHandleRemoveProjectRejectsUnknownProject(t *testing.T) {
+	remover := &fakeProjectRemover{}
+	server := New(Config{ProjectRemover: remover})
+
+	response := deleteProject(t, server, "missing-project")
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", response.Code, response.Body.String())
+	}
+	if remover.called {
+		t.Fatal("expected remover not to be called for an unknown project")
+	}
+}
+
+func TestHandleRemoveProjectAcceptsLegacyProjectPath(t *testing.T) {
+	projectPath := "/repo/app"
+	projectID := session.ProjectID(projectPath)
+	remover := &fakeProjectRemover{}
+	server := New(Config{
+		ProjectRemover: remover,
+		Workspace: session.Workspace{
+			Projects: []session.Project{
+				{ID: projectID, Path: projectPath, Name: "app"},
+			},
+		},
+	})
+
+	response := deleteProject(t, server, url.PathEscape(projectPath))
+
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d: %s", response.Code, response.Body.String())
+	}
+	if remover.gotProjectPath != projectPath {
+		t.Fatalf("project path = %q, want %q", remover.gotProjectPath, projectPath)
+	}
+}
+
+func TestHandleRemoveProjectDisabledWithoutRemover(t *testing.T) {
+	server := New(Config{})
+
+	response := deleteProject(t, server, "project-a")
+
+	if response.Code != http.StatusNotImplemented {
+		t.Fatalf("expected 501, got %d: %s", response.Code, response.Body.String())
+	}
+}
+
 func TestHandleUpdateProjectWorkerWorkspacePersistsMode(t *testing.T) {
 	settings := &fakeProjectSettingsRepo{}
-	server := New(Config{ProjectSettings: settings})
+	projectPath := "/repo/app"
+	projectID := session.ProjectID(projectPath)
+	server := New(Config{
+		ProjectSettings: settings,
+		Workspace: session.Workspace{
+			Projects: []session.Project{
+				{ID: projectID, Path: projectPath, Name: "app"},
+			},
+		},
+	})
 
-	response := patchProjectWorkerWorkspace(t, server, `{"projectId":"/repo/app","workerWorkspaceMode":"local"}`)
+	response := patchProjectWorkerWorkspace(t, server, `{"projectId":"`+projectID+`","workerWorkspaceMode":"local"}`)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", response.Code, response.Body.String())
@@ -260,8 +410,22 @@ func TestHandleUpdateProjectWorkerWorkspacePersistsMode(t *testing.T) {
 	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if body.ProjectID != "/repo/app" || body.WorkerWorkspaceMode != "local" {
+	if body.ProjectID != projectID || body.WorkerWorkspaceMode != "local" {
 		t.Fatalf("unexpected response: %#v", body)
+	}
+}
+
+func TestHandleUpdateProjectWorkerWorkspaceKeepsLegacyPathInput(t *testing.T) {
+	settings := &fakeProjectSettingsRepo{}
+	server := New(Config{ProjectSettings: settings})
+
+	response := patchProjectWorkerWorkspace(t, server, `{"projectId":"/repo/app","workerWorkspaceMode":"local"}`)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", response.Code, response.Body.String())
+	}
+	if settings.gotProjectPath != "/repo/app" {
+		t.Fatalf("project path = %q, want /repo/app", settings.gotProjectPath)
 	}
 }
 

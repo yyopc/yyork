@@ -93,7 +93,7 @@ type EngineConfig struct {
 	// DefaultPermissions is the agent approval mode used when
 	// SpawnRequest.Permissions is empty. Defaults to "bypass-permissions"
 	// (the only mode that truly runs unattended). This is the engine-level
-	// fallback; once the user-facing setting lands (web dashboard / CLI /
+	// fallback; once the user-facing setting lands (web app / CLI /
 	// ~/.yyork/config.toml), the config loader populates this field.
 	DefaultPermissions agent.PermissionMode
 
@@ -346,7 +346,7 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 	now := e.now()
 	metadata := map[string]any{}
 	if req.Prompt != "" {
-		// The dashboard renders the prompt as a card's title. Storing it
+		// The app renders the prompt as a card's title. Storing it
 		// in metadata (rather than a real column) keeps the schema lean
 		// and keeps plugin-specific fields beside it.
 		metadata["prompt"] = req.Prompt
@@ -422,6 +422,27 @@ func (e *Engine) EnsureOrchestrator(ctx context.Context, req SpawnRequest) (stor
 	return sess, true, nil
 }
 
+// RemoveProject terminates every yyork session for a project path. This removes
+// the project from the workspace because projects are derived from session rows.
+func (e *Engine) RemoveProject(ctx context.Context, projectPath string) error {
+	if strings.TrimSpace(projectPath) == "" {
+		return errors.New("session.RemoveProject: ProjectPath is required")
+	}
+
+	rows, err := e.repo.ListByProject(ctx, projectPath)
+	if err != nil {
+		return fmt.Errorf("session.RemoveProject: list project sessions: %w", err)
+	}
+
+	for _, row := range rows {
+		if err := e.Stop(ctx, row.ID); err != nil {
+			return fmt.Errorf("session.RemoveProject: stop %s: %w", row.ID, err)
+		}
+	}
+
+	return nil
+}
+
 // Stop terminates the session with the given id: kills its zellij session,
 // removes its worktree, and deletes the row. Stop is idempotent — stopping
 // a session id that has no row returns nil.
@@ -443,7 +464,7 @@ func (e *Engine) Stop(ctx context.Context, id string) error {
 	}
 
 	// Worktree + branch removal is best-effort. We still delete the row so
-	// the user's dashboard reflects reality even if cleanup hiccups.
+	// the user's app reflects reality even if cleanup hiccups.
 	e.removeSessionWorktree(ctx, sess)
 
 	if err := e.repo.Delete(ctx, id); err != nil {

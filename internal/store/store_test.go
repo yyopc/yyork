@@ -248,6 +248,43 @@ func TestProjectSettingsSetGetList(t *testing.T) {
 	}
 }
 
+func TestProjectSettingsSetWorkerAgentPlugin(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := openTestStore(t).ProjectSettings()
+
+	if err := repo.SetWorkerAgentPlugin(ctx, "/tmp/agent-proj", "codex"); err != nil {
+		t.Fatalf("SetWorkerAgentPlugin: %v", err)
+	}
+	got, err := repo.Get(ctx, "/tmp/agent-proj")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.WorkerAgentPlugin != "codex" {
+		t.Fatalf("WorkerAgentPlugin = %q, want codex", got.WorkerAgentPlugin)
+	}
+	if got.WorkerWorkspaceMode != "local" {
+		t.Fatalf("WorkerWorkspaceMode = %q, want local default", got.WorkerWorkspaceMode)
+	}
+
+	if err := repo.SetWorkerWorkspaceMode(ctx, "/tmp/agent-proj", "new-worktree"); err != nil {
+		t.Fatalf("SetWorkerWorkspaceMode: %v", err)
+	}
+	if err := repo.SetWorkerAgentPlugin(ctx, "/tmp/agent-proj", "claude-code"); err != nil {
+		t.Fatalf("SetWorkerAgentPlugin update: %v", err)
+	}
+	updated, err := repo.Get(ctx, "/tmp/agent-proj")
+	if err != nil {
+		t.Fatalf("Get updated: %v", err)
+	}
+	if updated.WorkerAgentPlugin != "claude-code" {
+		t.Fatalf("updated WorkerAgentPlugin = %q, want claude-code", updated.WorkerAgentPlugin)
+	}
+	if updated.WorkerWorkspaceMode != "new-worktree" {
+		t.Fatalf("updated WorkerWorkspaceMode = %q, want new-worktree", updated.WorkerWorkspaceMode)
+	}
+}
+
 func TestInsertRejectsMissingRequiredFields(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

@@ -17,7 +17,7 @@ You are a yyork worker agent working on `{{.ProjectName}}` (`{{.ProjectPath}}`).
   project's package scripts and local instructions, then use the named local URL
   they advertise.
 {{- if eq .ProjectName "yyork" }}
-- For yyork frontend/dashboard work, start the stack from the repo root with
+- For yyork frontend/app work, start the stack from the repo root with
   `pnpm dev`. It runs through `portless run`; after the ready banner appears,
   open `https://yyork.localhost`. Treat `http://127.0.0.1:3000` and
   `http://localhost:3000` as direct Vite/test details unless the task explicitly

@@ -766,6 +766,83 @@ func TestStopLocalWorkspaceDoesNotRemoveProjectWorktree(t *testing.T) {
 	}
 }
 
+func TestRemoveProjectStopsEveryProjectSession(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	ctx := context.Background()
+
+	orchestrator, err := h.engine.Spawn(ctx, session.SpawnRequest{
+		Kind:        session.KindOrchestrator,
+		ProjectPath: "/tmp/proj",
+	})
+	if err != nil {
+		t.Fatalf("spawn orchestrator: %v", err)
+	}
+	worker, err := h.engine.Spawn(ctx, session.SpawnRequest{
+		ProjectPath:   "/tmp/proj",
+		WorkspaceMode: session.WorkerWorkspaceModeNewWorktree,
+	})
+	if err != nil {
+		t.Fatalf("spawn worker: %v", err)
+	}
+	other, err := h.engine.Spawn(ctx, session.SpawnRequest{
+		Kind:        session.KindOrchestrator,
+		ProjectPath: "/tmp/other",
+	})
+	if err != nil {
+		t.Fatalf("spawn other: %v", err)
+	}
+	_ = h.drainEvents(t, 3, 200*time.Millisecond)
+
+	if err := h.engine.RemoveProject(ctx, "/tmp/proj"); err != nil {
+		t.Fatalf("RemoveProject: %v", err)
+	}
+
+	rows, err := h.repo.ListByProject(ctx, "/tmp/proj")
+	if err != nil {
+		t.Fatalf("ListByProject: %v", err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("project rows = %d, want 0", len(rows))
+	}
+	if _, err := h.repo.Get(ctx, other.ID); err != nil {
+		t.Fatalf("other project row missing: %v", err)
+	}
+
+	killed := map[string]bool{}
+	for _, name := range h.provider.killCalls {
+		killed[name] = true
+	}
+	if !killed[orchestrator.ID] || !killed[worker.ID] {
+		t.Fatalf("killCalls = %v, want %q and %q", h.provider.killCalls, orchestrator.ID, worker.ID)
+	}
+	if killed[other.ID] {
+		t.Fatalf("killCalls = %v, did not want %q", h.provider.killCalls, other.ID)
+	}
+	if len(h.worktree.removeCalls) != 1 || h.worktree.removeCalls[0].worktreePath != worker.WorkspacePath {
+		t.Fatalf("worktree removeCalls = %#v, want worker workspace %q", h.worktree.removeCalls, worker.WorkspacePath)
+	}
+
+	events := h.drainEvents(t, 2, 200*time.Millisecond)
+	for _, event := range events {
+		if event.Type != "session.terminated" {
+			t.Fatalf("event type = %q, want session.terminated", event.Type)
+		}
+	}
+}
+
+func TestRemoveProjectWithNoSessionsIsNoop(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+
+	if err := h.engine.RemoveProject(context.Background(), "/tmp/missing"); err != nil {
+		t.Fatalf("RemoveProject missing: %v", err)
+	}
+	if len(h.provider.killCalls) != 0 {
+		t.Fatalf("killCalls = %v, want none", h.provider.killCalls)
+	}
+}
+
 func TestReconcileLiveSessionUnchanged(t *testing.T) {
 	t.Parallel()
 	h := newHarness(t)

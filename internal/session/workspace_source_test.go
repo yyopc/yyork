@@ -46,6 +46,10 @@ func (f fakeProjectSettingsRepo) SetWorkerWorkspaceMode(context.Context, string,
 	return nil
 }
 
+func (f fakeProjectSettingsRepo) SetWorkerAgentPlugin(context.Context, string, string) error {
+	return nil
+}
+
 func TestToLegacySessionTitlePrecedence(t *testing.T) {
 	t.Parallel()
 
@@ -348,5 +352,17 @@ func TestWorkspaceOrdersProjectsByAddedAt(t *testing.T) {
 	}
 	if got := workspace.Projects[1].Name; got != "yyork" {
 		t.Fatalf("projects[1].Name = %q, want %q", got, "yyork")
+	}
+	if got, want := workspace.Projects[0].ID, ProjectID("/Users/me/skills"); got != want {
+		t.Fatalf("projects[0].ID = %q, want %q", got, want)
+	}
+	if got := workspace.Projects[0].Path; got != "/Users/me/skills" {
+		t.Fatalf("projects[0].Path = %q, want /Users/me/skills", got)
+	}
+	if got := workspace.Sessions[1].Project; got != ProjectID("/Users/me/skills") {
+		t.Fatalf("session Project = %q, want opaque project id", got)
+	}
+	if got := workspace.Sessions[1].ProjectPath; got != "/Users/me/skills" {
+		t.Fatalf("session ProjectPath = %q, want /Users/me/skills", got)
 	}
 }

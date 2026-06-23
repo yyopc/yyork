@@ -8,10 +8,11 @@ import (
 	"time"
 )
 
-// ProjectSettings holds project-scoped dashboard and CLI settings.
+// ProjectSettings holds project-scoped app and CLI settings.
 type ProjectSettings struct {
 	ProjectPath         string
 	WorkerWorkspaceMode string
+	WorkerAgentPlugin   string
 	UpdatedAt           time.Time
 }
 
@@ -24,6 +25,7 @@ type ProjectSettingsRepo interface {
 	Get(ctx context.Context, projectPath string) (ProjectSettings, error)
 	List(ctx context.Context) ([]ProjectSettings, error)
 	SetWorkerWorkspaceMode(ctx context.Context, projectPath string, mode string) error
+	SetWorkerAgentPlugin(ctx context.Context, projectPath string, agentPlugin string) error
 }
 
 type projectSettingsRepo struct {
@@ -32,7 +34,7 @@ type projectSettingsRepo struct {
 
 func (r *projectSettingsRepo) Get(ctx context.Context, projectPath string) (ProjectSettings, error) {
 	const q = `
-SELECT project_path, worker_workspace_mode, updated_at
+SELECT project_path, worker_workspace_mode, worker_agent_plugin, updated_at
 FROM project_settings WHERE project_path = ?`
 
 	row := r.db.QueryRowContext(ctx, q, projectPath)
@@ -48,7 +50,7 @@ FROM project_settings WHERE project_path = ?`
 
 func (r *projectSettingsRepo) List(ctx context.Context) ([]ProjectSettings, error) {
 	const q = `
-SELECT project_path, worker_workspace_mode, updated_at
+SELECT project_path, worker_workspace_mode, worker_agent_plugin, updated_at
 FROM project_settings ORDER BY project_path`
 
 	rows, err := r.db.QueryContext(ctx, q)
@@ -93,6 +95,28 @@ ON CONFLICT(project_path) DO UPDATE SET
 	return nil
 }
 
+func (r *projectSettingsRepo) SetWorkerAgentPlugin(ctx context.Context, projectPath string, agentPlugin string) error {
+	if projectPath == "" {
+		return errors.New("store: project_path is required")
+	}
+	if agentPlugin == "" {
+		return errors.New("store: worker_agent_plugin is required")
+	}
+
+	now := time.Now().UTC().Unix()
+	const q = `
+INSERT INTO project_settings (project_path, worker_workspace_mode, worker_agent_plugin, updated_at)
+VALUES (?, 'local', ?, ?)
+ON CONFLICT(project_path) DO UPDATE SET
+    worker_agent_plugin = excluded.worker_agent_plugin,
+    updated_at = excluded.updated_at`
+
+	if _, err := r.db.ExecContext(ctx, q, projectPath, agentPlugin, now); err != nil {
+		return fmt.Errorf("set project worker agent plugin: %w", err)
+	}
+	return nil
+}
+
 func scanProjectSettings(scanner rowScanner) (ProjectSettings, error) {
 	var (
 		settings      ProjectSettings
@@ -101,6 +125,7 @@ func scanProjectSettings(scanner rowScanner) (ProjectSettings, error) {
 	if err := scanner.Scan(
 		&settings.ProjectPath,
 		&settings.WorkerWorkspaceMode,
+		&settings.WorkerAgentPlugin,
 		&updatedAtUnix,
 	); err != nil {
 		return ProjectSettings{}, err

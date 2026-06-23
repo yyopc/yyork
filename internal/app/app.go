@@ -30,21 +30,21 @@ type Config struct {
 	OpenBrowser bool
 	ProjectPath string
 
-	// WebDir is a filesystem path the server serves the dashboard from.
+	// WebDir is a filesystem path the server serves the app from.
 	// Used in development; takes priority over WebFS when set.
 	WebDir string
 
-	// WebFS is an embedded dashboard filesystem (typically populated by
+	// WebFS is an embedded app filesystem (typically populated by
 	// cmd/yyork via //go:embed). Used in production single-binary
 	// builds. If WebDir is empty and WebFS contains an index.html, the
-	// server serves the dashboard from the embed.
+	// server serves the app from the embed.
 	WebFS fs.FS
 
-	// DashboardDevOrigin is the live dashboard origin (the Vite dev
+	// DashboardDevOrigin is the live app origin (the Vite dev
 	// server) that the server proxies self-target browser previews to
 	// instead of serving WebDir/WebFS in-process. `yyork dev` sets it so
 	// the in-app browser shows the running source with HMR; leave empty in
-	// production, where the embedded assets are the dashboard.
+	// production, where the embedded assets are the app.
 	DashboardDevOrigin string
 
 	// OnListen, when set, is called once with the bound listener address
@@ -93,7 +93,7 @@ func Run(ctx context.Context, cfg Config) error {
 
 	// Sweep any stale rows whose zellij sessions no longer exist (typical
 	// after a Mac reboot or a manual `zellij kill-session`). This runs
-	// before the HTTP listener accepts so the dashboard's first read sees
+	// before the HTTP listener accepts so the app's first read sees
 	// an accurate state.
 	if err := engine.ReconcileAll(ctx); err != nil {
 		slog.Warn("session reconcile-all on boot failed", "error", err)
@@ -148,7 +148,7 @@ func Run(ctx context.Context, cfg Config) error {
 		WebDir:             cfg.WebDir,
 		WebFS:              cfg.WebFS,
 		DashboardDevOrigin: cfg.DashboardDevOrigin,
-		// The dashboard reads yyork's own session store. Orchestrators and
+		// The app reads yyork's own session store. Orchestrators and
 		// workers are both yyork-owned rows backed by Zellij sessions.
 		WorkspaceSource: session.NewStoreWorkspaceSource(dataStore.Sessions(), dataStore.ProjectSettings()),
 		Sessions:        dataStore.Sessions(),
@@ -194,7 +194,7 @@ func Run(ctx context.Context, cfg Config) error {
 
 	if cfg.OpenBrowser {
 		if err := openURL(url); err != nil {
-			slog.Warn("failed to open dashboard", "url", url, "error", err)
+			slog.Warn("failed to open app", "url", url, "error", err)
 		}
 	}
 

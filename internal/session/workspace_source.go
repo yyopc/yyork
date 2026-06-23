@@ -60,10 +60,12 @@ func (s *StoreWorkspaceSource) Workspace(ctx context.Context) (Workspace, error)
 	activeProjectID := ""
 
 	for _, row := range rows {
+		projectID := ProjectID(row.ProjectPath)
 		project := Project{
-			ID:                  row.ProjectPath,
+			ID:                  projectID,
 			Name:                row.ProjectName,
 			CWD:                 row.ProjectPath,
+			Path:                row.ProjectPath,
 			WorkerWorkspaceMode: projectWorkspaceModes[row.ProjectPath],
 		}
 		if project.WorkerWorkspaceMode == "" {
@@ -175,7 +177,8 @@ func toLegacySession(row store.Session, configPath string) Session {
 		Description:       recap,
 		Kind:              kind,
 		Metadata:          metadataJSON,
-		Project:           row.ProjectPath,
+		Project:           ProjectID(row.ProjectPath),
+		ProjectPath:       row.ProjectPath,
 		Recap:             recap,
 		State:             rowState(row.Metadata),
 		TerminalKey:       row.ZellijSession,
