@@ -26,61 +26,17 @@ yyork is a local app for supervising multiple AI coding agents at once.
 ## Install
 
 ```bash
+# npm
 npm i -g @yyopc/yyork
+
+# Nix flakes
+nix profile add github:yyopc/yyork
 ```
 
 ## Basic flow
 
 ```bash
 yyork ~/Projects/my-app
-
-# optional/manual worker spawn
-yyork spawn --type worker --prompt "add a health-check endpoint"
-yyork session list
-yyork stop <sessionId>
 ```
-
-`yyork ~/Projects/my-app` starts the app and ensures the project has a
-yyork-owned orchestrator in its own worktree and Zellij session. That
-orchestrator can delegate workers with `yyork spawn --type worker --prompt ...`;
-nested spawns keep targeting the original project.
-Session state stays in `~/.yyork/state.db`, with no external orchestrator
-runtime required.
-
-## Development
-
-```bash
-nix develop
-# or, with direnv:
-direnv allow
-
-pnpm install
-pnpm dev
-pnpm test
-```
-
-The Nix dev shell supplies the repo-local Go, Node.js, pnpm, and helper tooling.
-Inside that shell, `yyork` is a development shortcut for `pnpm dev`.
-
-## Release
-
-```bash
-nix develop
-pnpm release:check
-```
-
-`release:check` builds the app, stages the native package for the current
-OS/CPU, packs the thin `@yyopc/yyork` wrapper, installs both into an isolated
-temp prefix with `go` intentionally unavailable, and runs the installed
-`yyork` binary. The native package step fetches and caches the pinned Zellij
-binary under `third_party/zellij/<platform>/` before copying it into the
-tarball.
-
-Distribution builds run in GitHub Actions. The release workflow uses
-GoReleaser to build stripped platform-specific `yyork` archives and publish
-the GitHub release assets. A dependent npm packaging job wraps those exact
-archives into native npm packages with bundled Zellij, smoke-tests install with
-`go` unavailable, uploads the npm tarballs, and publishes the native packages
-before the `@yyopc/yyork` wrapper.
 
 YYOIT © [yyopc](https://github.com/yyopc)
