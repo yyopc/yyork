@@ -29,16 +29,6 @@ yyork is a local app for supervising multiple AI coding agents at once.
 npm i -g @yyopc/yyork
 ```
 
-The npm package installs a prebuilt native `yyork` binary for your OS/CPU
-through optional platform packages such as `@yyopc/yyork-darwin-arm64` and
-`@yyopc/yyork-linux-x64`. It also installs the bundled `yyork-cli` agent skill
-into `~/.agents/skills/yyork-cli` and runs `yyork doctor` as a warning-only
-postinstall check.
-
-Requirements: npm/Node.js for the npm launcher, plus git and at least one
-supported agent CLI on your `PATH` to run sessions. Native packages carry a
-pinned bundled Zellij runtime for yyork's private session management.
-
 ## Basic flow
 
 ```bash
