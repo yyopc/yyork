@@ -1,5 +1,5 @@
 name: Setup Playwright
-description: Cache and install Playwright browsers with system dependencies
+description: Install Playwright system dependencies and configure browser executable
 
 inputs:
   browsers:
@@ -10,36 +10,20 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Cache Playwright browsers
-      id: playwright-cache
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/ms-playwright
-        key: ${{ runner.os }}-playwright-${{ inputs.browsers }}-headless-shell-${{ hashFiles('**/pnpm-lock.yaml') }}
-
-    - name: Install Playwright browsers
-      if: steps.playwright-cache.outputs.cache-hit != 'true'
-      shell: bash
-      env:
-        BROWSERS: ${{ inputs.browsers }}
-      run: pnpm --filter @yyork/web exec playwright install $BROWSERS --with-deps --only-shell
-
     - name: Install Playwright system deps
-      if: steps.playwright-cache.outputs.cache-hit == 'true'
       shell: bash
       env:
         BROWSERS: ${{ inputs.browsers }}
       run: pnpm --filter @yyork/web exec playwright install-deps $BROWSERS
 
-    - name: Export Chromium executable path
+    - name: Use system Chrome for Chromium
       if: contains(inputs.browsers, 'chromium')
       shell: bash
       run: |
-        playwright_cache="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
-        chromium_executable="$(find "$playwright_cache" -path '*/chromium_headless_shell-*/*/chrome-headless-shell' -type f | head -n 1)"
+        chromium_executable="$(command -v google-chrome || true)"
         if [[ -z "$chromium_executable" ]]; then
-          echo "Chromium headless shell executable not found in $playwright_cache" >&2
-          find "$playwright_cache" -maxdepth 4 -type f >&2
+          echo "google-chrome was not found on the runner" >&2
           exit 1
         fi
+        "$chromium_executable" --version
         echo "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$chromium_executable" >> "$GITHUB_ENV"
