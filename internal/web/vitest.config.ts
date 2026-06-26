@@ -4,6 +4,7 @@ import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 const resolve = (filePath: string) => path.resolve(__dirname, filePath);
+const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 
 export default defineConfig({
   plugins: [react()],
@@ -15,6 +16,9 @@ export default defineConfig({
           browser: {
             enabled: true,
             provider: playwright({
+              launchOptions: chromiumExecutablePath
+                ? { executablePath: chromiumExecutablePath }
+                : undefined,
               contextOptions: {
                 permissions: ['clipboard-write', 'clipboard-read'],
               },
