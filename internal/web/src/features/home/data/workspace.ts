@@ -348,3 +348,40 @@ export function renameSessionMutationOptions() {
     },
   };
 }
+
+// markSessionDone transitions an attended Prompt worker session into Done
+// without stopping or hiding it. The backend validates the current state and
+// emits session.updated so all dashboards converge through the normal refresh
+// path.
+export function markSessionDoneMutationOptions() {
+  return {
+    mutationFn: async (input: { projectId?: string; sessionId: string }) => {
+      const params = new URLSearchParams();
+      if (input.projectId) {
+        params.set('project', input.projectId);
+      }
+      const response = await fetch(
+        `/api/sessions/${encodeURIComponent(input.sessionId)}${
+          params.size > 0 ? `?${params.toString()}` : ''
+        }`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ state: 'done' }),
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`Failed to mark session done: ${response.status}`);
+      }
+
+      const contentType = response.headers.get('content-type') ?? '';
+      if (!contentType.includes('application/json')) {
+        throw new Error(
+          `Failed to mark session done: expected JSON, got ${contentType || 'unknown content type'}`
+        );
+      }
+
+      await response.json();
+    },
+  };
+}

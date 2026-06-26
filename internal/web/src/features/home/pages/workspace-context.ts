@@ -51,9 +51,15 @@ export interface WorkspaceContextValue {
   onFirstRunProjectSetupSelectionChange: (
     selection: ProjectSetupHarnessSelection
   ) => void;
+  onTerminalSessionDelete?: (selectionKey: string, label: string) => void;
+  onTerminalSessionHide?: (selectionKey: string, label: string) => void;
+  onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
+  onTerminalSessionPinToggle?: (selectionKey: string) => void;
+  onTerminalSessionRename?: (selectionKey: string, label: string) => void;
   onWorkerWorkspaceModeChange: (mode: WorkerWorkspaceMode) => void;
   onWorkerSessionSelect: (selectionKey: string) => void;
   onWorkspaceRefresh: () => void;
+  pinnedTerminalSessionKeys?: string[];
   selectedProject?: ProjectOrchestrator;
   selectedTerminalSession?: WorkerSession;
   selectedTerminalSessionKey?: string;

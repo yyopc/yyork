@@ -81,6 +81,8 @@ const promptCodexSession = {
   id: 'session-ao-3',
   metadata: JSON.stringify({
     activity: 'waiting-for-input',
+    lastActivityAt: '2026-06-07T10:18:00.000Z',
+    lastAssistantMessageAt: '2026-06-07T10:18:00.000Z',
     prompt: 'Should we split the PR before landing?',
     recap: 'Waiting for your answer on the split strategy.',
     title: 'Split PR decision',
@@ -94,6 +96,11 @@ const promptCodexSession = {
 const promptClaudeSession = {
   ...workingClaudeSession,
   id: 'session-ao-4',
+  metadata: JSON.stringify({
+    ...JSON.parse(workingClaudeSession.metadata),
+    lastActivityAt: '2026-06-07T10:14:00.000Z',
+    lastAssistantMessageAt: '2026-06-07T10:14:00.000Z',
+  }),
   state: 'prompt',
   workerId: '[AO-4]',
 } satisfies WorkerSession;

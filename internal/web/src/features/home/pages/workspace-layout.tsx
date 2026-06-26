@@ -65,6 +65,7 @@ import {
   fallbackHomeWorkspace,
   homeWorkspaceQueryKey,
   homeWorkspaceQueryOptions,
+  markSessionDoneMutationOptions,
   patchWorkspaceWithAddedProject,
   patchWorkspaceWithRemovedProject,
   removeProjectMutationOptions,
@@ -97,6 +98,7 @@ import {
   getTerminalSession,
   getTerminalSessionForRoute,
   getWorkerSessionGroups,
+  getWorkerSessionNavLabel,
   getWorkerSessionSelectionKey,
   type ProjectOrchestrator,
   terminalSessionIdRequiresProject,
@@ -106,6 +108,10 @@ import {
   workerSessionStates,
   type WorkerWorkspaceMode,
 } from '@/features/home/domain/session-workspace';
+import {
+  getSeenWorkerSessionResponsesUpdate,
+  getWorkerSessionResponseDeliveredAt,
+} from '@/features/home/domain/worker-response-attention';
 import {
   WorkspaceContext,
   type WorkspaceContextValue,
@@ -266,6 +272,7 @@ function useWorkspaceLayout() {
     pinnedProjectIds,
     pinnedTerminalSessionKeys,
     projectNameOverrides,
+    seenWorkerSessionResponses,
     canvasReview: canvasReviewPreferences,
     sidebarOpen,
     sidebarWidth,
@@ -288,6 +295,9 @@ function useWorkspaceLayout() {
   const { sweep } = useGlimm();
   const { mutateAsync: renameSession } = useMutation(
     renameSessionMutationOptions()
+  );
+  const { mutateAsync: markSessionDone } = useMutation(
+    markSessionDoneMutationOptions()
   );
   const { mutateAsync: createProject } = useMutation(
     createProjectMutationOptions()
@@ -409,8 +419,14 @@ function useWorkspaceLayout() {
   const boardSessions = sessions.filter(
     (session) => session.project === selectedProjectId
   );
-  const kanbanColumns = getKanbanColumns(boardSessions);
-  const workerSessionGroups = getWorkerSessionGroups(sessions);
+  const kanbanColumns = getKanbanColumns(
+    boardSessions,
+    seenWorkerSessionResponses
+  );
+  const workerSessionGroups = getWorkerSessionGroups(
+    sessions,
+    seenWorkerSessionResponses
+  );
   const workspaceState: WorkspacePanelState = workspaceQueryIsPending
     ? 'loading'
     : workspaceQueryIsError
@@ -689,6 +705,29 @@ function useWorkspaceLayout() {
             error instanceof Error
               ? error.message
               : 'The session could not be renamed.',
+        });
+      });
+  };
+
+  const handleTerminalSessionMarkDone = (selectionKey: string) => {
+    const sessionId = getSessionIdFromSelectionKey(selectionKey);
+    if (!sessionId) {
+      return;
+    }
+    const projectId = getProjectIdFromSelectionKey(selectionKey);
+
+    markSessionDone({ sessionId, projectId })
+      .then(() => {
+        void queryClient.invalidateQueries({
+          queryKey: homeWorkspaceQueryKey,
+        });
+      })
+      .catch((error: unknown) => {
+        toast.error('Could not mark session done', {
+          description:
+            error instanceof Error
+              ? error.message
+              : 'The session could not be moved to Done.',
         });
       });
   };
@@ -1065,15 +1104,33 @@ function useWorkspaceLayout() {
       return;
     }
 
+    const preferenceUpdate: Partial<HomeWorkspacePreferences> = {};
+
     if (targetProjectId) {
-      updateHomeWorkspacePreferences({
-        openProjectIds: updateOpenIds(
-          openProjectIds,
-          targetProjectId,
-          true,
-          defaultOpenProjectIds
-        ),
-      });
+      preferenceUpdate.openProjectIds = updateOpenIds(
+        openProjectIds,
+        targetProjectId,
+        true,
+        defaultOpenProjectIds
+      );
+    }
+
+    if (targetSession && targetSession.kind !== 'orchestrator') {
+      const nextSeenWorkerSessionResponses =
+        getSeenWorkerSessionResponsesUpdate(
+          seenWorkerSessionResponses,
+          selectionKey,
+          getWorkerSessionResponseDeliveredAt(targetSession)
+        );
+
+      if (nextSeenWorkerSessionResponses !== seenWorkerSessionResponses) {
+        preferenceUpdate.seenWorkerSessionResponses =
+          nextSeenWorkerSessionResponses;
+      }
+    }
+
+    if (Object.keys(preferenceUpdate).length > 0) {
+      updateHomeWorkspacePreferences(preferenceUpdate);
     }
 
     void navigate({
@@ -1086,6 +1143,42 @@ function useWorkspaceLayout() {
           : {},
     });
   };
+
+  useEffect(() => {
+    if (
+      !selectedTerminalSession ||
+      !selectedTerminalSessionKey ||
+      selectedTerminalSession.kind === 'orchestrator'
+    ) {
+      return;
+    }
+
+    const nextSeenWorkerSessionResponses = getSeenWorkerSessionResponsesUpdate(
+      seenWorkerSessionResponses,
+      selectedTerminalSessionKey,
+      getWorkerSessionResponseDeliveredAt(selectedTerminalSession)
+    );
+
+    if (nextSeenWorkerSessionResponses === seenWorkerSessionResponses) {
+      return;
+    }
+
+    const nextPreferences = {
+      ...homeWorkspacePreferences,
+      seenWorkerSessionResponses: nextSeenWorkerSessionResponses,
+    };
+
+    writeHomeWorkspacePreferences(nextPreferences);
+    dispatchLayout({
+      homeWorkspacePreferences: nextPreferences,
+      type: 'workspace-preferences',
+    });
+  }, [
+    homeWorkspacePreferences,
+    seenWorkerSessionResponses,
+    selectedTerminalSession,
+    selectedTerminalSessionKey,
+  ]);
 
   const workspaceContextValue: WorkspaceContextValue = {
     canvasAvailable: isTerminalRoute,
@@ -1117,9 +1210,15 @@ function useWorkspaceLayout() {
     stagedProjectPath,
     projectSetupStarting,
     projectSetupUsesDialog,
+    onTerminalSessionDelete: handleTerminalSessionDelete,
+    onTerminalSessionHide: handleTerminalSessionHide,
+    onTerminalSessionMarkDone: handleTerminalSessionMarkDone,
+    onTerminalSessionPinToggle: handleTerminalSessionPinToggle,
+    onTerminalSessionRename: handleTerminalSessionRename,
     onWorkerWorkspaceModeChange: handleWorkerWorkspaceModeChange,
     onWorkerSessionSelect: handleTerminalSessionOpen,
     onWorkspaceRefresh: () => void refetchWorkspace(),
+    pinnedTerminalSessionKeys,
     selectedProject,
     selectedTerminalSession,
     selectedTerminalSessionKey,
@@ -1150,6 +1249,7 @@ function useWorkspaceLayout() {
     handleSidebarWidthChange,
     handleTerminalSessionDelete,
     handleTerminalSessionHide,
+    handleTerminalSessionMarkDone,
     handleTerminalSessionOpen,
     handleTerminalSessionPinToggle,
     handleTerminalSessionRename,
@@ -1207,6 +1307,7 @@ function WorkspaceLayoutView(props: ReturnType<typeof useWorkspaceLayout>) {
             onProjectRename={props.handleProjectRename}
             onTerminalSessionDelete={props.handleTerminalSessionDelete}
             onTerminalSessionHide={props.handleTerminalSessionHide}
+            onTerminalSessionMarkDone={props.handleTerminalSessionMarkDone}
             onTerminalSessionPinToggle={props.handleTerminalSessionPinToggle}
             onTerminalSessionRename={props.handleTerminalSessionRename}
             onWorkerSessionGroupOpenChange={
@@ -1288,7 +1389,7 @@ function WorkspaceLayoutView(props: ReturnType<typeof useWorkspaceLayout>) {
               const sessionSuffix =
                 session.kind === 'orchestrator'
                   ? 'orchestrator'
-                  : session.title.trim() || `new agent: ${session.id}`;
+                  : getWorkerSessionNavLabel(session);
               const label = `${projectName} / ${sessionSuffix}`;
 
               return (

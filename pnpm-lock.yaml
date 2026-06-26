@@ -267,6 +267,9 @@ importers:
       remeda:
         specifier: 2.33.4
         version: 2.33.4
+      slot-text:
+        specifier: ^0.3.1
+        version: 0.3.1(react@19.3.0-canary-d5736f09-20260507)(solid-js@1.9.13)
       sonner:
         specifier: 2.0.7
         version: 2.0.7(react-dom@19.3.0-canary-d5736f09-20260507(react@19.3.0-canary-d5736f09-20260507))(react@19.3.0-canary-d5736f09-20260507)
@@ -6740,6 +6743,23 @@ packages:
 
   sisteransi@1.0.5:
     resolution: {integrity: sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg==}
+
+  slot-text@0.3.1:
+    resolution: {integrity: sha512-gDHfMnFrz4CxqD7H8F3CqWVGYwTbgjpJiIH1bQg1Tj60TzgnLe47vuQDHNeyg4zbhsEAPFvUp05nG7lKsboCVw==}
+    peerDependencies:
+      react: '>=18 <20'
+      solid-js: '>=1.8 <2'
+      svelte: '>=4 <6'
+      vue: '>=3.4 <4'
+    peerDependenciesMeta:
+      react:
+        optional: true
+      solid-js:
+        optional: true
+      svelte:
+        optional: true
+      vue:
+        optional: true
 
   snake-case@3.0.4:
     resolution: {integrity: sha512-LAOh4z89bGQvl9pFfNF8V146i7o7/CqFPbqzYgP+yYzDIDeS9HaNFtXABamRW+AQzEVODcvE79ljJ+8a9YSdMg==}
@@ -14315,6 +14335,11 @@ snapshots:
       totalist: 3.0.1
 
   sisteransi@1.0.5: {}
+
+  slot-text@0.3.1(react@19.3.0-canary-d5736f09-20260507)(solid-js@1.9.13):
+    optionalDependencies:
+      react: 19.3.0-canary-d5736f09-20260507
+      solid-js: 1.9.13
 
   snake-case@3.0.4:
     dependencies:

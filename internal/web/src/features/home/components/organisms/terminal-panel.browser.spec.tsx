@@ -196,9 +196,10 @@ test('keeps forwarding wheel reports to the re-pointed socket after a session sw
 // accumulated SGR reports through onData → the socket; the panel used to bind
 // a second, one-report-per-DOM-event listener on the same element (it existed
 // for the long-gone wterm renderer, which had no mouse-protocol engine). One
-// trackpad flick became hundreds of reports — and over a Claude Code pane,
-// zellij's wheel→arrow translation turned that into a burst of prompt-history
-// jumps. Nothing besides xterm itself may forward wheel events.
+// trackpad flick became hundreds of reports. In alternate-screen agent TUIs,
+// forwarded wheel or arrow input can become prompt-history jumps instead of
+// browser-terminal scrolling. Nothing besides xterm itself may forward wheel
+// events.
 test('does not double-forward wheel events while mouse tracking is active', async () => {
   const session = makeSession('xterm');
   const { rerender } = await render(<TerminalPanel session={session} />);

@@ -418,7 +418,7 @@ test('a failed bridge storage clear surfaces a toast and still reloads', async (
   });
 });
 
-test('browser preview iframe runs scripts without same-origin sandbox access', async () => {
+test('browser preview iframe allows same-origin scripts for local app modules', async () => {
   const fetchMock = previewTargetsFetchMock();
   vi.stubGlobal('fetch', fetchMock);
 
@@ -430,7 +430,7 @@ test('browser preview iframe runs scripts without same-origin sandbox access', a
   const sandboxTokens = iframe.getAttribute('sandbox')?.split(' ') ?? [];
 
   expect(sandboxTokens).toContain('allow-scripts');
-  expect(sandboxTokens).not.toContain('allow-same-origin');
+  expect(sandboxTokens).toContain('allow-same-origin');
 });
 
 test('a frame-originated return to the previous entry moves the index back', async () => {

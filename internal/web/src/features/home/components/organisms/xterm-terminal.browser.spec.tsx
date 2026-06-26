@@ -2,7 +2,7 @@ import type { Terminal as XTerm } from '@xterm/xterm';
 import { afterEach, expect, test, vi } from 'vitest';
 import { render } from 'vitest-browser-react';
 
-import { XTermTerminal } from './xterm-terminal';
+import { terminalScrollbackRows, XTermTerminal } from './xterm-terminal';
 
 const exposedTerminal = () =>
   (window as Window & { __yyorkTerminal?: XTerm }).__yyorkTerminal;
@@ -30,6 +30,9 @@ const waitForTerminal = () =>
     return term as XTerm;
   }, 5_000);
 
+const bufferLineText = (term: XTerm, index: number) =>
+  term.buffer.active.getLine(index)?.translateToString(true);
+
 function expectXtermCompatibleColor(value: string | undefined) {
   expect(value).toBeTruthy();
   expect(value).not.toMatch(/\b(?:oklch|color-mix|var)\b/i);
@@ -44,6 +47,38 @@ test('uses xterm-compatible theme colors from app styles', async () => {
   expectXtermCompatibleColor(term.options.theme?.cursor);
   expectXtermCompatibleColor(term.options.theme?.cursorAccent);
   expectXtermCompatibleColor(term.options.theme?.selectionBackground);
+});
+
+test('keeps browser scrollback for inline terminal output', async () => {
+  await render(<XTermTerminal aria-label="terminal" cols={24} rows={5} />);
+  const term = await waitForTerminal();
+  const lines = Array.from({ length: 12 }, (_, index) => `line-${index + 1}`);
+
+  await new Promise<void>((resolve) => {
+    term.write(`${lines.join('\r\n')}\r\nprompt$ `, resolve);
+  });
+
+  expect(term.options.scrollback).toBeGreaterThan(0);
+  expect(term.buffer.active.baseY).toBeGreaterThan(0);
+  expect(term.buffer.active.length).toBeGreaterThan(term.rows);
+});
+
+test('retains the beginning of long inline worker transcripts', async () => {
+  await render(<XTermTerminal aria-label="terminal" cols={24} rows={5} />);
+  const term = await waitForTerminal();
+  const lines = Array.from(
+    { length: 10_050 },
+    (_, index) => `line-${String(index + 1).padStart(5, '0')}`
+  );
+
+  await new Promise<void>((resolve) => {
+    term.write(`${lines.join('\r\n')}\r\n`, resolve);
+  });
+
+  expect(term.options.scrollback).toBe(terminalScrollbackRows);
+  expect(terminalScrollbackRows).toBeGreaterThanOrEqual(100_000);
+  expect(bufferLineText(term, 0)).toBe('line-00001');
+  expect(term.buffer.active.baseY).toBeGreaterThan(10_000);
 });
 
 // Regression: toggling the app theme recolored the rest of the UI but left the

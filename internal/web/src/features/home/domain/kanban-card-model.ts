@@ -3,16 +3,33 @@ import type {
   WorkerSession,
   WorkerSessionState,
 } from '@/features/home/domain/session-workspace';
+import {
+  formatToolCallBulletinText,
+  isRunningToolCallBulletin,
+  type ParsedToolCall,
+  parseToolCallBulletin,
+} from '@/features/home/domain/tool-call-bulletin';
+import {
+  getWorkerSessionResponseAttention,
+  type SeenWorkerSessionResponses,
+} from '@/features/home/domain/worker-response-attention';
 
-export const sessionActivityStates = [
+export type { ParsedToolCall } from '@/features/home/domain/tool-call-bulletin';
+
+export type SessionActivity =
+  | 'working'
+  | 'waiting-for-input'
+  | 'idle'
+  | 'error'
+  | 'done';
+
+export const sessionActivityStates: readonly SessionActivity[] = [
   'working',
   'waiting-for-input',
   'idle',
   'error',
   'done',
-] as const;
-
-export type SessionActivity = (typeof sessionActivityStates)[number];
+];
 
 const sessionActivityLabels = {
   working: 'Working',
@@ -28,19 +45,39 @@ const agentLabels: Record<string, string> = {
   codex: 'Codex',
 };
 
+export const KANBAN_CARD_RECAP_PREVIEW_MAX_LEN = 120;
+
 export type WorkerSessionRecord = WorkerSession & {
   createdAt?: string;
   updatedAt?: string;
 };
 
-export function toKanbanCardView(session: WorkerSessionRecord): KanbanCardData {
+export function toKanbanCardView(
+  session: WorkerSessionRecord,
+  seenResponses?: SeenWorkerSessionResponses
+): KanbanCardData {
   const metadata = parseSessionMetadata(session.metadata);
   const activity = resolveSessionActivity(metadata, session.state);
   const task = resolveTaskTitle(session, metadata);
   const recap = resolveRecap(session);
-  const descriptionLines = resolveDescriptionLines(session, metadata, recap);
+  const recapPreview = compactCardText(
+    recap,
+    KANBAN_CARD_RECAP_PREVIEW_MAX_LEN
+  );
+  const descriptionLines = resolveDescriptionLines(
+    session,
+    metadata,
+    recapPreview
+  );
   const description = descriptionLines.join('\n');
+  const activeToolCall = resolveActiveToolCall(descriptionLines);
+  const activeToolCallLabel = activeToolCall
+    ? formatToolCallBulletinText(activeToolCall)
+    : undefined;
+  const selectionKey = `${encodeURIComponent(session.project)}:${encodeURIComponent(session.id)}`;
   return {
+    activeToolCall,
+    activeToolCallLabel,
     activity,
     activityLabel: sessionActivityLabels[activity],
     agent: session.agent,
@@ -54,8 +91,15 @@ export function toKanbanCardView(session: WorkerSessionRecord): KanbanCardData {
     metadata: session.metadata,
     project: session.project,
     recap,
+    recapPreview,
+    responseAttention: getWorkerSessionResponseAttention(
+      session,
+      selectionKey,
+      seenResponses
+    ),
     selected: session.selected,
-    selectionKey: `${encodeURIComponent(session.project)}:${encodeURIComponent(session.id)}`,
+    selectionKey,
+    state: session.state,
     shortId: formatShortSessionId(session.workerId || session.id),
     task,
     title: task,
@@ -113,14 +157,14 @@ function resolveTaskTitle(
   session: WorkerSession,
   metadata: Record<string, unknown>
 ): string {
+  const displayName = readMetadataString(metadata, 'displayName');
+  if (displayName) {
+    return displayName;
+  }
+
   const title = readMetadataString(metadata, 'title');
   if (title) {
     return title;
-  }
-
-  const prompt = readMetadataString(metadata, 'prompt');
-  if (prompt) {
-    return prompt;
   }
 
   if (session.title.trim()) {
@@ -131,7 +175,7 @@ function resolveTaskTitle(
     return session.description;
   }
 
-  return 'Untitled session';
+  return session.kind === 'orchestrator' ? 'Orchestrator' : 'New worker agent';
 }
 
 function resolveRecap(session: WorkerSession): string {
@@ -146,27 +190,27 @@ function resolveRecap(session: WorkerSession): string {
 function resolveDescriptionLines(
   session: WorkerSession,
   metadata: Record<string, unknown>,
-  recap: string
+  recapPreview: string
 ): string[] {
   switch (session.state) {
     case 'working':
-      return resolveWorkingDescriptionLines(metadata, recap);
+      return resolveWorkingDescriptionLines(metadata, recapPreview);
     case 'prompt':
-      return [recap || 'Ready for your next prompt.'];
+      return [recapPreview || 'Ready for your next prompt.'];
     case 'triage':
       return [
         readMetadataString(metadata, 'triageReason') ||
-          recap ||
+          recapPreview ||
           'Needs triage before it can continue.',
       ];
     case 'done':
       return [
         readMetadataString(metadata, 'doneSummary') ||
-          recap ||
+          recapPreview ||
           'Session finished.',
       ];
     default:
-      return recap ? [recap] : [];
+      return recapPreview ? [recapPreview] : [];
   }
 }
 
@@ -175,16 +219,14 @@ function resolveWorkingDescriptionLines(
   recap: string
 ): string[] {
   const currentToolCall = readMetadataString(metadata, 'currentToolCall');
-  const toolBulletins = readMetadataStringArray(metadata, 'toolCallBulletins');
-  const toolLines = currentToolCall
-    ? [
-        currentToolCall,
-        ...toolBulletins.filter((line) => line !== currentToolCall),
-      ]
-    : toolBulletins;
+  if (currentToolCall) {
+    return [currentToolCall];
+  }
 
-  if (toolLines.length > 0) {
-    return limitDescriptionLines(toolLines);
+  const toolBulletins = readMetadataStringArray(metadata, 'toolCallBulletins');
+  const runningToolLines = toolBulletins.filter(isRunningToolCallBulletin);
+  if (runningToolLines.length > 0) {
+    return limitDescriptionLines(runningToolLines);
   }
 
   const activityDetail = readMetadataString(metadata, 'activityDetail');
@@ -193,6 +235,18 @@ function resolveWorkingDescriptionLines(
   }
 
   return [recap || 'Working on assigned task.'];
+}
+
+function resolveActiveToolCall(
+  descriptionLines: string[]
+): ParsedToolCall | undefined {
+  for (const line of descriptionLines) {
+    const parsed = parseToolCallBulletin(line);
+    if (parsed?.running) {
+      return parsed;
+    }
+  }
+  return undefined;
 }
 
 function resolveElapsedMs(
@@ -251,6 +305,17 @@ function readMetadataStringArray(
 
 function limitDescriptionLines(lines: string[]): string[] {
   return lines.slice(0, 3);
+}
+
+function compactCardText(text: string, maxLen: number): string {
+  const compact = text.trim().replace(/\s+/g, ' ');
+  if (maxLen <= 0 || compact.length <= maxLen) {
+    return compact;
+  }
+  if (maxLen <= 3) {
+    return compact.slice(0, maxLen);
+  }
+  return compact.slice(0, maxLen - 3).trimEnd() + '...';
 }
 
 function readMetadataTimestamp(

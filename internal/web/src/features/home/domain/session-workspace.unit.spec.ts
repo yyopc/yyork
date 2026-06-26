@@ -41,7 +41,7 @@ const workspace = {
       description: 'Fix pending review feedback.',
       id: 'session-ao-1',
       issue: '[Issue #23]',
-      metadata: '[codex/metadata]',
+      metadata: JSON.stringify({ title: 'Address review feedback' }),
       project: 'agent-orchestrator',
       recap: 'Fix pending review feedback.',
       selected: true,
@@ -54,7 +54,7 @@ const workspace = {
       description: 'Waiting for a maintainer decision.',
       id: 'session-ao-2',
       issue: '[Issue #24]',
-      metadata: '[claude/metadata]',
+      metadata: JSON.stringify({ title: 'Clarify release gate' }),
       project: 'agent-orchestrator',
       recap: 'Waiting for a maintainer decision.',
       state: 'triage',
@@ -113,6 +113,20 @@ describe('session workspace projection', () => {
     ]);
   });
 
+  it('sorts unread prompt cards before seen prompt cards by delivered recency', () => {
+    const promptSessions = [
+      promptSession('seen-older', '2026-06-07T10:05:00.000Z'),
+      promptSession('unread-older', '2026-06-07T10:10:00.000Z'),
+      promptSession('unread-newer', '2026-06-07T10:15:00.000Z'),
+    ];
+
+    expect(
+      getKanbanColumns(promptSessions, {
+        'agent-orchestrator:seen-older': '2026-06-07T10:05:00.000Z',
+      })[1]!.cards.map((card) => card.id)
+    ).toEqual(['unread-newer', 'unread-older', 'seen-older']);
+  });
+
   it('projects worker sessions into sidebar groups', () => {
     expect(getWorkerSessionGroups(workspace.sessions)).toEqual([
       {
@@ -126,8 +140,12 @@ describe('session workspace projection', () => {
             kind: undefined,
             label: 'Address review feedback',
             project: 'agent-orchestrator',
+            responseAttention: undefined,
             selected: true,
             selectionKey: 'agent-orchestrator:session-ao-1',
+            state: 'working',
+            terminalSupported: undefined,
+            titlePending: false,
             workerId: '[AO-1]',
           },
         ],
@@ -144,8 +162,12 @@ describe('session workspace projection', () => {
             kind: undefined,
             label: 'Clarify release gate',
             project: 'agent-orchestrator',
+            responseAttention: undefined,
             selected: undefined,
             selectionKey: 'agent-orchestrator:session-ao-2',
+            state: 'triage',
+            terminalSupported: undefined,
+            titlePending: false,
             workerId: '[AO-2]',
           },
         ],
@@ -154,19 +176,99 @@ describe('session workspace projection', () => {
     ]);
   });
 
+  it('sorts unread prompt sidebar sessions before seen prompt sessions', () => {
+    const promptSessions = [
+      promptSession('seen-older', '2026-06-07T10:05:00.000Z'),
+      promptSession('unread-older', '2026-06-07T10:10:00.000Z'),
+      promptSession('unread-newer', '2026-06-07T10:15:00.000Z'),
+    ];
+
+    expect(
+      getWorkerSessionGroups(promptSessions, {
+        'agent-orchestrator:seen-older': '2026-06-07T10:05:00.000Z',
+      })[1]!.sessions.map((session) => ({
+        id: session.id,
+        status: session.responseAttention?.status,
+      }))
+    ).toEqual([
+      { id: 'unread-newer', status: 'delivered' },
+      { id: 'unread-older', status: 'delivered' },
+      { id: 'seen-older', status: 'seen' },
+    ]);
+  });
+
   it('uses the resolved title as the sidebar nav label', () => {
     expect(
       getWorkerSessionNavLabel({
-        id: 'v042rv',
+        kind: undefined,
         title: 'Address review feedback',
       })
     ).toBe('Address review feedback');
   });
 
-  it('falls back to "new agent: <id>" when the title is empty', () => {
-    expect(getWorkerSessionNavLabel({ id: 'v042rv', title: '   ' })).toBe(
-      'new agent: v042rv'
+  it('falls back to "New worker agent" when the title is empty', () => {
+    expect(getWorkerSessionNavLabel({ kind: undefined, title: '   ' })).toBe(
+      'New worker agent'
     );
+  });
+
+  it('marks worker titles as pending until hook metadata is available', () => {
+    expect(
+      getWorkerSessionGroups([
+        {
+          ...workspace.sessions[0]!,
+          metadata: JSON.stringify({
+            prompt: 'Do not render this as a label.',
+          }),
+          title: 'New worker agent',
+        },
+      ])[0]!.sessions[0]
+    ).toMatchObject({
+      label: 'New worker agent',
+      titlePending: true,
+    });
+  });
+
+  it('clears the pending title state when hook title metadata exists', () => {
+    expect(
+      getWorkerSessionGroups([
+        {
+          ...workspace.sessions[0]!,
+          metadata: JSON.stringify({
+            prompt: 'Stored launch prompt.',
+            title: 'Fix auth redirect',
+          }),
+          title: 'Fix auth redirect',
+        },
+      ])[0]!.sessions[0]
+    ).toMatchObject({
+      label: 'Fix auth redirect',
+      titlePending: false,
+    });
+  });
+
+  it('clears the pending title state when displayName metadata exists', () => {
+    expect(
+      getWorkerSessionGroups([
+        {
+          ...workspace.sessions[0]!,
+          metadata: JSON.stringify({
+            displayName: 'Renamed worker',
+            prompt: 'Stored launch prompt.',
+          }),
+          title: 'Renamed worker',
+        },
+      ])[0]!.sessions[0]
+    ).toMatchObject({
+      label: 'Renamed worker',
+      titlePending: false,
+    });
+  });
+
+  it('falls back to "Orchestrator" for empty orchestrator titles', () => {
+    expect(
+      getWorkerSessionNavLabel({ kind: 'orchestrator', title: '   ' })
+    ).toBe('Orchestrator');
   });
 
   it('selects duplicate worker ids by project-qualified key', () => {
@@ -295,3 +397,18 @@ describe('session workspace projection', () => {
     });
   });
 });
+
+function promptSession(id: string, deliveredAt: string): WorkerSession {
+  return {
+    ...workspace.sessions[0]!,
+    id,
+    metadata: JSON.stringify({
+      lastAssistantMessageAt: deliveredAt,
+      title: id,
+    }),
+    selected: undefined,
+    state: 'prompt',
+    title: id,
+    workerId: id,
+  };
+}

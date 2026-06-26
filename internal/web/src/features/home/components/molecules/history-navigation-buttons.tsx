@@ -55,7 +55,7 @@ function HistoryNavigationButton(props: {
             type="button"
             variant="ghost"
             size="icon"
-            className="rounded-sm text-muted-foreground shadow-none hover:text-sidebar-foreground disabled:opacity-40"
+            className="size-7 rounded-sm text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground disabled:opacity-40 dark:hover:bg-sidebar-accent"
             aria-label={props.ariaLabel}
             disabled={props.disabled}
             onClick={props.onClick}

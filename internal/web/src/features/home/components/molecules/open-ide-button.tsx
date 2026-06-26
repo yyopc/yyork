@@ -48,13 +48,13 @@ export function OpenIdeButton(props: {
       <TooltipTrigger render={<span className="inline-flex" />}>
         <Button
           type="button"
-          variant="secondary"
+          variant="outline"
           size="sm"
           disabled={!canOpenIDE || openIdeMutation.isPending}
           onClick={() => {
             handleOpenIDE();
           }}
-          className="h-7 cursor-pointer rounded-none border-r-0 shadow-none disabled:cursor-not-allowed"
+          className="h-7 cursor-pointer rounded-none border-r-0 bg-background shadow-none hover:bg-muted hover:text-foreground disabled:cursor-not-allowed dark:hover:bg-muted/50"
         >
           {openIdeMutation.isPending ? (
             <Spinner data-icon="inline-start" aria-hidden="true" />

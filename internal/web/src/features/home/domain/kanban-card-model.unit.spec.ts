@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatElapsed,
   getElapsedLabel,
-  parseSessionMetadata,
+  KANBAN_CARD_RECAP_PREVIEW_MAX_LEN,
   toKanbanCardView,
 } from '@/features/home/domain/kanban-card-model';
 import type { WorkerSessionRecord } from '@/features/home/domain/session-workspace';
@@ -37,6 +37,7 @@ describe('kanban card model', () => {
 
     expect(card.task).toBe('Tell me about this project');
     expect(card.recap).toBe('Scanning README for project overview.');
+    expect(card.recapPreview).toBe('Scanning README for project overview.');
     expect(card.currentLine).toBe(card.recap);
     expect(card.descriptionLines).toEqual([
       'Scanning README for project overview.',
@@ -58,10 +59,27 @@ describe('kanban card model', () => {
 
     expect(card.activity).toBe('waiting-for-input');
     expect(card.recap).toBe('');
+    expect(card.recapPreview).toBe('');
     expect(card.description).toBe('Needs triage before it can continue.');
   });
 
-  it('uses translated tool call bulletins for working cards', () => {
+  it('caps recap previews at 120 characters for kanban card rendering', () => {
+    const longRecap =
+      'Implemented generated worker recaps through native agent metadata commands, preserved existing session titles, and added hover-card access for the full recap.';
+    const card = toKanbanCardView({
+      ...baseSession,
+      metadata: JSON.stringify({ title: 'Generated recaps' }),
+      recap: longRecap,
+      state: 'prompt',
+    });
+
+    expect(card.recap).toBe(longRecap);
+    expect(card.recapPreview.length).toBe(KANBAN_CARD_RECAP_PREVIEW_MAX_LEN);
+    expect(card.recapPreview).toMatch(/\.\.\.$/);
+    expect(card.descriptionLines).toEqual([card.recapPreview]);
+  });
+
+  it('shows only the active tool call for working cards', () => {
     const card = toKanbanCardView({
       ...baseSession,
       metadata: JSON.stringify({
@@ -77,16 +95,35 @@ describe('kanban card model', () => {
     });
 
     expect(card.recap).toBe('Scanning README for project overview.');
+    expect(card.descriptionLines).toEqual(['Running shell command: pnpm test']);
+    expect(card.description).toBe('Running shell command: pnpm test');
+    expect(card.activeToolCall).toEqual({
+      detail: 'pnpm test',
+      kind: 'shell',
+      label: 'Shell',
+      raw: 'Running shell command: pnpm test',
+      running: true,
+    });
+    expect(card.activeToolCallLabel).toBe('Shell · pnpm test');
+  });
+
+  it('falls back to recap when only finished tool bulletins remain', () => {
+    const card = toKanbanCardView({
+      ...baseSession,
+      metadata: JSON.stringify({
+        toolCallBulletins: [
+          'Finished shell command: pnpm test',
+          'Finished search: KanbanCard',
+        ],
+      }),
+      state: 'working',
+    });
+
     expect(card.descriptionLines).toEqual([
-      'Running shell command: pnpm test',
-      'Reading file: internal/web/src/features/home/domain/kanban-card-model.ts',
-      'Finished search: KanbanCard',
+      'Scanning README for project overview.',
     ]);
-    expect(card.description).toBe(
-      'Running shell command: pnpm test\n' +
-        'Reading file: internal/web/src/features/home/domain/kanban-card-model.ts\n' +
-        'Finished search: KanbanCard'
-    );
+    expect(card.activeToolCall).toBeUndefined();
+    expect(card.activeToolCallLabel).toBeUndefined();
   });
 
   it('uses state-specific descriptions for prompt triage and done cards', () => {
@@ -140,14 +177,80 @@ describe('kanban card model', () => {
   });
 
   it('prefers hook title over raw prompt duplication', () => {
-    expect(
-      parseSessionMetadata(
-        JSON.stringify({ prompt: 'long prompt', title: 'Short title' })
-      )
-    ).toEqual({
-      prompt: 'long prompt',
+    const card = toKanbanCardView({
+      ...baseSession,
+      metadata: JSON.stringify({ prompt: 'long prompt', title: 'Short title' }),
       title: 'Short title',
     });
+
+    expect(card.task).toBe('Short title');
+  });
+
+  it('does not use raw prompt metadata as a card title fallback', () => {
+    const card = toKanbanCardView({
+      ...baseSession,
+      metadata: JSON.stringify({ prompt: 'very long launch prompt' }),
+      title: 'New worker agent',
+    });
+
+    expect(card.task).toBe('New worker agent');
+  });
+
+  it('marks prompt responses as delivered until the delivered timestamp is seen', () => {
+    const deliveredAt = '2026-06-07T10:20:00.000Z';
+    const session = {
+      ...baseSession,
+      metadata: JSON.stringify({
+        lastAssistantMessageAt: deliveredAt,
+        title: 'Review implementation',
+      }),
+      state: 'prompt',
+    } satisfies WorkerSessionRecord;
+    const selectionKey = `${encodeURIComponent(session.project)}:${encodeURIComponent(session.id)}`;
+
+    expect(toKanbanCardView(session).responseAttention).toEqual({
+      deliveredAt,
+      label: 'Response delivered',
+      status: 'delivered',
+    });
+    expect(
+      toKanbanCardView(session, {
+        [selectionKey]: deliveredAt,
+      }).responseAttention
+    ).toEqual({
+      deliveredAt,
+      label: 'Response seen',
+      status: 'seen',
+    });
+  });
+
+  it('falls back to lastActivityAt for legacy prompt response delivery', () => {
+    const deliveredAt = '2026-06-07T10:22:00.000Z';
+    const card = toKanbanCardView({
+      ...baseSession,
+      metadata: JSON.stringify({
+        lastActivityAt: deliveredAt,
+        title: 'Legacy prompt',
+      }),
+      state: 'prompt',
+    });
+
+    expect(card.responseAttention).toMatchObject({
+      deliveredAt,
+      status: 'delivered',
+    });
+  });
+
+  it('does not show response attention for non-prompt sessions', () => {
+    const card = toKanbanCardView({
+      ...baseSession,
+      metadata: JSON.stringify({
+        lastAssistantMessageAt: '2026-06-07T10:20:00.000Z',
+      }),
+      state: 'working',
+    });
+
+    expect(card.responseAttention).toBeUndefined();
   });
 
   it('formats elapsed durations compactly', () => {

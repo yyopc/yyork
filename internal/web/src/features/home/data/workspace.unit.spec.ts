@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   homeWorkspaceQueryKey,
+  markSessionDoneMutationOptions,
   parseHomeWorkspaceResponse,
   patchWorkspaceWithRemovedProject,
   removeProjectMutationOptions,
@@ -130,6 +131,57 @@ describe('renameSessionMutationOptions', () => {
         method: 'PATCH',
       }
     );
+  });
+});
+
+describe('markSessionDoneMutationOptions', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('patches the session state to done', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({
+        id: 'v042rv',
+        metadata: { state: 'done' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      markSessionDoneMutationOptions().mutationFn({
+        projectId: '/repo/yyork',
+        sessionId: 'v042rv',
+      })
+    ).resolves.toBeUndefined();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/sessions/v042rv?project=%2Frepo%2Fyyork',
+      {
+        body: JSON.stringify({ state: 'done' }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH',
+      }
+    );
+  });
+
+  it('rejects an HTML fallback response even when the status is 2xx', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response('<!doctype html><title>yyork</title>', {
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          status: 200,
+        })
+      )
+    );
+
+    await expect(
+      markSessionDoneMutationOptions().mutationFn({
+        sessionId: 'v042rv',
+      })
+    ).rejects.toThrow('expected JSON');
   });
 });
 

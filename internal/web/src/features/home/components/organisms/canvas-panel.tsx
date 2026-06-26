@@ -643,7 +643,7 @@ function FileWrapToggle(props: {
             type="button"
             variant="ghost"
             size="icon"
-            className="size-7 rounded-sm text-muted-foreground hover:text-foreground aria-pressed:bg-accent aria-pressed:text-foreground"
+            className="size-7 rounded-sm text-muted-foreground aria-pressed:bg-accent aria-pressed:text-accent-foreground"
             aria-label={label}
             aria-pressed={props.wrapLines}
             onClick={() => {
@@ -675,7 +675,7 @@ function FileTreeSidebarToggle(props: {
             type="button"
             variant="ghost"
             size="icon"
-            className="size-7 rounded-sm text-muted-foreground hover:text-foreground"
+            className="size-7 rounded-sm text-muted-foreground"
             aria-label={label}
             aria-pressed={props.fileTreeOpen}
             onClick={() => {
@@ -718,7 +718,7 @@ function FileTreeExpansionToggle(props: {
             type="button"
             variant="ghost"
             size="icon"
-            className="size-7 rounded-sm text-muted-foreground hover:text-foreground"
+            className="size-7 rounded-sm text-muted-foreground"
             aria-label={label}
             aria-pressed={props.expansionState.allExpanded}
             disabled={disabled}

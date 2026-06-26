@@ -590,6 +590,7 @@ function TerminalPanelView(props: TerminalPanelViewProps) {
         <OpenIdeButton session={props.session} />
         <IconButton
           label={fullscreenButtonLabel}
+          variant="outline"
           onClick={handleTerminalFullscreenToggle}
         >
           {isTerminalFullscreen ? <Minimize2Icon /> : <Maximize2Icon />}
@@ -604,6 +605,7 @@ function IconButton(props: {
   children: ReactNode;
   onClick?: () => void;
   className?: string;
+  variant?: 'outline' | 'secondary';
 }) {
   return (
     <Tooltip>
@@ -611,7 +613,7 @@ function IconButton(props: {
         render={
           <Button
             type="button"
-            variant="secondary"
+            variant={props.variant ?? 'secondary'}
             size="icon"
             className={cn('size-7 rounded-none shadow-none', props.className)}
             aria-label={props.label}

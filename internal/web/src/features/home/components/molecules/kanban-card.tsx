@@ -1,5 +1,14 @@
 import { cn } from '@/lib/tailwind/utils';
 
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card';
+
+import { SessionContextMenu } from '@/features/home/components/molecules/session-context-menu';
+import { ToolCallBulletinLine } from '@/features/home/components/molecules/tool-call-bulletin-line';
+import { WorkerResponseAttentionIndicator } from '@/features/home/components/molecules/worker-response-attention-indicator';
 import type { KanbanCardData } from '@/features/home/domain/session-workspace';
 
 const agentIconUrls: Record<string, string> = {
@@ -8,18 +17,42 @@ const agentIconUrls: Record<string, string> = {
   codex: '/agent-icons/codex-agent.svg',
 };
 
-export function KanbanCard(props: {
-  card: KanbanCardData;
-  onSelect?: (selectionKey: string) => void;
-}) {
+export interface KanbanSessionActionProps {
+  onTerminalSessionDelete?: (selectionKey: string, label: string) => void;
+  onTerminalSessionHide?: (selectionKey: string, label: string) => void;
+  onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
+  onTerminalSessionPinToggle?: (selectionKey: string) => void;
+  onTerminalSessionRename?: (selectionKey: string, label: string) => void;
+  pinnedTerminalSessionKeys?: string[];
+}
+
+export function KanbanCard(
+  props: {
+    card: KanbanCardData;
+    onSelect?: (selectionKey: string) => void;
+  } & KanbanSessionActionProps
+) {
   const { card } = props;
   const agentIconUrl = agentIconUrls[card.agent];
-  const ariaLabel = card.description
-    ? `${card.agentLabel} session ${card.shortId}: ${card.task}. ${card.description}`
+  const showsWorkingToolBulletin =
+    card.activity === 'working' && Boolean(card.activeToolCallLabel);
+  const ariaDescription = showsWorkingToolBulletin
+    ? card.activeToolCallLabel
+    : card.description;
+  const ariaDetails = [ariaDescription, card.responseAttention?.label]
+    .filter(Boolean)
+    .join('. ');
+  const ariaLabel = ariaDetails
+    ? `${card.agentLabel} session ${card.shortId}: ${card.task}. ${ariaDetails}`
     : `${card.agentLabel} session ${card.shortId}: ${card.task}`;
-  const hasDescription = card.descriptionLines.length > 0;
+  const hasDescription =
+    showsWorkingToolBulletin || card.descriptionLines.length > 0;
+  const showsRecapPreview =
+    card.recap.trim() !== '' &&
+    card.recapPreview.trim() !== '' &&
+    card.descriptionLines.includes(card.recapPreview);
 
-  return (
+  const cardButton = (
     <button
       type="button"
       aria-label={ariaLabel}
@@ -35,12 +68,15 @@ export function KanbanCard(props: {
         <p className="line-clamp-2 text-sm leading-5 font-medium">
           {card.task}
         </p>
-        {card.descriptionLines.length === 1 ? (
+        {showsWorkingToolBulletin ? (
+          <ToolCallBulletinLine text={card.activeToolCallLabel!} />
+        ) : null}
+        {!showsWorkingToolBulletin && card.descriptionLines.length === 1 ? (
           <p className="line-clamp-2 text-xs leading-4 text-muted-foreground">
             {card.descriptionLines[0]}
           </p>
         ) : null}
-        {card.descriptionLines.length > 1 ? (
+        {!showsWorkingToolBulletin && card.descriptionLines.length > 1 ? (
           <ul className="flex min-w-0 flex-col gap-0.5 text-xs leading-4 text-muted-foreground">
             {card.descriptionLines.map((line) => (
               <li key={line} className="flex min-w-0 items-start gap-1.5">
@@ -69,10 +105,77 @@ export function KanbanCard(props: {
             </span>
           )}
         </span>
-        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
-          {card.shortId}
+        <span className="flex shrink-0 items-center gap-1">
+          <WorkerResponseAttentionIndicator
+            attention={card.responseAttention}
+            size="card"
+          />
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {card.shortId}
+          </span>
         </span>
       </div>
     </button>
+  );
+
+  const cardContent = showsRecapPreview ? (
+    <HoverCard>
+      <HoverCardTrigger delay={300} closeDelay={100} render={cardButton} />
+      <HoverCardContent
+        side="right"
+        align="start"
+        className="w-80 max-w-[calc(100vw-2rem)] p-3 text-xs leading-5"
+      >
+        <p className="break-words whitespace-normal">{card.recap}</p>
+      </HoverCardContent>
+    </HoverCard>
+  ) : (
+    cardButton
+  );
+
+  if (!props.onSelect) {
+    return cardContent;
+  }
+
+  const sessionLabel = card.task;
+  const openSession = () => props.onSelect?.(card.selectionKey);
+
+  return (
+    <SessionContextMenu
+      isPinned={(props.pinnedTerminalSessionKeys ?? []).includes(
+        card.selectionKey
+      )}
+      onOpen={openSession}
+      onPinToggle={
+        props.onTerminalSessionPinToggle
+          ? () => props.onTerminalSessionPinToggle?.(card.selectionKey)
+          : undefined
+      }
+      onRename={
+        props.onTerminalSessionRename
+          ? () =>
+              props.onTerminalSessionRename?.(card.selectionKey, sessionLabel)
+          : undefined
+      }
+      onMarkDone={
+        props.onTerminalSessionMarkDone && card.state === 'prompt'
+          ? () =>
+              props.onTerminalSessionMarkDone?.(card.selectionKey, sessionLabel)
+          : undefined
+      }
+      onHide={
+        props.onTerminalSessionHide
+          ? () => props.onTerminalSessionHide?.(card.selectionKey, sessionLabel)
+          : undefined
+      }
+      onDelete={
+        props.onTerminalSessionDelete
+          ? () =>
+              props.onTerminalSessionDelete?.(card.selectionKey, sessionLabel)
+          : undefined
+      }
+    >
+      {cardContent}
+    </SessionContextMenu>
   );
 }

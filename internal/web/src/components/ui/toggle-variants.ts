@@ -23,6 +23,14 @@ const toggleVariants = cva(
       variant: 'default',
       size: 'default',
     },
+    compoundVariants: [
+      {
+        variant: ['default', 'outline'],
+        size: ['icon', 'icon-xs', 'icon-sm', 'icon-lg'],
+        className:
+          'hover:bg-accent hover:text-accent-foreground aria-pressed:bg-accent aria-pressed:text-accent-foreground',
+      },
+    ],
   }
 );
 

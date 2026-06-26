@@ -15,6 +15,7 @@ import {
   XIcon,
 } from 'lucide-react';
 import { type ComponentProps, type ReactNode, useState } from 'react';
+import { expect } from 'storybook/test';
 
 import { cn } from '@/lib/tailwind/utils';
 
@@ -128,6 +129,11 @@ export const WorkerSessionsNested: Story = {
     </WorkspaceStoryLayout>
   ),
   args: sidebarStoryArgs,
+  play: async ({ canvas }) => {
+    await expect(
+      canvas.getAllByRole('img', { name: 'Response delivered' })[0]
+    ).toBeVisible();
+  },
 };
 
 export const ProjectRootOwnsOrchestrator: Story = {
@@ -1350,7 +1356,7 @@ function getTemporaryPinnedTooltipAuditRows(
         target: `${session.label} row`,
         tooltip:
           session.kind === 'worker'
-            ? `Open ${session.label} terminal`
+            ? getWorkerSessionOpenTooltipLabel(session.id ?? selectionKey)
             : `Open ${session.label} orchestrator terminal`,
       },
       {
@@ -1437,7 +1443,7 @@ function getTemporaryProjectTooltipAuditRows(
         rows.push(
           {
             target: `${sessionLabel} row`,
-            tooltip: `Open ${sessionLabel} terminal`,
+            tooltip: getWorkerSessionOpenTooltipLabel(session.id),
           },
           {
             target: `${sessionLabel} pin`,
@@ -1459,6 +1465,7 @@ function getTemporaryTerminalSessionAuditItems(
   const terminalSessionsByKey = new Map<
     string,
     {
+      id?: string;
       kind?: WorkerSessionNavItem['kind'];
       label: string;
     }
@@ -1477,6 +1484,7 @@ function getTemporaryTerminalSessionAuditItems(
   for (const group of props.workerSessionGroups) {
     for (const session of group.sessions) {
       terminalSessionsByKey.set(session.selectionKey, {
+        id: session.id,
         kind: session.kind ?? 'worker',
         label: getWorkerSessionLabel(session.workerId),
       });
@@ -1484,6 +1492,10 @@ function getTemporaryTerminalSessionAuditItems(
   }
 
   return terminalSessionsByKey;
+}
+
+function getWorkerSessionOpenTooltipLabel(sessionId: string) {
+  return `open the worker session: ${sessionId}`;
 }
 
 function toggleStoryId(currentIds: string[], targetId: string) {

@@ -57,7 +57,7 @@ export function ProjectSetupHarnessPicker(props: {
               type="button"
               variant="ghost"
               size="icon"
-              className="size-7 shrink-0 rounded-sm text-muted-foreground shadow-none hover:text-foreground"
+              className="size-7 shrink-0 rounded-sm text-muted-foreground shadow-none"
               aria-label="Change project"
               onClick={props.onChangeProject}
             >

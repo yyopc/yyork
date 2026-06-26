@@ -291,7 +291,7 @@ function CanvasDiffShell(props: {
                 type="button"
                 variant="ghost"
                 size="icon-xs"
-                className="size-7 rounded-sm text-muted-foreground hover:text-foreground"
+                className="size-7 rounded-sm text-muted-foreground"
                 aria-label="Refresh diff"
                 disabled={props.isRefreshing}
                 onClick={props.onRefresh}

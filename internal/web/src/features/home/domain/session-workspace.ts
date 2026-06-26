@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import {
   getElapsedLabel,
+  type ParsedToolCall,
   type SessionActivity,
   toKanbanCardView,
   type WorkerSessionRecord,
@@ -19,8 +20,14 @@ import {
   workerWorkspaceModes,
   workerWorkspaceModeSchema,
 } from '@/features/home/domain/session-workspace-contract.generated';
+import {
+  compareWorkerResponseAttention,
+  type SeenWorkerSessionResponses,
+  type WorkerResponseAttention,
+} from '@/features/home/domain/worker-response-attention';
 
 export {
+  type ParsedToolCall,
   type SessionActivity,
   sessionActivityStates,
   type WorkerSessionRecord,
@@ -44,6 +51,9 @@ export const sessionWorkspaceSchema = z.preprocess(
 );
 
 export interface KanbanCardData {
+  activeToolCall?: ParsedToolCall;
+  /** Formatted working-tool label for slot-text bulletin rendering. */
+  activeToolCallLabel?: string;
   activity: SessionActivity;
   activityLabel: string;
   agent: WorkerAgent;
@@ -60,7 +70,10 @@ export interface KanbanCardData {
   project: string;
   selected?: boolean;
   selectionKey: string;
+  state: WorkerSessionState;
+  responseAttention?: WorkerResponseAttention;
   recap: string;
+  recapPreview: string;
   shortId: string;
   task: string;
   /** @deprecated Prefer `task` — kept for transitional callers. */
@@ -81,14 +94,18 @@ export interface WorkerSessionNavItem {
   kind?: TerminalSessionKind;
   /**
    * Resolved display label for the session. The backend is the single source
-   * of truth: a user-set displayName wins, then the hook-derived title, then
-   * the raw prompt, then "new agent: <id>". The bare workerId is never shown.
+   * of truth: a user-set displayName wins, then the hook-derived title, then a
+   * generic worker fallback while hook metadata is pending. The raw prompt is
+   * never shown as the navigation label.
    */
   label: string;
   project: string;
   selected?: boolean;
   selectionKey: string;
+  state: WorkerSessionState;
+  responseAttention?: WorkerResponseAttention;
   terminalSupported?: boolean;
+  titlePending: boolean;
   workerId: string;
 }
 
@@ -166,8 +183,11 @@ export function getProjectPath(project: ProjectOrchestrator | undefined) {
   return project?.path ?? project?.cwd;
 }
 
-export function toKanbanCard(session: WorkerSessionRecord): KanbanCardData {
-  return toKanbanCardView(session);
+export function toKanbanCard(
+  session: WorkerSessionRecord,
+  seenResponses?: SeenWorkerSessionResponses
+): KanbanCardData {
+  return toKanbanCardView(session, seenResponses);
 }
 
 export function getSelectedWorkerSession(sessions: WorkerSession[]) {
@@ -258,16 +278,32 @@ export function getTerminalRouteTarget(
 }
 
 /**
- * Resolves the sidebar label for a worker session. `title` is already derived
- * with full precedence (displayName > title > prompt > "new agent: <id>") in
- * toWorkerSession, so this just defends against an empty title by falling back
- * to the same id-based label the backend would produce.
+ * Resolves the sidebar label for a worker session. The backend normally sends
+ * the resolved title, but this defends local/demo data without leaking the raw
+ * launch prompt into compact navigation rows.
  */
 export function getWorkerSessionNavLabel(
-  session: Pick<WorkerSession, 'id' | 'title'>
+  session: Pick<WorkerSession, 'kind' | 'title'>
 ) {
   const title = session.title.trim();
-  return title || `new agent: ${session.id}`;
+  if (title) {
+    return title;
+  }
+  return session.kind === 'orchestrator' ? 'Orchestrator' : 'New worker agent';
+}
+
+export function isWorkerSessionTitlePending(
+  session: Pick<WorkerSession, 'kind' | 'metadata'>
+) {
+  if (session.kind === 'orchestrator') {
+    return false;
+  }
+
+  const metadata = parseWorkerSessionMetadata(session.metadata);
+  return (
+    !readMetadataString(metadata, 'displayName') &&
+    !readMetadataString(metadata, 'title')
+  );
 }
 
 export function getTerminalSession(
@@ -330,42 +366,51 @@ export function terminalSessionIdRequiresProject(
 }
 
 export function getKanbanColumns(
-  sessions: WorkerSession[]
+  sessions: WorkerSession[],
+  seenResponses?: SeenWorkerSessionResponses
 ): KanbanColumnData[] {
   const columnsByState = createKanbanColumnsByState();
 
   for (const session of sessions) {
-    columnsByState[session.state].cards.push(toKanbanCard(session));
+    columnsByState[session.state].cards.push(
+      toKanbanCard(session, seenResponses)
+    );
   }
+
+  columnsByState.prompt.cards = sortPromptCards(columnsByState.prompt.cards);
 
   return workerSessionStates.map((state) => columnsByState[state]);
 }
 
 export function getKanbanColumn(
   sessions: WorkerSession[],
-  state: WorkerSessionState
+  state: WorkerSessionState,
+  seenResponses?: SeenWorkerSessionResponses
 ): KanbanColumnData {
   const cards: KanbanCardData[] = [];
 
   for (const session of sessions) {
     if (session.state === state) {
-      cards.push(toKanbanCard(session));
+      cards.push(toKanbanCard(session, seenResponses));
     }
   }
 
   return {
     id: state,
     title: workerSessionStateLabels[state],
-    cards,
+    cards: state === 'prompt' ? sortPromptCards(cards) : cards,
   };
 }
 
 export function getWorkerSessionGroups(
-  sessions: WorkerSession[]
+  sessions: WorkerSession[],
+  seenResponses?: SeenWorkerSessionResponses
 ): WorkerSessionGroupData[] {
   const groupsByState = createWorkerSessionGroupsByState();
 
   for (const session of sessions) {
+    const selectionKey = getWorkerSessionSelectionKey(session);
+    const card = toKanbanCard(session, seenResponses);
     groupsByState[session.state].sessions.push({
       agent: session.agent,
       elapsedLabel: getElapsedLabel(session),
@@ -374,13 +419,46 @@ export function getWorkerSessionGroups(
       label: getWorkerSessionNavLabel(session),
       project: session.project,
       selected: session.selected,
-      selectionKey: getWorkerSessionSelectionKey(session),
+      selectionKey,
+      state: session.state,
+      responseAttention: card.responseAttention,
       terminalSupported: session.terminalSupported,
+      titlePending: isWorkerSessionTitlePending(session),
       workerId: session.workerId,
     });
   }
 
+  groupsByState.prompt.sessions = sortPromptSessions(
+    groupsByState.prompt.sessions
+  );
+
   return workerSessionStates.map((state) => groupsByState[state]);
+}
+
+function sortPromptCards(cards: KanbanCardData[]) {
+  return cards
+    .map((card, index) => ({ card, index }))
+    .sort(
+      (a, b) =>
+        compareWorkerResponseAttention(
+          a.card.responseAttention,
+          b.card.responseAttention
+        ) || a.index - b.index
+    )
+    .map(({ card }) => card);
+}
+
+function sortPromptSessions(sessions: WorkerSessionNavItem[]) {
+  return sessions
+    .map((session, index) => ({ index, session }))
+    .sort(
+      (a, b) =>
+        compareWorkerResponseAttention(
+          a.session.responseAttention,
+          b.session.responseAttention
+        ) || a.index - b.index
+    )
+    .map(({ session }) => session);
 }
 
 function createKanbanColumnsByState() {
@@ -412,4 +490,29 @@ function createWorkerSessionGroupsByState() {
   }
 
   return groupsByState;
+}
+
+function parseWorkerSessionMetadata(raw: string): Record<string, unknown> {
+  if (!raw.trim()) {
+    return {};
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    return {};
+  }
+
+  return {};
+}
+
+function readMetadataString(
+  metadata: Record<string, unknown>,
+  key: string
+): string {
+  const value = metadata[key];
+  return typeof value === 'string' ? value.trim() : '';
 }

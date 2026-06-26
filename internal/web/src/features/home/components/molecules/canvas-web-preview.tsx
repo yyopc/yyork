@@ -723,7 +723,7 @@ function BrowserViewport(props: {
           ref={iframeRef}
           title="Browser preview"
           src={frameUrl}
-          sandbox="allow-downloads allow-forms allow-modals allow-pointer-lock allow-popups allow-scripts"
+          sandbox="allow-downloads allow-forms allow-modals allow-pointer-lock allow-popups allow-same-origin allow-scripts"
           className="block size-full border-0 bg-background"
         />
       ) : currentUrl ? (

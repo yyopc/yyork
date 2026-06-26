@@ -7,6 +7,11 @@ import { useEffect, useRef } from 'react';
 
 import '@xterm/xterm/css/xterm.css';
 
+// Keep this aligned with internal/terminalhost's repaint scrollback cap. This
+// stays bounded in memory, but needs to cover long worker conversations better
+// than xterm/vt's 10k-line default.
+export const terminalScrollbackRows = 100_000;
+
 /**
  * Minimal terminal surface the TerminalPanel relies on, so its WebSocket and
  * resize plumbing depends on this narrow contract instead of the full xterm.js
@@ -161,11 +166,11 @@ export function XTermTerminal(props: XTermTerminalProps) {
         // Zellij's statusline leaves SGR bold active while using ANSI black for
         // Powerline separators; keep bold as weight-only so black stays black.
         drawBoldTextInBrightColors: false,
-        // This terminal always attaches to a full-screen zellij session, which
-        // owns its own scrollback — xterm's buffer is never used. Setting it to
-        // 0 also stops FitAddon reserving ~14px on the right for a scrollbar
-        // (an overlay/0px gutter on macOS), so the grid fills the panel width.
-        scrollback: 0,
+        // Keep browser-side scrollback for inline agent output. The backend
+        // emulator snapshots normal-screen history into this buffer on attach,
+        // and Codex is launched with --no-alt-screen so wheel gestures scroll the
+        // transcript instead of being translated into prompt-history arrows.
+        scrollback: terminalScrollbackRows,
         minimumContrastRatio: minimumContrastRatioFor(usesDark),
         rows: callbacksRef.current.rows,
         theme: buildTheme(host),

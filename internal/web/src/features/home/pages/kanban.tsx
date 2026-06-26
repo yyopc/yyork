@@ -16,6 +16,12 @@ export function KanbanPage() {
           className="flex-1"
           columns={context.kanbanColumns}
           onSessionSelect={context.onWorkerSessionSelect}
+          onTerminalSessionDelete={context.onTerminalSessionDelete}
+          onTerminalSessionHide={context.onTerminalSessionHide}
+          onTerminalSessionMarkDone={context.onTerminalSessionMarkDone}
+          onTerminalSessionPinToggle={context.onTerminalSessionPinToggle}
+          onTerminalSessionRename={context.onTerminalSessionRename}
+          pinnedTerminalSessionKeys={context.pinnedTerminalSessionKeys}
         />
       ) : null}
       {context.workspaceState !== 'ready' ? (

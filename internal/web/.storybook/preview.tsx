@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { StoryContext } from 'storybook/internal/csf';
 
 import '@/styles/app.css';
+import 'slot-text/style.css';
 import './preview.css';
 
 import {

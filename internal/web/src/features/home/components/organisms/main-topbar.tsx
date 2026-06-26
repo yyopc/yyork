@@ -73,6 +73,7 @@ export function MainTopbar() {
   };
   useHotkey(appHotkeys.toggleCanvas, toggleCanvas, {
     enabled: canvasAvailable,
+    ignoreInputs: false,
     requireReset: true,
   });
 
@@ -234,7 +235,7 @@ function CanvasToggleButton(props: {
             type="button"
             variant="ghost"
             size="icon"
-            className="size-7 rounded-sm text-muted-foreground shadow-none hover:text-sidebar-foreground"
+            className="size-7 rounded-sm text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground aria-pressed:bg-sidebar-accent aria-pressed:text-sidebar-accent-foreground dark:hover:bg-sidebar-accent"
             aria-label={props.canvasButtonLabel}
             aria-pressed={props.canvasOpen}
             onClick={props.onToggle}

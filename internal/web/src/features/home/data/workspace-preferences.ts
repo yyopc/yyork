@@ -28,6 +28,7 @@ export interface HomeWorkspacePreferences {
   pinnedProjectIds?: string[];
   pinnedTerminalSessionKeys?: string[];
   projectNameOverrides?: Record<string, string>;
+  seenWorkerSessionResponses?: Record<string, string>;
   sidebarOpen: boolean;
   sidebarWidth?: number;
   skipStopSessionConfirmation?: boolean;
@@ -208,6 +209,9 @@ function normalizeHomeWorkspacePreferences(
     ),
     projectNameOverrides: normalizeStringRecord(
       preferences.projectNameOverrides
+    ),
+    seenWorkerSessionResponses: normalizeStringRecord(
+      preferences.seenWorkerSessionResponses
     ),
     skipStopSessionConfirmation:
       typeof preferences.skipStopSessionConfirmation === 'boolean'

@@ -40,6 +40,14 @@ const buttonVariants = cva(
       variant: 'default',
       size: 'default',
     },
+    compoundVariants: [
+      {
+        variant: ['ghost', 'outline', 'secondary'],
+        size: ['icon', 'icon-xs', 'icon-sm', 'icon-lg'],
+        className:
+          'hover:bg-accent hover:text-accent-foreground aria-expanded:bg-accent aria-expanded:text-accent-foreground dark:hover:bg-accent',
+      },
+    ],
   }
 );
 

@@ -2,14 +2,17 @@ import { cn } from '@/lib/tailwind/utils';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+import type { KanbanSessionActionProps } from '@/features/home/components/molecules/kanban-card';
 import { KanbanColumn } from '@/features/home/components/organisms/kanban-column';
 import type { KanbanColumnData } from '@/features/home/domain/session-workspace';
 
-export function KanbanBoard(props: {
-  className?: string;
-  columns: KanbanColumnData[];
-  onSessionSelect?: (selectionKey: string) => void;
-}) {
+export function KanbanBoard(
+  props: {
+    className?: string;
+    columns: KanbanColumnData[];
+    onSessionSelect?: (selectionKey: string) => void;
+  } & KanbanSessionActionProps
+) {
   return (
     <section
       className={cn(
@@ -26,6 +29,12 @@ export function KanbanBoard(props: {
               column={column}
               isLast={index === props.columns.length - 1}
               onSessionSelect={props.onSessionSelect}
+              onTerminalSessionDelete={props.onTerminalSessionDelete}
+              onTerminalSessionHide={props.onTerminalSessionHide}
+              onTerminalSessionMarkDone={props.onTerminalSessionMarkDone}
+              onTerminalSessionPinToggle={props.onTerminalSessionPinToggle}
+              onTerminalSessionRename={props.onTerminalSessionRename}
+              pinnedTerminalSessionKeys={props.pinnedTerminalSessionKeys}
             />
           ))}
         </div>

@@ -26,6 +26,18 @@ export default defineConfig(({ mode }) => {
       host: env.VITE_HOST ?? process.env.HOST ?? '127.0.0.1',
       port: process.env.PORT ? Number(process.env.PORT) : 4173,
       strictPort: false,
+      fs: {
+        allow: [configDir],
+      },
+    },
+    optimizeDeps: {
+      include: [
+        'react',
+        'react-dom',
+        'lucide-react',
+        'ts-pattern',
+        'slot-text',
+      ],
     },
     plugins: [
       tsConfigPaths({
