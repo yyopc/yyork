@@ -26,6 +26,9 @@ yyork is a local app for supervising multiple AI coding agents at once.
 ## Install
 
 ```bash
+# try without installing
+npx yyork ~/Projects/my-app
+
 # npm
 npm i -g @yyopc/yyork
 

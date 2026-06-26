@@ -158,7 +158,7 @@ jobs:
           name: yyork-goreleaser-assets
           path: dist/goreleaser
 
-      - name: Pack native and wrapper npm tarballs
+      - name: Pack native, wrapper, and alias npm tarballs
         run: |
           node ./bin/pack-npm-release.mjs \
             --artifacts-dir dist/goreleaser \
@@ -181,8 +181,9 @@ jobs:
           EOF
           chmod +x "$no_go_bin/go"
 
-          native_tarball="$(ls dist/npm/yyopc-yyork-linux-x64-*.tgz)"
-          wrapper_tarball="$(ls dist/npm/yyopc-yyork-[0-9]*.tgz)"
+          native_tarball="$(realpath "$(ls dist/npm/yyopc-yyork-linux-x64-*.tgz)")"
+          wrapper_tarball="$(realpath "$(ls dist/npm/yyopc-yyork-[0-9]*.tgz)")"
+          alias_tarball="$(realpath "$(ls dist/npm/yyork-[0-9]*.tgz)")"
 
           env \
             HOME="$install_home" \
@@ -215,6 +216,64 @@ jobs:
             console.log('yyork doctor passed with bundled zellij.');
           } else {
             console.log('yyork doctor reported non-zellij issues after bundled zellij check.');
+          }
+          NODE
+
+          alias_project="$(mktemp -d)"
+          alias_home="$(mktemp -d)"
+          alias_doctor_json="$(mktemp)"
+          node - "$alias_project/package.json" "$alias_tarball" "$wrapper_tarball" "$native_tarball" <<'NODE'
+          const fs = require('node:fs');
+          const [packagePath, aliasTarball, wrapperTarball, nativeTarball] = process.argv.slice(2);
+          fs.writeFileSync(
+            packagePath,
+            `${JSON.stringify(
+              {
+                private: true,
+                dependencies: {
+                  '@yyopc/yyork-linux-x64': `file:${nativeTarball}`,
+                  yyork: `file:${aliasTarball}`,
+                },
+                overrides: {
+                  '@yyopc/yyork': `file:${wrapperTarball}`,
+                },
+              },
+              null,
+              2
+            )}\n`
+          );
+          NODE
+
+          env \
+            HOME="$alias_home" \
+            USERPROFILE="$alias_home" \
+            PATH="$no_go_bin:$PATH" \
+            npm install --omit=optional --package-lock=false \
+              --prefix "$alias_project"
+
+          alias_bin="$alias_project/node_modules/yyork/bin/yyork.mjs"
+          env HOME="$alias_home" USERPROFILE="$alias_home" PATH="$no_go_bin:$PATH" \
+            node "$alias_bin" --version
+
+          set +e
+          env HOME="$alias_home" USERPROFILE="$alias_home" PATH="$no_go_bin:$PATH" \
+            node "$alias_bin" doctor --json > "$alias_doctor_json"
+          alias_doctor_status=$?
+          set -e
+
+          node - "$alias_doctor_json" "$alias_doctor_status" <<'NODE'
+          const fs = require('node:fs');
+          const doctorPath = process.argv[2];
+          const status = Number(process.argv[3]);
+          const output = JSON.parse(fs.readFileSync(doctorPath, 'utf8'));
+          const zellij = output.checks?.find((check) => check.id === 'zellij');
+          if (zellij?.status !== 'ok' || zellij?.source !== 'bundled') {
+            throw new Error(`Expected bundled zellij via yyork alias, got ${JSON.stringify(zellij)}`);
+          }
+          if (status === 0) {
+            console.log('yyork alias doctor passed with bundled zellij.');
+          } else {
+            console.log('yyork alias doctor reported non-zellij issues after bundled zellij check.');
           }
           NODE
 
@@ -265,6 +324,7 @@ jobs:
             "yyopc-yyork-linux-arm64-$VERSION.tgz"
             "yyopc-yyork-linux-x64-$VERSION.tgz"
             "yyopc-yyork-$VERSION.tgz"
+            "yyork-$VERSION.tgz"
           )
           packages=(
             "@yyopc/yyork-darwin-arm64"
@@ -272,6 +332,7 @@ jobs:
             "@yyopc/yyork-linux-arm64"
             "@yyopc/yyork-linux-x64"
             "@yyopc/yyork"
+            "yyork"
           )
 
           for tarball in "${expected[@]}"; do
@@ -289,9 +350,16 @@ jobs:
             fi
           done
 
-          for tarball in "${expected[@]}"; do
+          for tarball in \
+            "yyopc-yyork-darwin-arm64-$VERSION.tgz" \
+            "yyopc-yyork-darwin-x64-$VERSION.tgz" \
+            "yyopc-yyork-linux-arm64-$VERSION.tgz" \
+            "yyopc-yyork-linux-x64-$VERSION.tgz" \
+            "yyopc-yyork-$VERSION.tgz"
+          do
             npm publish "$tarball" --access public --tag "$NPM_DIST_TAG" --dry-run
           done
+          npm publish "yyork-$VERSION.tgz" --tag "$NPM_DIST_TAG" --dry-run
 
       - name: Upload npm tarballs to GitHub release
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
@@ -319,3 +387,4 @@ jobs:
           done
 
           npm publish "yyopc-yyork-$VERSION.tgz" --access public --tag "$NPM_DIST_TAG"
+          npm publish "yyork-$VERSION.tgz" --tag "$NPM_DIST_TAG"

@@ -48,10 +48,21 @@ try {
       cwd: rootDir,
     }
   );
+  runLogged(
+    'node',
+    [
+      resolve(rootDir, 'bin', 'pack-alias-package.mjs'),
+      '--pack-destination',
+      tempDir,
+    ],
+    'alias-pack.log',
+    { cwd: rootDir }
+  );
 
   const wrapperTarballPath = requireTarball(
     `yyopc-yyork-${packageJSON.version}.tgz`
   );
+  const aliasTarballPath = requireTarball(`yyork-${packageJSON.version}.tgz`);
   const nativeTarballPath = requireTarball(
     `yyopc-yyork-${nativeMetadata.os}-${nativeMetadata.cpu}-${packageJSON.version}.tgz`
   );
@@ -69,6 +80,14 @@ try {
   requireMissing(wrapperEntries, 'package/main.go');
   requireMissing(wrapperEntries, 'package/internal/web/build/index.html');
   requireNativeDependencyVersions(packedWrapperPackageJSON);
+
+  const aliasEntries = tarballEntries(aliasTarballPath);
+  const packedAliasPackageJSON = packedPackageJSON(aliasTarballPath);
+  requireEntry(aliasEntries, 'package/bin/yyork.mjs');
+  requireEntry(aliasEntries, 'package/LICENSE');
+  requireEntry(aliasEntries, 'package/README.md');
+  requireEntry(aliasEntries, 'package/package.json');
+  requireAliasPackageMetadata(packedAliasPackageJSON);
 
   const nativeEntries = tarballEntries(nativeTarballPath);
   const packedNativePackageJSON = packedPackageJSON(nativeTarballPath);
@@ -140,9 +159,15 @@ try {
     stdio: 'ignore',
   });
   requireBundledZellijDoctor(yyorkBin, installEnv);
+  runAliasInstallSmoke({
+    aliasTarballPath,
+    nativeTarballPath,
+    noGoBin,
+    wrapperTarballPath,
+  });
 
   console.log(
-    `Release check passed: ${wrapperTarballPath} + ${nativeTarballPath}`
+    `Release check passed: ${wrapperTarballPath} + ${nativeTarballPath} + ${aliasTarballPath}`
   );
   rmSync(tempDir, { recursive: true, force: true });
 } catch (error) {
@@ -210,8 +235,33 @@ function requireNativePackageMetadata(packedNativePackageJSON) {
   }
 }
 
+function requireAliasPackageMetadata(packedAliasPackageJSON) {
+  const expected = {
+    bin: {
+      yyork: './bin/yyork.mjs',
+    },
+    dependencies: {
+      '@yyopc/yyork': packageJSON.version,
+    },
+    name: 'yyork',
+    version: packageJSON.version,
+  };
+  for (const [key, value] of Object.entries(expected)) {
+    if (JSON.stringify(packedAliasPackageJSON[key]) !== JSON.stringify(value)) {
+      fail(
+        `Packed alias package ${key} should be ${JSON.stringify(value)}, ` +
+          `got ${JSON.stringify(packedAliasPackageJSON[key])}.`
+      );
+    }
+  }
+}
+
 function requireBundledZellijDoctor(yyorkBin, installEnv) {
-  const result = spawnSync(yyorkBin, ['doctor', '--json'], {
+  requireBundledZellijDoctorCommand(yyorkBin, ['doctor', '--json'], installEnv);
+}
+
+function requireBundledZellijDoctorCommand(command, args, installEnv) {
+  const result = spawnSync(command, args, {
     cwd: rootDir,
     encoding: 'utf8',
     env: { ...process.env, ...installEnv },
@@ -237,6 +287,69 @@ function requireBundledZellijDoctor(yyorkBin, installEnv) {
       `Expected doctor to report bundled zellij, got ${JSON.stringify(zellij)}.`
     );
   }
+}
+
+function runAliasInstallSmoke({
+  aliasTarballPath,
+  nativeTarballPath,
+  noGoBin,
+  wrapperTarballPath,
+}) {
+  const projectDir = resolve(tempDir, 'alias-project');
+  const aliasHome = resolve(tempDir, 'alias-home');
+  mkdirSync(projectDir, { recursive: true });
+  writeFileSync(
+    resolve(projectDir, 'package.json'),
+    `${JSON.stringify(
+      {
+        private: true,
+        dependencies: {
+          [nativeMetadata.name]: `file:${nativeTarballPath}`,
+          yyork: `file:${aliasTarballPath}`,
+        },
+        overrides: {
+          '@yyopc/yyork': `file:${wrapperTarballPath}`,
+        },
+      },
+      null,
+      2
+    )}\n`
+  );
+
+  const aliasEnv = {
+    HOME: aliasHome,
+    PATH: `${noGoBin}${delimiter}${process.env.PATH ?? ''}`,
+    USERPROFILE: aliasHome,
+  };
+  runLogged(
+    'npm',
+    ['install', '--omit=optional', '--package-lock=false'],
+    'alias-install.log',
+    {
+      cwd: projectDir,
+      env: aliasEnv,
+    }
+  );
+
+  const aliasBin = resolve(
+    projectDir,
+    'node_modules',
+    'yyork',
+    'bin',
+    'yyork.mjs'
+  );
+  if (!existsSync(aliasBin)) {
+    fail(`Installed yyork alias launcher was not found at ${aliasBin}.`);
+  }
+  run(process.execPath, [aliasBin, '--version'], {
+    cwd: rootDir,
+    env: aliasEnv,
+  });
+  requireBundledZellijDoctorCommand(
+    process.execPath,
+    [aliasBin, 'doctor', '--json'],
+    aliasEnv
+  );
 }
 
 function createNoGoShim(binDir) {

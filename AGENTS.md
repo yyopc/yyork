@@ -13,6 +13,6 @@
 
 # Release and installability
 
-- Run `pnpm release:check` before release packaging changes. It builds the app, stages the native package for the current OS/CPU, packs the `@yyopc/yyork` wrapper, installs both into an isolated temp prefix with `go` intentionally unavailable, and runs the installed `yyork` binary.
-- Distribution builds run in GitHub Actions. The release workflow uses GoReleaser to build stripped platform-specific `yyork` archives and publish GitHub release assets. The npm packaging job wraps those release artifacts into native npm packages with bundled Zellij, smoke-tests installability with `go` unavailable, uploads npm tarballs, and publishes the native packages before the `@yyopc/yyork` wrapper.
+- Run `pnpm release:check` before release packaging changes. It builds the app, stages the native package for the current OS/CPU, packs the `@yyopc/yyork` wrapper plus the unscoped `yyork` alias, installs them with `go` intentionally unavailable, and runs the installed `yyork` binary.
+- Distribution builds run in GitHub Actions. The release workflow uses GoReleaser to build stripped platform-specific `yyork` archives and publish GitHub release assets. The npm packaging job wraps those release artifacts into native npm packages with bundled Zellij, smoke-tests installability with `go` unavailable, uploads npm tarballs, and publishes the native packages before the `@yyopc/yyork` wrapper and the final `yyork` alias package.
 - The flake package should install the published native release artifact for the current platform instead of running `go run .`; `nix profile add github:yyopc/yyork` is expected to install a prebuilt yyork binary with bundled Zellij.

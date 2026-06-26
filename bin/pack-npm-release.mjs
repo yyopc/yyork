@@ -49,6 +49,11 @@ try {
   run('pnpm', ['pack', '--pack-destination', options.packDestination], {
     cwd: rootDir,
   });
+  run('node', [
+    resolve(rootDir, 'bin', 'pack-alias-package.mjs'),
+    '--pack-destination',
+    options.packDestination,
+  ]);
 
   requirePackedTarballs();
   console.log(`Packed npm release tarballs in ${options.packDestination}`);
@@ -169,6 +174,7 @@ function requirePackedTarballs() {
   );
   const expected = [
     `yyopc-yyork-${packageJSON.version}.tgz`,
+    `yyork-${packageJSON.version}.tgz`,
     ...options.targets.map((target) => {
       const metadata = nativePackageMetadataForTarget(target);
       return (
