@@ -8,35 +8,46 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/yyopc/yyork/internal/control"
 	"github.com/yyopc/yyork/internal/events"
+	"github.com/yyopc/yyork/internal/plugin/agent"
 	"github.com/yyopc/yyork/internal/plugin/agent/claudecode"
 	"github.com/yyopc/yyork/internal/plugin/agent/codex"
 	"github.com/yyopc/yyork/internal/store"
 )
 
 const (
-	hookMetadataAgentSessionID = "agentSessionId"
-	hookMetadataTitle          = "title"
-	hookMetadataRecap          = "recap"
-	hookMetadataState          = "state"
-	hookMetadataLastActivityAt = "lastActivityAt"
-	hookMetadataCurrentTool    = "currentToolCall"
-	hookMetadataToolBulletins  = "toolCallBulletins"
-	hookMetadataTriageReason   = "triageReason"
+	hookMetadataAgentSessionID         = "agentSessionId"
+	hookMetadataTitle                  = "title"
+	hookMetadataRecap                  = "recap"
+	hookMetadataState                  = "state"
+	hookMetadataLastActivityAt         = "lastActivityAt"
+	hookMetadataLastAssistantMessageAt = "lastAssistantMessageAt"
+	hookMetadataCurrentTool            = "currentToolCall"
+	hookMetadataToolBulletins          = "toolCallBulletins"
+	hookMetadataTriageReason           = "triageReason"
 
 	hookStateWorking = "working"
 	hookStatePrompt  = "prompt"
 	hookStateTriage  = "triage"
 
-	hookTitleMaxLen        = 120
-	hookRecapMaxLen        = 500
+	hookTitleMaxLen        = 60
+	hookRecapMaxLen        = 240
 	hookToolBulletinMaxLen = 160
 	hookToolBulletinCount  = 3
+
+	hookMetadataCommandTimeout = 20 * time.Second
+	hookMetadataOutputMaxBytes = 32 << 10
 )
+
+var buildHookTitleCommand = defaultHookTitleCommand
+var runHookTitleCommand = runMetadataCommand
+var buildHookRecapCommand = defaultHookRecapCommand
+var runHookRecapCommand = runMetadataCommand
 
 func runHooks(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer) int {
 	if len(args) != 2 {
@@ -149,7 +160,7 @@ func runAgentHook(ctx context.Context, agentName, event string, stdin io.Reader,
 	defer func() { _ = dataStore.Close() }()
 
 	repo := dataStore.Sessions()
-	fields, err := hookFields(ctx, repo, aoSessionID, event, raw)
+	fields, err := hookFields(ctx, repo, agentName, aoSessionID, event, raw)
 	if errors.Is(err, store.ErrSessionNotFound) {
 		writeHookResponse(stdout)
 		return 0
@@ -180,12 +191,35 @@ func runAgentHook(ctx context.Context, agentName, event string, stdin io.Reader,
 // despite older docs omitting it), so one shape serves both. Agent-specific
 // extras are ignored.
 type hookPayload struct {
-	HookEventName        string         `json:"hook_event_name"`
-	SessionID            string         `json:"session_id"`
-	Prompt               string         `json:"prompt"`
-	LastAssistantMessage *string        `json:"last_assistant_message"`
-	ToolInput            map[string]any `json:"tool_input"`
-	ToolName             string         `json:"tool_name"`
+	HookEventName        string        `json:"hook_event_name"`
+	SessionID            string        `json:"session_id"`
+	Prompt               string        `json:"prompt"`
+	LastAssistantMessage *string       `json:"last_assistant_message"`
+	ToolInput            hookToolInput `json:"tool_input"`
+	ToolName             string        `json:"tool_name"`
+}
+
+type hookToolInput map[string]any
+
+func (h *hookToolInput) UnmarshalJSON(raw []byte) error {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
+		*h = nil
+		return nil
+	}
+
+	var object map[string]any
+	if err := json.Unmarshal(trimmed, &object); err == nil {
+		*h = hookToolInput(object)
+		return nil
+	}
+
+	var value any
+	if err := json.Unmarshal(trimmed, &value); err != nil {
+		return err
+	}
+	*h = nil
+	return nil
 }
 
 // hookFields computes the normalized session-metadata fields to merge for one
@@ -193,7 +227,7 @@ type hookPayload struct {
 // prompt, activity bulletins from tool hooks, triage reason from permission
 // prompts, and recap from the latest assistant message at stop. Returning
 // store.ErrSessionNotFound makes the driver no-op cleanly.
-func hookFields(ctx context.Context, repo store.SessionRepo, aoSessionID, event string, raw []byte) (map[string]any, error) {
+func hookFields(ctx context.Context, repo store.SessionRepo, agentName, aoSessionID, event string, raw []byte) (map[string]any, error) {
 	var payload hookPayload
 	if err := unmarshalHookPayload(raw, &payload); err != nil {
 		return nil, fmt.Errorf("decode payload: %w", err)
@@ -206,7 +240,7 @@ func hookFields(ctx context.Context, repo store.SessionRepo, aoSessionID, event 
 			fields[hookMetadataAgentSessionID] = sessionID
 		}
 	case "user-prompt-submit":
-		title, err := titleFields(ctx, repo, aoSessionID, payload.Prompt)
+		title, err := titleFields(ctx, repo, agentName, aoSessionID, payload.Prompt)
 		if err != nil {
 			return nil, err
 		}
@@ -223,12 +257,19 @@ func hookFields(ctx context.Context, repo store.SessionRepo, aoSessionID, event 
 		return permissionRequestFields(ctx, repo, aoSessionID, payload)
 	case "stop":
 		fields = hookActivityFields(hookStatePrompt)
+		if lastActivityAt, ok := fields[hookMetadataLastActivityAt].(string); ok && lastActivityAt != "" {
+			fields[hookMetadataLastAssistantMessageAt] = lastActivityAt
+		}
 		fields[hookMetadataCurrentTool] = ""
 		if payload.LastAssistantMessage == nil {
 			return fields, nil
 		}
-		if recap := compactHookText(*payload.LastAssistantMessage, hookRecapMaxLen); recap != "" {
-			fields[hookMetadataRecap] = recap
+		recap, err := recapFields(ctx, repo, agentName, aoSessionID, *payload.LastAssistantMessage)
+		if err != nil {
+			return nil, err
+		}
+		for key, value := range recap {
+			fields[key] = value
 		}
 	default:
 		return nil, fmt.Errorf("unknown hook event %q", event)
@@ -281,22 +322,156 @@ func permissionRequestFields(ctx context.Context, repo store.SessionRepo, aoSess
 	return fields, nil
 }
 
-// titleFields sets the title from the user prompt, but only the first time (the
-// first user prompt titles the session; later prompts don't retitle it).
-func titleFields(ctx context.Context, repo store.SessionRepo, aoSessionID, prompt string) (map[string]any, error) {
+// titleFields sets the title from the first user prompt by asking the selected
+// agent plugin to generate a concise title. Later prompts don't retitle it.
+func titleFields(ctx context.Context, repo store.SessionRepo, agentName, aoSessionID, prompt string) (map[string]any, error) {
 	fields := map[string]any{}
-	title := compactHookText(prompt, hookTitleMaxLen)
-	if title == "" {
+	if strings.TrimSpace(prompt) == "" {
 		return fields, nil
 	}
 	row, err := repo.Get(ctx, aoSessionID)
 	if err != nil {
 		return nil, err
 	}
-	if stringMetadata(row.Metadata, hookMetadataTitle) == "" {
+	if stringMetadata(row.Metadata, hookMetadataTitle) != "" {
+		return fields, nil
+	}
+
+	title, ok := generatedSessionTitle(ctx, agentName, row, prompt)
+	if ok {
 		fields[hookMetadataTitle] = title
 	}
 	return fields, nil
+}
+
+// recapFields refreshes the recap at each completed assistant turn by asking
+// the selected agent plugin to summarize the latest assistant message.
+func recapFields(ctx context.Context, repo store.SessionRepo, agentName, aoSessionID, lastAssistantMessage string) (map[string]any, error) {
+	fields := map[string]any{}
+	if strings.TrimSpace(lastAssistantMessage) == "" {
+		return fields, nil
+	}
+	row, err := repo.Get(ctx, aoSessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	recap, ok := generatedSessionRecap(ctx, agentName, row, lastAssistantMessage)
+	if ok {
+		fields[hookMetadataRecap] = recap
+	}
+	return fields, nil
+}
+
+func generatedSessionTitle(ctx context.Context, agentName string, row store.Session, prompt string) (string, bool) {
+	cmd, err := buildHookTitleCommand(ctx, agentName, agent.TitleConfig{
+		Prompt:        prompt,
+		SessionID:     row.ID,
+		WorkspacePath: row.WorkspacePath,
+	})
+	if err != nil || len(cmd) == 0 {
+		return "", false
+	}
+
+	output, err := runHookTitleCommand(ctx, cmd)
+	if err != nil {
+		return "", false
+	}
+	title := titleFromCommandOutput(output)
+	if title == "" {
+		return "", false
+	}
+	return title, true
+}
+
+func generatedSessionRecap(ctx context.Context, agentName string, row store.Session, lastAssistantMessage string) (string, bool) {
+	cmd, err := buildHookRecapCommand(ctx, agentName, agent.RecapConfig{
+		LastAssistantMessage: lastAssistantMessage,
+		SessionID:            row.ID,
+		WorkspacePath:        row.WorkspacePath,
+	})
+	if err != nil || len(cmd) == 0 {
+		return "", false
+	}
+
+	output, err := runHookRecapCommand(ctx, cmd)
+	if err != nil {
+		return "", false
+	}
+	recap := recapFromCommandOutput(output)
+	if recap == "" {
+		return "", false
+	}
+	return recap, true
+}
+
+func defaultHookTitleCommand(ctx context.Context, agentName string, cfg agent.TitleConfig) ([]string, error) {
+	switch agentName {
+	case "codex":
+		return codex.New().GetSessionTitleCommand(ctx, cfg)
+	case "claude-code":
+		return claudecode.New().GetSessionTitleCommand(ctx, cfg)
+	default:
+		return nil, fmt.Errorf("unknown agent %q", agentName)
+	}
+}
+
+func defaultHookRecapCommand(ctx context.Context, agentName string, cfg agent.RecapConfig) ([]string, error) {
+	switch agentName {
+	case "codex":
+		return codex.New().GetSessionRecapCommand(ctx, cfg)
+	case "claude-code":
+		return claudecode.New().GetSessionRecapCommand(ctx, cfg)
+	default:
+		return nil, fmt.Errorf("unknown agent %q", agentName)
+	}
+}
+
+func runMetadataCommand(ctx context.Context, cmd []string) (string, error) {
+	if len(cmd) == 0 {
+		return "", errors.New("empty metadata command")
+	}
+
+	runCtx, cancel := context.WithTimeout(ctx, hookMetadataCommandTimeout)
+	defer cancel()
+
+	command := exec.CommandContext(runCtx, cmd[0], cmd[1:]...)
+	var stdout limitedBuffer
+	var stderr limitedBuffer
+	command.Stdout = &stdout
+	command.Stderr = &stderr
+	if err := command.Run(); err != nil {
+		return "", fmt.Errorf("run metadata command: %w: %s", err, stderr.String())
+	}
+	return stdout.String(), nil
+}
+
+func titleFromCommandOutput(output string) string {
+	return metadataTextFromCommandOutput(output, hookTitleMaxLen)
+}
+
+func recapFromCommandOutput(output string) string {
+	return metadataTextFromCommandOutput(output, hookRecapMaxLen)
+}
+
+func metadataTextFromCommandOutput(output string, maxLen int) string {
+	lines := strings.Split(output, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		text := cleanGeneratedMetadataLine(lines[i])
+		if text != "" {
+			return compactHookText(text, maxLen)
+		}
+	}
+	return ""
+}
+
+func cleanGeneratedMetadataLine(text string) string {
+	text = strings.TrimSpace(text)
+	text = strings.TrimPrefix(text, "-")
+	text = strings.TrimPrefix(text, "•")
+	text = strings.TrimSpace(text)
+	text = strings.Trim(text, `"'`+"`")
+	return strings.TrimSpace(text)
 }
 
 // unmarshalHookPayload decodes a hook payload, tolerating an empty body (a hook
@@ -319,7 +494,27 @@ func compactHookText(text string, maxLen int) string {
 	return strings.TrimSpace(compact[:maxLen-3]) + "..."
 }
 
-func summarizeToolCall(action string, toolName string, input map[string]any) string {
+type limitedBuffer struct {
+	buf bytes.Buffer
+}
+
+func (b *limitedBuffer) Write(p []byte) (int, error) {
+	remaining := hookMetadataOutputMaxBytes - b.buf.Len()
+	if remaining > 0 {
+		if len(p) > remaining {
+			_, _ = b.buf.Write(p[:remaining])
+		} else {
+			_, _ = b.buf.Write(p)
+		}
+	}
+	return len(p), nil
+}
+
+func (b *limitedBuffer) String() string {
+	return b.buf.String()
+}
+
+func summarizeToolCall(action string, toolName string, input hookToolInput) string {
 	tool := compactHookText(toolName, 48)
 	if tool == "" {
 		return action + " agent tool."
@@ -361,7 +556,7 @@ func summarizeToolCall(action string, toolName string, input map[string]any) str
 	return compactHookText(action+" "+tool+".", hookToolBulletinMaxLen)
 }
 
-func metadataInputString(input map[string]any, keys ...string) string {
+func metadataInputString(input hookToolInput, keys ...string) string {
 	for _, key := range keys {
 		value, ok := input[key]
 		if !ok {

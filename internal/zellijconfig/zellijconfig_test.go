@@ -30,14 +30,15 @@ func TestEnsureWritesConfigUnderHome(t *testing.T) {
 		t.Errorf("config missing theme selection:\n%s", content)
 	}
 	// The invisibility contract: no zellij keybindings, no pane frames, no
-	// startup floating panes, no mouse hover effects. The user must not be
-	// able to tell the agent runs inside zellij.
+	// startup floating panes, no zellij-owned mouse handling or hover effects.
+	// The user must not be able to tell the agent runs inside zellij.
 	for _, frag := range []string{
 		"keybinds clear-defaults=true",
 		"pane_frames false",
 		"show_startup_tips false",
 		"show_release_notes false",
 		"advanced_mouse_actions false",
+		"mouse_mode false",
 	} {
 		if !strings.Contains(content, frag) {
 			t.Errorf("config missing %q:\n%s", frag, content)

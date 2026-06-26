@@ -26,11 +26,11 @@ func TestSourceRootFromFindsMigratedRootEntrypoint(t *testing.T) {
 }
 
 func TestSourceGoRunExecutableUsesMigratedRootPackage(t *testing.T) {
-	command := sourceGoRunExecutable("/tmp/yyork root")
+	command := sourceGoRunExecutable("/tmp/yyork root", "/usr/bin/go")
 	if strings.Contains(command, "cmd/yyork") {
 		t.Fatalf("source fallback still points at deleted cmd/yyork package: %q", command)
 	}
-	if !strings.Contains(command, "go run .") {
+	if !strings.Contains(command, "'/usr/bin/go' run .") {
 		t.Fatalf("source fallback should run the migrated root package: %q", command)
 	}
 	if !strings.Contains(command, "'/tmp/yyork root'") {
@@ -39,30 +39,116 @@ func TestSourceGoRunExecutableUsesMigratedRootPackage(t *testing.T) {
 }
 
 func TestGoRunCommandChdirsIntoRoot(t *testing.T) {
-	// Regression: `direnv exec DIR` loads DIR's env but does not chdir, so the
-	// command must cd into the module root itself before `go run .`. Without
-	// the cd, an agent hook runs `go run .` in the session cwd (e.g. internal/web/) and
-	// fails with "no Go files in <cwd>".
-	withDirenv := goRunCommand("/tmp/yyork root", "/usr/bin/direnv")
-	if !strings.HasPrefix(withDirenv, "cd '/tmp/yyork root' && ") {
-		t.Fatalf("direnv command must cd into root before running: %q", withDirenv)
+	// Regression: an agent hook inherits the session cwd (e.g. internal/web/),
+	// so the command must cd into the module root before `go run .`.
+	command := goRunCommand("/tmp/yyork root", "/usr/bin/go")
+	if !strings.HasPrefix(command, "cd '/tmp/yyork root' && ") {
+		t.Fatalf("fallback command must cd into root before running: %q", command)
 	}
-	if !strings.Contains(withDirenv, "'/usr/bin/direnv' exec '/tmp/yyork root' go run .") {
-		t.Fatalf("direnv command should still load root env via direnv exec: %q", withDirenv)
+	if !strings.HasSuffix(command, "'/usr/bin/go' run .") {
+		t.Fatalf("command should run the migrated root package: %q", command)
+	}
+	if strings.Contains(command, "cmd/yyork") {
+		t.Fatalf("command still points at deleted cmd/yyork package: %q", command)
+	}
+	if strings.Contains(command, "direnv") {
+		t.Fatalf("command should not depend on direnv allow state: %q", command)
+	}
+}
+
+func TestExecutableSourceFallbackIgnoresDirenvOnPath(t *testing.T) {
+	root, ok := SourceRoot()
+	if !ok {
+		t.Fatal("SourceRoot did not find yyork checkout")
 	}
 
-	noDirenv := goRunCommand("/tmp/yyork root", "")
-	if !strings.HasPrefix(noDirenv, "cd '/tmp/yyork root' && ") {
-		t.Fatalf("fallback command must cd into root before running: %q", noDirenv)
+	oldExecutable := currentExecutable
+	oldLookPath := lookPath
+	t.Cleanup(func() {
+		currentExecutable = oldExecutable
+		lookPath = oldLookPath
+	})
+	currentExecutable = func() (string, error) {
+		return "/tmp/not-yyork", nil
+	}
+	lookPath = func(name string) (string, error) {
+		switch name {
+		case "go":
+			return "/usr/bin/go", nil
+		case "direnv":
+			return "/usr/bin/direnv", nil
+		default:
+			return "", os.ErrNotExist
+		}
 	}
 
-	for _, command := range []string{withDirenv, noDirenv} {
-		if !strings.HasSuffix(command, "go run .") {
-			t.Fatalf("command should run the migrated root package: %q", command)
+	got := Executable()
+	want := "cd " + shellQuote(root) + " && '/usr/bin/go' run ."
+	if got != want {
+		t.Fatalf("Executable() = %q, want %q", got, want)
+	}
+	if strings.Contains(got, "direnv") {
+		t.Fatalf("Executable() source fallback should not wrap direnv: %q", got)
+	}
+}
+
+func TestExecutableSkipsGoRunBuildCacheBinary(t *testing.T) {
+	cache := t.TempDir()
+	t.Setenv("GOCACHE", cache)
+	root, ok := SourceRoot()
+	if !ok {
+		t.Fatal("SourceRoot did not find yyork checkout")
+	}
+
+	oldExecutable := currentExecutable
+	oldLookPath := lookPath
+	t.Cleanup(func() {
+		currentExecutable = oldExecutable
+		lookPath = oldLookPath
+	})
+	currentExecutable = func() (string, error) {
+		return filepath.Join(cache, "2d", "hash-d", "yyork"), nil
+	}
+	lookPath = func(name string) (string, error) {
+		switch name {
+		case "go":
+			return "/usr/bin/go", nil
+		case "yyork":
+			return "/usr/local/bin/yyork", nil
+		default:
+			return "", os.ErrNotExist
 		}
-		if strings.Contains(command, "cmd/yyork") {
-			t.Fatalf("command still points at deleted cmd/yyork package: %q", command)
-		}
+	}
+
+	got := Executable()
+	if strings.Contains(got, cache) {
+		t.Fatalf("Executable() persisted Go build-cache binary: %q", got)
+	}
+	if strings.Contains(got, "/usr/local/bin/yyork") {
+		t.Fatalf("Executable() should prefer source fallback over PATH when running from go build cache: %q", got)
+	}
+	wantPrefix := "cd " + shellQuote(root) + " && "
+	if !strings.HasPrefix(got, wantPrefix) {
+		t.Fatalf("Executable() = %q, want source checkout fallback prefix %q", got, wantPrefix)
+	}
+	if !strings.Contains(got, "'/usr/bin/go' run .") {
+		t.Fatalf("Executable() source fallback should use resolved go path: %q", got)
+	}
+}
+
+func TestExecutableUsesStableYyorkBinary(t *testing.T) {
+	t.Setenv("GOCACHE", t.TempDir())
+
+	oldExecutable := currentExecutable
+	t.Cleanup(func() {
+		currentExecutable = oldExecutable
+	})
+	currentExecutable = func() (string, error) {
+		return "/opt/yyork/bin/yyork", nil
+	}
+
+	if got := Executable(); got != "'/opt/yyork/bin/yyork'" {
+		t.Fatalf("Executable() = %q, want stable yyork binary", got)
 	}
 }
 

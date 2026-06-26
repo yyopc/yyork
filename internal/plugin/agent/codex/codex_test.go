@@ -28,6 +28,7 @@ func TestGetLaunchCommandBuildsCrossPlatformArgv(t *testing.T) {
 	want := []string{
 		"codex",
 		"-c", "check_for_update_on_startup=false",
+		"--no-alt-screen",
 		"--dangerously-bypass-approvals-and-sandbox",
 		"-c", "model_instructions_file=" + filepath.Join("tmp", "prompt with spaces.md"),
 		"--", "-fix this",
@@ -83,6 +84,9 @@ func TestGetLaunchCommandMapsApprovalModes(t *testing.T) {
 			if len(tt.want) > 0 && !containsSubsequence(cmd, tt.want) {
 				t.Fatalf("command %#v does not contain %#v", cmd, tt.want)
 			}
+			if !contains(cmd, "--no-alt-screen") {
+				t.Fatalf("command %#v missing --no-alt-screen", cmd)
+			}
 			if tt.notExpected != "" && contains(cmd, tt.notExpected) {
 				t.Fatalf("command %#v contains %q", cmd, tt.notExpected)
 			}
@@ -99,6 +103,98 @@ func TestGetPromptDeliveryStrategyIsInCommand(t *testing.T) {
 	}
 	if got != agent.PromptDeliveryInCommand {
 		t.Fatalf("unexpected strategy: %q", got)
+	}
+}
+
+func TestGetSessionTitleCommandBuildsExecArgv(t *testing.T) {
+	plugin := &Plugin{resolvedBinary: "codex"}
+
+	cmd, err := plugin.GetSessionTitleCommand(context.Background(), agent.TitleConfig{
+		Prompt: "Explain the current state of agent hooks. Scope: do not modify files.",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantPrefix := []string{
+		"codex",
+		"exec",
+		"-c",
+		"check_for_update_on_startup=false",
+		"-c",
+		`approval_policy="never"`,
+	}
+	if !reflect.DeepEqual(cmd[:len(wantPrefix)], wantPrefix) {
+		t.Fatalf("cmd prefix = %#v, want %#v", cmd[:len(wantPrefix)], wantPrefix)
+	}
+	for _, want := range []string{
+		"--skip-git-repo-check",
+		"--ephemeral",
+		"--ignore-user-config",
+		"--ignore-rules",
+		"--sandbox",
+		"read-only",
+		"--color",
+		"never",
+		"--cd",
+		os.TempDir(),
+	} {
+		if !contains(cmd, want) {
+			t.Fatalf("cmd %#v missing %q", cmd, want)
+		}
+	}
+	if contains(cmd, "--ask-for-approval") {
+		t.Fatalf("cmd %#v includes --ask-for-approval, which codex exec rejects", cmd)
+	}
+	prompt := cmd[len(cmd)-1]
+	if !strings.Contains(prompt, "Use 3 to 5 words.") ||
+		!strings.Contains(prompt, "Use 60 characters or fewer.") ||
+		!strings.Contains(prompt, "Explain the current state of agent hooks") {
+		t.Fatalf("title prompt = %q", prompt)
+	}
+}
+
+func TestGetSessionRecapCommandBuildsExecArgv(t *testing.T) {
+	plugin := &Plugin{resolvedBinary: "codex"}
+
+	cmd, err := plugin.GetSessionRecapCommand(context.Background(), agent.RecapConfig{
+		LastAssistantMessage: "Implemented the hook title fix and paused for release validation.",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantPrefix := []string{
+		"codex",
+		"exec",
+		"-c",
+		"check_for_update_on_startup=false",
+		"-c",
+		`approval_policy="never"`,
+	}
+	if !reflect.DeepEqual(cmd[:len(wantPrefix)], wantPrefix) {
+		t.Fatalf("cmd prefix = %#v, want %#v", cmd[:len(wantPrefix)], wantPrefix)
+	}
+	for _, want := range []string{
+		"--skip-git-repo-check",
+		"--ephemeral",
+		"--ignore-user-config",
+		"--ignore-rules",
+		"--sandbox",
+		"read-only",
+		"--color",
+		"never",
+		"--cd",
+		os.TempDir(),
+	} {
+		if !contains(cmd, want) {
+			t.Fatalf("cmd %#v missing %q", cmd, want)
+		}
+	}
+	prompt := cmd[len(cmd)-1]
+	if !strings.Contains(prompt, "Use 240 characters or fewer.") ||
+		!strings.Contains(prompt, "Implemented the hook title fix") {
+		t.Fatalf("recap prompt = %q", prompt)
 	}
 }
 
@@ -301,6 +397,7 @@ func TestGetRestoreCommandReadsAgentSessionID(t *testing.T) {
 		"-c", "check_for_update_on_startup=false",
 		"--ask-for-approval", "on-request",
 		"-c", `approvals_reviewer="auto_review"`,
+		"--no-alt-screen",
 		"thread-123",
 	}
 	if !reflect.DeepEqual(cmd, want) {
@@ -336,73 +433,6 @@ func TestGetRestoreCommandFalseWithoutAgentSessionID(t *testing.T) {
 				t.Fatalf("cmd = %#v, want nil", cmd)
 			}
 		})
-	}
-}
-
-func TestSessionInfoReadsHookMetadata(t *testing.T) {
-	plugin := &Plugin{resolvedBinary: "codex"}
-
-	info, ok, err := plugin.SessionInfo(context.Background(), agent.SessionRef{
-		WorkspacePath: "/some/path",
-		Metadata: map[string]string{
-			codexAgentSessionIDMetadataKey: "thread-123",
-			codexTitleMetadataKey:          "Fix login redirect",
-			codexRecapMetadataKey:          "Updated the auth callback and tests.",
-			"ignored":                      "not returned",
-		},
-	})
-	if err != nil {
-		t.Fatalf("err = %v, want nil", err)
-	}
-	if !ok {
-		t.Fatalf("ok = false, want true")
-	}
-	if info.AgentSessionID != "thread-123" {
-		t.Fatalf("AgentSessionID = %q, want native id", info.AgentSessionID)
-	}
-	if info.Title != "Fix login redirect" {
-		t.Fatalf("Title = %q, want hook title", info.Title)
-	}
-	if info.Recap != "Updated the auth callback and tests." {
-		t.Fatalf("Recap = %q, want hook recap", info.Recap)
-	}
-	if info.Metadata != nil {
-		t.Fatalf("Metadata = %#v, want nil for Codex", info.Metadata)
-	}
-}
-
-func TestSessionInfoReadsLegacySummaryAsRecap(t *testing.T) {
-	plugin := &Plugin{resolvedBinary: "codex"}
-
-	info, ok, err := plugin.SessionInfo(context.Background(), agent.SessionRef{
-		WorkspacePath: "/some/path",
-		Metadata: map[string]string{
-			codexLegacySummaryMetadataKey: "Legacy stop hook message.",
-		},
-	})
-	if err != nil || !ok {
-		t.Fatalf("SessionInfo = (ok=%v, err=%v), want ok", ok, err)
-	}
-	if info.Recap != "Legacy stop hook message." {
-		t.Fatalf("Recap = %q", info.Recap)
-	}
-}
-
-func TestSessionInfoFalseWhenNoHookMetadata(t *testing.T) {
-	plugin := &Plugin{resolvedBinary: "codex"}
-
-	info, ok, err := plugin.SessionInfo(context.Background(), agent.SessionRef{
-		WorkspacePath: "/some/path",
-		Metadata:      map[string]string{},
-	})
-	if err != nil {
-		t.Fatalf("err = %v, want nil", err)
-	}
-	if ok {
-		t.Fatalf("ok = true, want false")
-	}
-	if !reflect.DeepEqual(info, agent.SessionInfo{}) {
-		t.Fatalf("info = %#v, want zero value", info)
 	}
 }
 

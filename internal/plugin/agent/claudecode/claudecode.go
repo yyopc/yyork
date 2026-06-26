@@ -4,9 +4,8 @@
 // session's worktree, installs worktree-local hooks that report normalized
 // session metadata (native id, title, recap) back into yyork's store,
 // and supports resume: GetLaunchCommand pins a stable `--session-id` so
-// GetRestoreCommand can rebuild `claude --resume <uuid>`. SessionInfo reads the
-// hook-captured metadata from the store — it does not parse transcripts.
-// GetConfigSpec remains a no-op (no agent-specific config keys yet).
+// GetRestoreCommand can rebuild `claude --resume <uuid>`. GetConfigSpec
+// remains a no-op (no agent-specific config keys yet).
 //
 // Claude Code starts an interactive session by default (no -p/--print), which
 // is exactly what yyork wants: a live agent the user can attach to in the
@@ -38,14 +37,9 @@ const (
 	// `yyork spawn --agent`.
 	pluginID = "claude-code"
 
-	// Normalized session-metadata keys the Claude Code hooks persist into the
-	// yyork session store and SessionInfo reads back. Shared vocabulary
-	// with the Codex plugin so the dashboard treats every agent uniformly.
-	// agentSessionId is also the preferred restore id.
+	// agentSessionId is the hook-persisted native session id and the preferred
+	// restore id.
 	claudeAgentSessionIDMetadataKey = "agentSessionId"
-	claudeTitleMetadataKey          = "title"
-	claudeRecapMetadataKey          = "recap"
-	claudeLegacySummaryMetadataKey  = "summary"
 )
 
 // claudeSessionNamespace seeds the UUIDv5 derivation that maps a yyork
@@ -95,9 +89,8 @@ func (p *Plugin) GetConfigSpec(ctx context.Context) (agent.ConfigSpec, error) {
 //	       [-- <prompt>]
 //
 // --session-id pins Claude's native session UUID to a value derived from the
-// yyork session id, so the session is resumable later (see
-// GetRestoreCommand) and its transcript is locatable (see SessionInfo) without
-// a separate capture step.
+// yyork session id, so the session is resumable later (see GetRestoreCommand)
+// without a separate capture step.
 //
 // <mode> is acceptEdits, auto, or bypassPermissions. yyork's "default"
 // mode emits no --permission-mode flag, so Claude's TUI resolves the starting
@@ -140,6 +133,31 @@ func (p *Plugin) GetPromptDeliveryStrategy(ctx context.Context, cfg agent.Launch
 		return "", err
 	}
 	return agent.PromptDeliveryInCommand, nil
+}
+
+func (p *Plugin) GetSessionTitleCommand(ctx context.Context, cfg agent.TitleConfig) (cmd []string, err error) {
+	return p.getSessionMetadataCommand(ctx, agent.TitleGenerationPrompt(cfg.Prompt))
+}
+
+func (p *Plugin) GetSessionRecapCommand(ctx context.Context, cfg agent.RecapConfig) (cmd []string, err error) {
+	return p.getSessionMetadataCommand(ctx, agent.RecapGenerationPrompt(cfg.LastAssistantMessage))
+}
+
+func (p *Plugin) getSessionMetadataCommand(ctx context.Context, prompt string) (cmd []string, err error) {
+	binary, err := p.claudeBinary(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	cmd = []string{
+		binary,
+		"--safe-mode",
+		"-p",
+		"--output-format", "text",
+		"--no-session-persistence",
+		prompt,
+	}
+	return cmd, nil
 }
 
 // PreLaunch is an optional capability the spawn engine invokes (via type
@@ -198,36 +216,6 @@ func (p *Plugin) GetRestoreCommand(ctx context.Context, cfg agent.RestoreConfig)
 	appendPermissionFlags(&cmd, cfg.Permissions)
 	cmd = append(cmd, "--resume", sessionID)
 	return cmd, true, nil
-}
-
-// SessionInfo surfaces the normalized session metadata that the Claude Code
-// hooks persisted into yyork's store: the native session id, the title (the
-// first user prompt), and the recap (the latest assistant message). It reads
-// only from session.Metadata — never from transcript files — and returns
-// ok=false when none of those fields are present. Metadata is intentionally nil:
-// there is no Claude-specific field callers need beyond the normalized ones.
-func (p *Plugin) SessionInfo(ctx context.Context, session agent.SessionRef) (agent.SessionInfo, bool, error) {
-	if err := ctx.Err(); err != nil {
-		return agent.SessionInfo{}, false, err
-	}
-	info := agent.SessionInfo{
-		AgentSessionID: session.Metadata[claudeAgentSessionIDMetadataKey],
-		Title:          session.Metadata[claudeTitleMetadataKey],
-		Recap:          metadataValue(session.Metadata, claudeRecapMetadataKey, claudeLegacySummaryMetadataKey),
-	}
-	if info.AgentSessionID == "" && info.Title == "" && info.Recap == "" {
-		return agent.SessionInfo{}, false, nil
-	}
-	return info, true, nil
-}
-
-func metadataValue(metadata map[string]string, keys ...string) string {
-	for _, key := range keys {
-		if value := strings.TrimSpace(metadata[key]); value != "" {
-			return value
-		}
-	}
-	return ""
 }
 
 // claudeSessionUUID maps a yyork session id onto a stable Claude Code

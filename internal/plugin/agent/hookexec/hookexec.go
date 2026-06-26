@@ -17,6 +17,11 @@ const (
 	yyorkModulePath = "github.com/yyopc/yyork"
 )
 
+var (
+	currentExecutable = os.Executable
+	lookPath          = exec.LookPath
+)
+
 // Executable returns the shell command prefix that should call back into yyork
 // from an agent's native hook config. It prefers the running yyork binary, then
 // a source-checkout fallback, then a yyork binary found on PATH.
@@ -25,18 +30,18 @@ func Executable() string {
 		return command
 	}
 
-	executable, err := os.Executable()
-	if err == nil && filepath.Base(executable) == "yyork" {
+	executable, err := currentExecutable()
+	if err == nil && filepath.Base(executable) == "yyork" && !isGoBuildCacheExecutable(executable) {
 		return shellQuote(executable)
 	}
 
 	if sourceRoot, ok := SourceRoot(); ok {
-		if _, err := exec.LookPath("go"); err == nil {
-			return sourceGoRunExecutable(sourceRoot)
+		if goPath, err := lookPath("go"); err == nil {
+			return sourceGoRunExecutable(sourceRoot, goPath)
 		}
 	}
 
-	if path, err := exec.LookPath("yyork"); err == nil && strings.TrimSpace(path) != "" {
+	if path, err := lookPath("yyork"); err == nil && strings.TrimSpace(path) != "" {
 		return shellQuote(path)
 	}
 
@@ -94,28 +99,48 @@ func declaresYyorkModule(data []byte) bool {
 	return false
 }
 
-func sourceGoRunExecutable(sourceRoot string) string {
-	direnvPath := ""
-	if direnv, err := exec.LookPath("direnv"); err == nil {
-		direnvPath = direnv
+func isGoBuildCacheExecutable(executable string) bool {
+	cache := strings.TrimSpace(os.Getenv("GOCACHE"))
+	if cache == "" {
+		goPath, err := lookPath("go")
+		if err != nil {
+			return false
+		}
+		output, err := exec.Command(goPath, "env", "GOCACHE").Output()
+		if err != nil {
+			return false
+		}
+		cache = strings.TrimSpace(string(output))
 	}
-	return goRunCommand(sourceRoot, direnvPath)
+	if cache == "" {
+		return false
+	}
+
+	rel, err := filepath.Rel(cache, executable)
+	if err != nil || rel == "." || rel == ".." {
+		return false
+	}
+	return !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+func sourceGoRunExecutable(sourceRoot string, goPath string) string {
+	return goRunCommand(sourceRoot, goPath)
 }
 
 // goRunCommand builds the shell command that runs the yyork root package via
 // `go run .`. It always cd's into sourceRoot first: `go run .` resolves the
 // package against the process's working directory, and an agent hook inherits
 // the session's cwd, which is frequently a non-Go subdirectory (e.g. internal/web/).
-// `direnv exec DIR` loads DIR's .envrc environment but does NOT change
-// directory, so without the cd the direnv branch runs `go run .` in the
-// session cwd and fails with "no Go files in <cwd>". The cd is required on
-// both branches; direnv exec is kept only to load the root's environment.
-func goRunCommand(sourceRoot, direnvPath string) string {
+// It intentionally does not wrap the hook in `direnv exec`: Codex hooks can run
+// with a HOME/XDG environment that lacks direnv's allow state, causing direnv to
+// exit 1 before yyork's hook handler runs.
+func goRunCommand(sourceRoot, goPath string) string {
 	root := shellQuote(sourceRoot)
-	if direnvPath != "" {
-		return "cd " + root + " && " + shellQuote(direnvPath) + " exec " + root + " go run ."
+	goCommand := "go"
+	if strings.TrimSpace(goPath) != "" {
+		goCommand = shellQuote(goPath)
 	}
-	return "cd " + root + " && go run ."
+	return "cd " + root + " && " + goCommand + " run ."
 }
 
 func shellQuote(value string) string {

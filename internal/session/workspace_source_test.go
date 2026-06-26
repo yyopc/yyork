@@ -69,19 +69,24 @@ func TestToLegacySessionTitlePrecedence(t *testing.T) {
 			want:     "Hook Title",
 		},
 		{
-			name:     "prompt wins when no displayName or title",
+			name:     "worker waits for hook title instead of showing prompt",
 			metadata: map[string]any{"prompt": "do a thing"},
-			want:     "do a thing",
+			want:     "New worker agent",
 		},
 		{
-			name:     "falls back to new agent id when nothing set",
+			name:     "worker falls back to pending label when nothing set",
 			metadata: nil,
-			want:     "new agent: v042rv",
+			want:     "New worker agent",
 		},
 		{
 			name:     "empty strings are ignored in precedence",
 			metadata: map[string]any{"displayName": "", "title": "", "prompt": "the prompt"},
-			want:     "the prompt",
+			want:     "New worker agent",
+		},
+		{
+			name:     "orchestrator falls back to orchestrator label",
+			metadata: map[string]any{"kind": "orchestrator", "prompt": "Coordinate the project"},
+			want:     "Orchestrator",
 		},
 	}
 

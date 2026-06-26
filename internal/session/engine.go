@@ -346,9 +346,8 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 	now := e.now()
 	metadata := map[string]any{}
 	if req.Prompt != "" {
-		// The app renders the prompt as a card's title. Storing it
-		// in metadata (rather than a real column) keeps the schema lean
-		// and keeps plugin-specific fields beside it.
+		// Keep the full launch prompt for debugging and agent metadata, but
+		// never use it as the compact display title.
 		metadata["prompt"] = req.Prompt
 	}
 	metadata["kind"] = string(kind)

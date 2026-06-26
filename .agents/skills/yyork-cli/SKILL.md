@@ -62,8 +62,8 @@ Rules:
 
 - Worker sessions require a non-empty `--prompt`.
 - `--type` accepts only `worker` or `orchestrator`.
-- `--workspace` accepts only `new-worktree` or `local`, and matters for workers. Orchestrator sessions always run in the main project worktree.
-- If isolation matters, pass `--workspace new-worktree` explicitly. Use `--workspace local` only when the worker should continue in the main worktree.
+- Worker workspace mode comes from the project's topbar setting: `work locally` or `new worktree`. Public `yyork spawn` does not accept a workspace override.
+- Orchestrator sessions always run in the main project worktree.
 - Workers spawned from an orchestrator inherit `YYORK_PROJECT_PATH`; do not override it unless intentionally targeting a different absolute project path.
 - Project IDs are absolute project paths, not slugs. Use the path shown by `yyork session list` or `$YYORK_PROJECT_PATH` for `--project`.
 - Use `--agent codex` only when the Codex plugin is the intended runtime; otherwise the default is `claude-code`.
@@ -84,7 +84,7 @@ Include:
 EOF
 )
 
-yyork spawn --json --type worker --workspace new-worktree --prompt "$prompt"
+yyork spawn --json --type worker --prompt "$prompt"
 ```
 
 ## Coordinating Sessions

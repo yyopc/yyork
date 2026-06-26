@@ -11,15 +11,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yyopc/yyork/internal/plugin/agent"
 	sessionpkg "github.com/yyopc/yyork/internal/session"
 	"github.com/yyopc/yyork/internal/store"
 )
 
-func TestRunCodexHookPersistsSessionInfoMetadata(t *testing.T) {
+func TestRunCodexHookPersistsHookMetadata(t *testing.T) {
 	ctx := context.Background()
 	sessionID := "ao-session-1"
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("YYORK_SESSION_ID", sessionID)
+	stubHookTitleCommand(t, "Generated login redirect title")
+	stubHookRecapCommand(t, "Generated callback redirect recap")
 	insertHookTestSession(t, ctx, sessionID)
 
 	runHook := func(event string, payload string) {
@@ -46,11 +49,16 @@ func TestRunCodexHookPersistsSessionInfoMetadata(t *testing.T) {
 	if got := row.Metadata[hookMetadataAgentSessionID]; got != "codex-native-1" {
 		t.Fatalf("agentSessionId = %#v, want native id", got)
 	}
-	if got := row.Metadata[hookMetadataTitle]; got != "Fix the login redirect after OAuth callback." {
-		t.Fatalf("title = %#v, want first user prompt", got)
+	if got := row.Metadata[hookMetadataTitle]; got != "Generated login redirect title" {
+		t.Fatalf("title = %#v, want generated title", got)
 	}
-	if got := row.Metadata[hookMetadataRecap]; got != "Implemented the callback redirect fix and added a regression test." {
-		t.Fatalf("recap = %#v, want stop assistant message", got)
+	if got := row.Metadata[hookMetadataRecap]; got != "Generated callback redirect recap" {
+		t.Fatalf("recap = %#v, want generated recap", got)
+	}
+	if got := row.Metadata[hookMetadataLastAssistantMessageAt]; got == "" {
+		t.Fatalf("lastAssistantMessageAt not set: %#v", row.Metadata)
+	} else if _, err := time.Parse(time.RFC3339Nano, got.(string)); err != nil {
+		t.Fatalf("lastAssistantMessageAt = %#v, want RFC3339Nano timestamp: %v", got, err)
 	}
 	if got := row.Metadata["prompt"]; got != "stored launch prompt" {
 		t.Fatalf("prompt metadata = %#v, want preserved launch prompt", got)
@@ -62,6 +70,7 @@ func TestRunCodexHookPersistsKanbanActivityMetadata(t *testing.T) {
 	sessionID := "ao-session-activity"
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("YYORK_SESSION_ID", sessionID)
+	stubHookRecapCommand(t, "Generated kanban activity recap")
 	insertHookTestSession(t, ctx, sessionID)
 
 	runHook := func(event string, payload string) {
@@ -117,8 +126,54 @@ func TestRunCodexHookPersistsKanbanActivityMetadata(t *testing.T) {
 	if got := row.Metadata[hookMetadataState]; got != hookStatePrompt {
 		t.Fatalf("stop state = %#v, want prompt", got)
 	}
-	if got := row.Metadata[hookMetadataRecap]; got != "Implemented the kanban card activity projection." {
+	if got := row.Metadata[hookMetadataRecap]; got != "Generated kanban activity recap" {
 		t.Fatalf("recap = %#v", got)
+	}
+	if got := row.Metadata[hookMetadataLastAssistantMessageAt]; got == "" {
+		t.Fatalf("lastAssistantMessageAt not set after stop: %#v", row.Metadata)
+	} else if _, err := time.Parse(time.RFC3339Nano, got.(string)); err != nil {
+		t.Fatalf("lastAssistantMessageAt = %#v, want RFC3339Nano timestamp: %v", got, err)
+	}
+}
+
+func TestRunCodexToolHooksTolerateNonObjectToolInput(t *testing.T) {
+	ctx := context.Background()
+	sessionID := "ao-session-raw-tool-input"
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("YYORK_SESSION_ID", sessionID)
+	insertHookTestSession(t, ctx, sessionID)
+
+	runHook := func(event string, payload string) {
+		t.Helper()
+		var stdout, stderr bytes.Buffer
+		code := runCodexHook(ctx, event, strings.NewReader(payload), &stdout, &stderr)
+		if code != 0 {
+			t.Fatalf("%s exit = %d, stderr: %s", event, code, stderr.String())
+		}
+		if stdout.String() != "{}\n" {
+			t.Fatalf("%s stdout = %q, want hook response", event, stdout.String())
+		}
+		if stderr.Len() != 0 {
+			t.Fatalf("%s stderr = %s", event, stderr.String())
+		}
+	}
+
+	runHook("pre-tool-use", `{"tool_name":"mcp__probe__raw","tool_input":"raw tool payload"}`)
+	row := readHookTestSession(t, ctx, sessionID)
+	if got := row.Metadata[hookMetadataCurrentTool]; got != "Running mcp__probe__raw." {
+		t.Fatalf("currentToolCall = %#v", got)
+	}
+	if got := metadataStrings(row.Metadata[hookMetadataToolBulletins]); len(got) != 1 || got[0] != "Running mcp__probe__raw." {
+		t.Fatalf("toolCallBulletins after pre = %#v", got)
+	}
+
+	runHook("post-tool-use", `{"tool_name":"mcp__probe__raw","tool_input":["raw","tool","payload"],"tool_response":{"ok":true}}`)
+	row = readHookTestSession(t, ctx, sessionID)
+	if got := row.Metadata[hookMetadataCurrentTool]; got != "" {
+		t.Fatalf("post-tool-use currentToolCall = %#v, want cleared", got)
+	}
+	if got := metadataStrings(row.Metadata[hookMetadataToolBulletins]); len(got) != 2 || got[0] != "Finished mcp__probe__raw." {
+		t.Fatalf("toolCallBulletins after post = %#v", got)
 	}
 }
 
@@ -138,11 +193,37 @@ func TestRunCodexHookNoopsWithoutAOSession(t *testing.T) {
 	}
 }
 
-func TestRunClaudeHookPersistsSessionInfoMetadata(t *testing.T) {
+func TestTitleFromCommandOutputUsesLastNonEmptyLine(t *testing.T) {
+	longTitle := strings.Repeat("x", hookTitleMaxLen+20)
+	got := titleFromCommandOutput("debug line\n\n`" + longTitle + "`\n")
+
+	if len(got) != hookTitleMaxLen {
+		t.Fatalf("title length = %d, want %d: %q", len(got), hookTitleMaxLen, got)
+	}
+	if !strings.HasSuffix(got, "...") {
+		t.Fatalf("title = %q, want ellipsis after compaction", got)
+	}
+}
+
+func TestRecapFromCommandOutputUsesLastNonEmptyLine(t *testing.T) {
+	longRecap := strings.Repeat("x", hookRecapMaxLen+20)
+	got := recapFromCommandOutput("debug line\n\n`" + longRecap + "`\n")
+
+	if len(got) != hookRecapMaxLen {
+		t.Fatalf("recap length = %d, want %d: %q", len(got), hookRecapMaxLen, got)
+	}
+	if !strings.HasSuffix(got, "...") {
+		t.Fatalf("recap = %q, want ellipsis after compaction", got)
+	}
+}
+
+func TestRunClaudeHookPersistsHookMetadata(t *testing.T) {
 	ctx := context.Background()
 	sessionID := "ao-session-claude-1"
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("YYORK_SESSION_ID", sessionID)
+	stubHookTitleCommand(t, "Generated Claude redirect title")
+	stubHookRecapCommand(t, "Generated Claude redirect recap")
 	insertHookTestSession(t, ctx, sessionID)
 
 	runHook := func(event string, payload string) {
@@ -169,11 +250,11 @@ func TestRunClaudeHookPersistsSessionInfoMetadata(t *testing.T) {
 	if got := row.Metadata[hookMetadataAgentSessionID]; got != "claude-native-1" {
 		t.Fatalf("agentSessionId = %#v, want native id", got)
 	}
-	if got := row.Metadata[hookMetadataTitle]; got != "Fix the login redirect after OAuth callback." {
-		t.Fatalf("title = %#v, want first user prompt", got)
+	if got := row.Metadata[hookMetadataTitle]; got != "Generated Claude redirect title" {
+		t.Fatalf("title = %#v, want generated title", got)
 	}
-	if got := row.Metadata[hookMetadataRecap]; got != "Implemented the callback redirect fix and added a regression test." {
-		t.Fatalf("recap = %#v, want last assistant message", got)
+	if got := row.Metadata[hookMetadataRecap]; got != "Generated Claude redirect recap" {
+		t.Fatalf("recap = %#v, want generated recap", got)
 	}
 	if got := row.Metadata["prompt"]; got != "stored launch prompt" {
 		t.Fatalf("prompt metadata = %#v, want preserved launch prompt", got)
@@ -191,6 +272,8 @@ func TestYyorkHooksCommandPersistsDashboardMetadataForAgents(t *testing.T) {
 	if output, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build yyork: %v\n%s", err, output)
 	}
+	fakeMetadataBin := installFakeMetadataBinaries(t)
+	t.Setenv("PATH", fakeMetadataBin+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	ctx := context.Background()
 	home := t.TempDir()
@@ -200,6 +283,8 @@ func TestYyorkHooksCommandPersistsDashboardMetadataForAgents(t *testing.T) {
 		agent          string
 		sessionID      string
 		agentSessionID string
+		prompt         string
+		assistantReply string
 		title          string
 		recap          string
 	}{
@@ -207,23 +292,27 @@ func TestYyorkHooksCommandPersistsDashboardMetadataForAgents(t *testing.T) {
 			agent:          "codex",
 			sessionID:      "ao-cli-codex",
 			agentSessionID: "codex-native-cli",
-			title:          "Wire Codex hook metadata into the dashboard.",
-			recap:          "Codex hook metadata reached the dashboard projection.",
+			prompt:         "Wire Codex hook metadata into the dashboard.",
+			title:          "Generated Codex dashboard title",
+			assistantReply: "Codex hook metadata reached the dashboard projection.",
+			recap:          "Generated Codex dashboard recap",
 		},
 		{
 			agent:          "claude-code",
 			sessionID:      "ao-cli-claude",
 			agentSessionID: "claude-native-cli",
-			title:          "Wire Claude hook metadata into the dashboard.",
-			recap:          "Claude hook metadata reached the dashboard projection.",
+			prompt:         "Wire Claude hook metadata into the dashboard.",
+			title:          "Generated Claude dashboard title",
+			assistantReply: "Claude hook metadata reached the dashboard projection.",
+			recap:          "Generated Claude dashboard recap",
 		},
 	}
 
 	for _, tc := range cases {
 		insertHookTestSessionWithAgent(t, ctx, tc.sessionID, tc.agent)
 		runHookBinary(t, bin, home, tc.sessionID, tc.agent, "session-start", `{"session_id":"`+tc.agentSessionID+`"}`)
-		runHookBinary(t, bin, home, tc.sessionID, tc.agent, "user-prompt-submit", `{"prompt":"`+tc.title+`"}`)
-		runHookBinary(t, bin, home, tc.sessionID, tc.agent, "stop", `{"last_assistant_message":"`+tc.recap+`"}`)
+		runHookBinary(t, bin, home, tc.sessionID, tc.agent, "user-prompt-submit", `{"prompt":"`+tc.prompt+`"}`)
+		runHookBinary(t, bin, home, tc.sessionID, tc.agent, "stop", `{"last_assistant_message":"`+tc.assistantReply+`"}`)
 	}
 
 	dataStore := openHookTestStore(t, ctx)
@@ -358,6 +447,66 @@ func TestRunHooksUninstallRemovesCodexHooks(t *testing.T) {
 func insertHookTestSession(t *testing.T, ctx context.Context, id string) {
 	t.Helper()
 	insertHookTestSessionWithAgent(t, ctx, id, "codex")
+}
+
+func stubHookTitleCommand(t *testing.T, title string) {
+	t.Helper()
+	previousBuild := buildHookTitleCommand
+	previousRun := runHookTitleCommand
+	buildHookTitleCommand = func(context.Context, string, agent.TitleConfig) ([]string, error) {
+		return []string{"fake-title-command"}, nil
+	}
+	runHookTitleCommand = func(context.Context, []string) (string, error) {
+		return title + "\n", nil
+	}
+	t.Cleanup(func() {
+		buildHookTitleCommand = previousBuild
+		runHookTitleCommand = previousRun
+	})
+}
+
+func stubHookRecapCommand(t *testing.T, recap string) {
+	t.Helper()
+	previousBuild := buildHookRecapCommand
+	previousRun := runHookRecapCommand
+	buildHookRecapCommand = func(context.Context, string, agent.RecapConfig) ([]string, error) {
+		return []string{"fake-recap-command"}, nil
+	}
+	runHookRecapCommand = func(context.Context, []string) (string, error) {
+		return recap + "\n", nil
+	}
+	t.Cleanup(func() {
+		buildHookRecapCommand = previousBuild
+		runHookRecapCommand = previousRun
+	})
+}
+
+func installFakeMetadataBinaries(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	script := `#!/bin/sh
+for arg in "$@"; do
+  if [ "$arg" = "--ask-for-approval" ]; then
+    printf '%s\n' "unexpected argument '--ask-for-approval' found" >&2
+    exit 2
+  fi
+done
+prompt="$*"
+case "$(basename "$0"):$prompt" in
+  codex:*"Generate a concise recap"*) printf '%s\n' "Generated Codex dashboard recap" ;;
+  claude:*"Generate a concise recap"*) printf '%s\n' "Generated Claude dashboard recap" ;;
+  codex:*) printf '%s\n' "Generated Codex dashboard title" ;;
+  claude:*) printf '%s\n' "Generated Claude dashboard title" ;;
+  *) exit 1 ;;
+esac
+`
+	for _, name := range []string{"codex", "claude"} {
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
 }
 
 func insertHookTestSessionWithAgent(t *testing.T, ctx context.Context, id string, agent string) {

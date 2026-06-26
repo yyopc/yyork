@@ -24,6 +24,7 @@ import (
 	"github.com/yyopc/yyork/internal/plugin/agent/codex"
 	"github.com/yyopc/yyork/internal/session"
 	"github.com/yyopc/yyork/internal/store"
+	"github.com/yyopc/yyork/internal/terminalhost"
 	"github.com/yyopc/yyork/internal/worktree"
 )
 
@@ -81,10 +82,31 @@ func newRootCmd(runApp appRunner, webFS fs.FS) *cobra.Command {
 	// with the same title.
 	root.SetHelpCommandGroupID(groupCore)
 	root.SetCompletionCommandGroupID(groupCore)
-	root.AddCommand(newSpawnCmd(), newSessionCmd(), newStopCmd(), newSendCmd(), newDoctorCmd(), newHooksCmd())
+	root.AddCommand(newSpawnCmd(), newSessionCmd(), newStopCmd(), newSendCmd(), newDoctorCmd(), newHooksCmd(), newTerminalHostCmd())
 	root.AddCommand(newDevCmd(runApp, webFS))
 	root.AddCommand(plannedCmds()...)
 	return root
+}
+
+func newTerminalHostCmd() *cobra.Command {
+	var cwd, sessionName, socketPath string
+	cmd := &cobra.Command{
+		Use:    "terminal-host --session <id> --socket <path> --cwd <dir> -- <command> [args...]",
+		Hidden: true,
+		Args:   cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return terminalhost.Run(cmd.Context(), terminalhost.Options{
+				Command: args,
+				CWD:     cwd,
+				Session: sessionName,
+				Socket:  socketPath,
+			})
+		},
+	}
+	cmd.Flags().StringVar(&sessionName, "session", "", "yyork session id")
+	cmd.Flags().StringVar(&socketPath, "socket", "", "unix socket path")
+	cmd.Flags().StringVar(&cwd, "cwd", "", "working directory")
+	return cmd
 }
 
 // runServer starts the local dashboard/API server. With no verb this is the
@@ -163,7 +185,7 @@ func buildEngine(ctx context.Context) (*session.Engine, func(), error) {
 }
 
 func newSpawnCmd() *cobra.Command {
-	var prompt, systemPromptFile, permissions, agentPlugin, sessionType, workspaceMode string
+	var prompt, systemPromptFile, permissions, agentPlugin, sessionType string
 	var jsonOutput bool
 
 	cmd := &cobra.Command{
@@ -171,16 +193,12 @@ func newSpawnCmd() *cobra.Command {
 		GroupID: groupCore,
 		Short:   "Spawn a new agent session in the current project.",
 		Long: "Spawn a new agent session in the current project directory.\n\n" +
-			"yyork creates a per-session git worktree and branch, starts the selected " +
-			"agent inside Zellij, persists the session row, and forwards lifecycle " +
-			"events to a running dashboard when one is available.",
+			"yyork resolves worker workspace mode from project settings, starts the " +
+			"selected agent inside Zellij, persists the session row, and forwards " +
+			"lifecycle events to a running dashboard when one is available.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			kind, err := spawnKind(sessionType)
-			if err != nil {
-				return err
-			}
-			workspaceModeValue, err := parseWorkerWorkspaceModeFlag(workspaceMode)
 			if err != nil {
 				return err
 			}
@@ -190,7 +208,6 @@ func newSpawnCmd() *cobra.Command {
 				Prompt:           prompt,
 				SystemPromptFile: systemPromptFile,
 				Permissions:      pluginagent.PermissionMode(permissions),
-				WorkspaceMode:    workspaceModeValue,
 			}, jsonOutput)
 		},
 	}
@@ -199,7 +216,6 @@ func newSpawnCmd() *cobra.Command {
 	cmd.Flags().StringVar(&systemPromptFile, "system-prompt-file", "", "path to a system prompt file for the spawned agent")
 	cmd.Flags().StringVar(&permissions, "permissions", "", "agent permission mode override")
 	cmd.Flags().StringVar(&sessionType, "type", spawnTypeWorker, "session type: worker or orchestrator")
-	cmd.Flags().StringVar(&workspaceMode, "workspace", "", "worker workspace mode: new-worktree or local")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "write machine-readable JSON to stdout")
 	return cmd
 }
@@ -213,24 +229,9 @@ func runSpawn(cmd *cobra.Command, req session.SpawnRequest, jsonOutput bool) err
 	if err != nil {
 		return err
 	}
-	req.ProjectPath = projectPath
-	if req.Kind != session.KindOrchestrator && req.WorkspaceMode == "" {
-		mode, ok, err := configuredWorkerWorkspaceMode(cmd.Context(), projectPath)
-		if err != nil {
-			return err
-		}
-		if ok {
-			req.WorkspaceMode = mode
-		}
-	}
-	if req.Kind != session.KindOrchestrator {
-		agentPlugin, ok, err := configuredWorkerAgentPlugin(cmd.Context(), projectPath)
-		if err != nil {
-			return err
-		}
-		if ok {
-			req.AgentPlugin = agentPlugin
-		}
+	req, err = applyConfiguredSpawnDefaults(cmd.Context(), req, projectPath)
+	if err != nil {
+		return err
 	}
 
 	eng, closeFn, err := buildEngine(cmd.Context())
@@ -250,6 +251,29 @@ func runSpawn(cmd *cobra.Command, req session.SpawnRequest, jsonOutput bool) err
 	return nil
 }
 
+func applyConfiguredSpawnDefaults(ctx context.Context, req session.SpawnRequest, projectPath string) (session.SpawnRequest, error) {
+	req.ProjectPath = projectPath
+	if req.Kind != session.KindOrchestrator && req.WorkspaceMode == "" {
+		mode, ok, err := configuredWorkerWorkspaceMode(ctx, projectPath)
+		if err != nil {
+			return session.SpawnRequest{}, err
+		}
+		if ok {
+			req.WorkspaceMode = mode
+		}
+	}
+	if req.Kind != session.KindOrchestrator {
+		agentPlugin, ok, err := configuredWorkerAgentPlugin(ctx, projectPath)
+		if err != nil {
+			return session.SpawnRequest{}, err
+		}
+		if ok {
+			req.AgentPlugin = agentPlugin
+		}
+	}
+	return req, nil
+}
+
 func validateSpawnRequest(req session.SpawnRequest) error {
 	if req.Kind != session.KindOrchestrator && strings.TrimSpace(req.Prompt) == "" {
 		return errors.New("spawn: --prompt must not be empty for worker sessions")
@@ -266,22 +290,6 @@ func spawnKind(raw string) (session.Kind, error) {
 	default:
 		return "", fmt.Errorf("spawn: --type must be %q or %q", spawnTypeWorker, spawnTypeOrchestrator)
 	}
-}
-
-func parseWorkerWorkspaceModeFlag(raw string) (session.WorkerWorkspaceMode, error) {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return "", nil
-	}
-	mode, ok := session.NormalizeWorkerWorkspaceMode(trimmed)
-	if !ok {
-		return "", fmt.Errorf(
-			"spawn: --workspace must be %q or %q",
-			session.WorkerWorkspaceModeNewWorktree,
-			session.WorkerWorkspaceModeLocal,
-		)
-	}
-	return mode, nil
 }
 
 func configuredWorkerWorkspaceMode(ctx context.Context, projectPath string) (session.WorkerWorkspaceMode, bool, error) {
@@ -625,7 +633,7 @@ func cliSessionFromStore(row store.Session) cliSessionOutput {
 		State:         stateFromMetadata(row.Metadata),
 		WorkspacePath: row.WorkspacePath,
 		ZellijSession: row.ZellijSession,
-		Title:         titleFromMetadata(row.Metadata, row.ID),
+		Title:         titleFromMetadata(row.Metadata),
 		Recap:         cliStringMetadata(row.Metadata, "recap"),
 		Metadata:      metadataOrNil(row.Metadata),
 	}
@@ -722,13 +730,16 @@ func stateFromMetadata(metadata map[string]any) session.State {
 	}
 }
 
-func titleFromMetadata(metadata map[string]any, id string) string {
-	for _, key := range []string{"displayName", "title", "prompt"} {
+func titleFromMetadata(metadata map[string]any) string {
+	for _, key := range []string{"displayName", "title"} {
 		if value := cliStringMetadata(metadata, key); value != "" {
 			return value
 		}
 	}
-	return "new agent: " + id
+	if kindFromMetadata(metadata) == session.KindOrchestrator {
+		return "Orchestrator"
+	}
+	return "New worker agent"
 }
 
 func cliStringMetadata(metadata map[string]any, key string) string {

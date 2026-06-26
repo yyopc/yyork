@@ -138,7 +138,6 @@ func (s *StoreWorkspaceSource) projectWorkspaceModes(ctx context.Context) (map[s
 }
 
 func toLegacySession(row store.Session, configPath string) Session {
-	prompt := stringField(row.Metadata, "prompt")
 	title := stringField(row.Metadata, "title")
 	recap := stringField(row.Metadata, "recap")
 	if recap == "" {
@@ -146,8 +145,9 @@ func toLegacySession(row store.Session, configPath string) Session {
 		recap = stringField(row.Metadata, "summary")
 	}
 	// displayName is a user-set rename; it always wins over the auto-derived
-	// title/prompt. The bare id is never shown — an unnamed, un-prompted
-	// session reads as "new agent: <id>" instead of an opaque slug.
+	// title. The raw prompt is intentionally not a display fallback: new
+	// worker rows wait for hook metadata and render as "New worker agent" until
+	// the first UserPromptSubmit hook lands.
 	displayName := stringField(row.Metadata, "displayName")
 	metadataJSON := ""
 	if len(row.Metadata) > 0 {
@@ -160,10 +160,7 @@ func toLegacySession(row store.Session, configPath string) Session {
 		resolvedTitle = title
 	}
 	if resolvedTitle == "" {
-		resolvedTitle = prompt
-	}
-	if resolvedTitle == "" {
-		resolvedTitle = "new agent: " + row.ID
+		resolvedTitle = fallbackSessionTitle(row.Metadata)
 	}
 	title = resolvedTitle
 	kind := rowKind(row.Metadata)
@@ -187,6 +184,13 @@ func toLegacySession(row store.Session, configPath string) Session {
 		WorkerID:          row.ID,
 		ZellijSession:     row.ZellijSession,
 	}
+}
+
+func fallbackSessionTitle(metadata map[string]any) string {
+	if rowKind(metadata) == KindOrchestrator {
+		return "Orchestrator"
+	}
+	return "New worker agent"
 }
 
 func rowState(metadata map[string]any) State {

@@ -15,6 +15,7 @@ import (
 	"github.com/aymanbagabas/go-pty"
 
 	"github.com/yyopc/yyork/internal/session"
+	"github.com/yyopc/yyork/internal/terminalipc"
 	"github.com/yyopc/yyork/internal/zellijconfig"
 )
 
@@ -65,7 +66,12 @@ func (z *ZellijProvider) CreateSession(ctx context.Context, opts session.CreateO
 	// we launch without it rather than abort session creation.
 	configPath, _ := zellijconfig.Ensure()
 
-	layoutPath, err := writeLaunchLayout(opts.LaunchCmd, opts.Cwd)
+	hostCmd, err := terminalHostLaunchCommand(opts)
+	if err != nil {
+		return err
+	}
+
+	layoutPath, err := writeLaunchLayout(hostCmd, opts.Cwd)
 	if err != nil {
 		return err
 	}
@@ -375,6 +381,27 @@ func writeLaunchLayout(launchCmd []string, cwd string) (string, error) {
 		return "", fmt.Errorf("zellij: write layout: %w", err)
 	}
 	return f.Name(), nil
+}
+
+func terminalHostLaunchCommand(opts session.CreateOpts) ([]string, error) {
+	executable, err := os.Executable()
+	if err != nil {
+		return nil, fmt.Errorf("zellij: resolve yyork executable: %w", err)
+	}
+	socketPath, err := terminalipc.SocketPath(opts.Name)
+	if err != nil {
+		return nil, err
+	}
+	agentCmd := shellQuoteArgs(opts.LaunchCmd) + `; exec "${SHELL:-/bin/bash}" -i`
+	return []string{
+		executable,
+		"terminal-host",
+		"--session", opts.Name,
+		"--socket", socketPath,
+		"--cwd", opts.Cwd,
+		"--",
+		"bash", "-c", agentCmd,
+	}, nil
 }
 
 // shellQuoteArgs returns args concatenated as a single POSIX shell command,

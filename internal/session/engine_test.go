@@ -150,15 +150,18 @@ func (f *fakeAgent) GetLaunchCommand(_ context.Context, cfg pluginagent.LaunchCo
 func (f *fakeAgent) GetPromptDeliveryStrategy(context.Context, pluginagent.LaunchConfig) (pluginagent.PromptDeliveryStrategy, error) {
 	return pluginagent.PromptDeliveryInCommand, nil
 }
+func (f *fakeAgent) GetSessionTitleCommand(context.Context, pluginagent.TitleConfig) ([]string, error) {
+	return nil, nil
+}
+func (f *fakeAgent) GetSessionRecapCommand(context.Context, pluginagent.RecapConfig) ([]string, error) {
+	return nil, nil
+}
 func (f *fakeAgent) GetAgentHooks(_ context.Context, cfg pluginagent.WorkspaceHookConfig) error {
 	f.hookCalls = append(f.hookCalls, cfg)
 	return f.hooksErr
 }
 func (f *fakeAgent) GetRestoreCommand(context.Context, pluginagent.RestoreConfig) ([]string, bool, error) {
 	return nil, false, nil
-}
-func (f *fakeAgent) SessionInfo(context.Context, pluginagent.SessionRef) (pluginagent.SessionInfo, bool, error) {
-	return pluginagent.SessionInfo{}, false, nil
 }
 
 // -- Harness -------------------------------------------------------------

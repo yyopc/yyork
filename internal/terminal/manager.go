@@ -16,34 +16,31 @@ const (
 	defaultCols        = 100
 	defaultRows        = 30
 	defaultIdleTimeout = 30 * time.Second
-	defaultScrollback  = 10000
-	clientBufferChunks = 64
 )
 
 // AttachStrategy selects how the Manager bridges a WebSocket connection to the
-// underlying Zellij session.
+// durable terminal PTY.
 type AttachStrategy string
 
 const (
-	// StrategyPerClient is Option A: every WebSocket connection spawns its OWN
-	// `zellij attach` process (its own PTY). Zellij itself maintains the screen
-	// state and redraws the full screen on every attach, so a fresh per-client
-	// attach is a faithful repaint for free — no shared process, no scrollback
-	// buffer, no server-side emulator. The Manager only tracks logical sessions
-	// for idle bookkeeping.
+	// StrategyDirect is the only runtime attach mode: each WebSocket is a thin
+	// pipe to yyork's terminal-host PTY when available, falling back to a local PTY
+	// runner for isolated tests and non-durable sessions.
+	StrategyDirect AttachStrategy = "direct"
+
+	// StrategyPerClient is a legacy alias for StrategyDirect. It used to mean a
+	// fresh attach process per browser connection.
 	StrategyPerClient AttachStrategy = "per-client"
 
-	// StrategyEmulator is Option B: one SHARED `zellij attach` process per
-	// session feeds all PTY output into a server-side `vt` emulator that keeps
-	// the authoritative live screen. On attach, a client receives a faithful
-	// repaint SNAPSHOT (alt-screen mode + grid + cursor + scrollback) rather
-	// than a raw byte tail, then streams live deltas.
+	// StrategyEmulator is a legacy alias for StrategyDirect. The attach-side
+	// Charmbracelet vt emulator was removed because terminal-host now owns the
+	// PTY; screen emulation at this layer duplicates state and can panic on
+	// geometry-specific replay.
 	StrategyEmulator AttachStrategy = "emulator"
 
 	// defaultStrategy is used when neither the config field nor the env var
-	// selects a valid strategy. The emulator is the proven-faithful fix, so it
-	// is the default; per-client remains unverified against live Zellij.
-	defaultStrategy = StrategyEmulator
+	// selects a valid strategy.
+	defaultStrategy = StrategyDirect
 
 	// strategyEnvVar is the environment variable read to select a strategy when
 	// ManagerConfig.AttachStrategy is unset.
@@ -52,29 +49,28 @@ const (
 
 // SessionConfig describes the terminal a WebSocket connection wants to drive.
 type SessionConfig struct {
-	Command     []string
-	CWD         string
-	Env         []string
-	ID          string
-	InitialCols int
-	InitialRows int
-	TerminalKey string
-	Title       string
-	WorkerID    string
+	Command       []string
+	CWD           string
+	Env           []string
+	ID            string
+	InitialCols   int
+	InitialRows   int
+	TerminalKey   string
+	Title         string
+	WorkerID      string
+	ZellijSession string
 }
 
 // ManagerConfig configures a Manager.
 type ManagerConfig struct {
 	IdleTimeout time.Duration
-	// MaxScroll bounds the emulator strategy's scrollback in lines (not bytes).
-	// The emulator keeps the live, authoritative screen state; this only caps
-	// how many scrolled-off lines of history are retained for the snapshot. It
-	// is ignored by the per-client strategy (which has no shared scrollback).
+	// MaxScroll is deprecated and ignored. The attach layer no longer keeps a
+	// server-side terminal emulator or replay buffer.
 	MaxScroll int
 	Runner    Runner
 	// AttachStrategy, when non-empty and valid, OVERRIDES the env var and the
 	// default. Precedence: this field > YYORK_TERMINAL_ATTACH env var >
-	// default ("emulator"). An invalid value falls through to the next source.
+	// default ("direct"). Legacy values normalize to StrategyDirect.
 	AttachStrategy AttachStrategy
 }
 
@@ -84,28 +80,23 @@ type controlMessage struct {
 	Type string `json:"type"`
 }
 
-// Manager owns the WebSocket <-> Zellij-attach plumbing for both attach
-// strategies. The resolved strategy is fixed at construction; ServeWS
-// dispatches to the matching code path and Close tears down whichever
-// per-strategy state was used.
+// Manager owns the WebSocket <-> terminal-host plumbing. The resolved strategy
+// is fixed at construction so callers can inspect which compatibility mode was
+// accepted, but ServeWS always uses the direct pipe.
 //
-// The Zellij SESSION itself is created and kept alive entirely outside this
-// package (see internal/durabilityprovider): the zellij server owns the
-// session and keeps it alive after every client detaches. Tearing down an
-// attach process here only detaches a client; it never kills the session.
+// The durable terminal process is created and kept alive outside this package
+// (see internal/terminalhost and internal/durabilityprovider). Closing a browser
+// connection here only detaches that socket; it never kills the durable session.
 type Manager struct {
-	cancel     context.CancelFunc
-	ctx        context.Context
-	idleDelay  time.Duration
-	scrollback int
-	strategy   AttachStrategy
-	runner     Runner
+	cancel    context.CancelFunc
+	ctx       context.Context
+	idleDelay time.Duration
+	strategy  AttachStrategy
+	runner    Runner
 
 	mu sync.Mutex
-	// perClient holds Option A bookkeeping (no processes, just client counts).
+	// perClient holds logical session bookkeeping: no processes, just client counts.
 	perClient map[string]*session
-	// emulator holds Option B shared terminals (process + emulator + clients).
-	emulator map[string]*sessionTerminal
 }
 
 // resolveStrategy applies the precedence rule: explicit config field > env var
@@ -122,10 +113,8 @@ func resolveStrategy(field AttachStrategy) AttachStrategy {
 
 func validStrategy(value string) (AttachStrategy, bool) {
 	switch AttachStrategy(value) {
-	case StrategyPerClient:
-		return StrategyPerClient, true
-	case StrategyEmulator:
-		return StrategyEmulator, true
+	case StrategyDirect, StrategyPerClient, StrategyEmulator:
+		return StrategyDirect, true
 	default:
 		return "", false
 	}
@@ -137,25 +126,18 @@ func NewManager(cfg ManagerConfig) *Manager {
 		runner = NewPTYRunner()
 	}
 
-	scrollback := cfg.MaxScroll
-	if scrollback <= 0 {
-		scrollback = defaultScrollback
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 
 	strategy := resolveStrategy(cfg.AttachStrategy)
 	slog.Info("terminal attach strategy", "strategy", strategy)
 
 	return &Manager{
-		cancel:     cancel,
-		ctx:        ctx,
-		idleDelay:  idleTimeoutOrDefault(cfg.IdleTimeout),
-		scrollback: scrollback,
-		strategy:   strategy,
-		runner:     runner,
-		perClient:  make(map[string]*session),
-		emulator:   make(map[string]*sessionTerminal),
+		cancel:    cancel,
+		ctx:       ctx,
+		idleDelay: idleTimeoutOrDefault(cfg.IdleTimeout),
+		strategy:  strategy,
+		runner:    runner,
+		perClient: make(map[string]*session),
 	}
 }
 
@@ -185,12 +167,7 @@ func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request, cfg SessionCon
 	}
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
-	switch m.strategy {
-	case StrategyPerClient:
-		m.serveWSPerClient(conn, cfg)
-	default:
-		m.serveWSEmulator(conn, cfg)
-	}
+	m.serveWSPerClient(conn, cfg)
 }
 
 func (m *Manager) Close() error {
@@ -202,26 +179,13 @@ func (m *Manager) Close() error {
 		sessions = append(sessions, sess)
 	}
 	m.perClient = make(map[string]*session)
-
-	terminals := make([]*sessionTerminal, 0, len(m.emulator))
-	for _, term := range m.emulator {
-		terminals = append(terminals, term)
-	}
-	m.emulator = make(map[string]*sessionTerminal)
 	m.mu.Unlock()
 
 	for _, sess := range sessions {
 		sess.cancelIdle()
 	}
 
-	var closeErr error
-	for _, term := range terminals {
-		if err := term.close(); err != nil {
-			closeErr = errors.Join(closeErr, err)
-		}
-	}
-
-	return closeErr
+	return nil
 }
 
 func withDefaults(cfg SessionConfig) SessionConfig {

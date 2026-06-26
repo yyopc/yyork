@@ -147,7 +147,7 @@ func TestRootProjectPathRejectsNonGitDirectory(t *testing.T) {
 	}
 }
 
-func TestSpawnHelpListsTypeFlag(t *testing.T) {
+func TestSpawnHelpListsPublicFlags(t *testing.T) {
 	runApp, called := noopApp()
 
 	out, err := execCLI(t, runApp, "spawn", "--help")
@@ -161,6 +161,109 @@ func TestSpawnHelpListsTypeFlag(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Fatalf("spawn help missing %q:\n%s", want, out)
 		}
+	}
+	if strings.Contains(out, "--workspace") {
+		t.Fatalf("spawn help should not list removed --workspace flag:\n%s", out)
+	}
+}
+
+func TestSpawnRejectsWorkspaceFlagBeforeStartingServer(t *testing.T) {
+	runApp, called := noopApp()
+
+	_, err := execCLI(t, runApp, "spawn", "--workspace", "local", "--prompt", "do it")
+	if err == nil {
+		t.Fatal("expected an error for removed --workspace flag")
+	}
+	if *called {
+		t.Fatal("spawn should not start the server")
+	}
+	if !strings.Contains(err.Error(), "unknown flag: --workspace") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestApplyConfiguredSpawnDefaultsUsesPersistedWorkerWorkspaceMode(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	ctx := context.Background()
+	projectPath := filepath.Join(t.TempDir(), "repo")
+
+	dbPath, err := store.DefaultPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dataStore, err := store.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dataStore.ProjectSettings().SetWorkerWorkspaceMode(ctx, projectPath, string(session.WorkerWorkspaceModeNewWorktree)); err != nil {
+		t.Fatal(err)
+	}
+	if err := dataStore.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := applyConfiguredSpawnDefaults(ctx, session.SpawnRequest{
+		Kind:   session.KindWorker,
+		Prompt: "do it",
+	}, projectPath)
+	if err != nil {
+		t.Fatalf("apply configured defaults: %v", err)
+	}
+	if got.ProjectPath != projectPath {
+		t.Fatalf("ProjectPath = %q, want %q", got.ProjectPath, projectPath)
+	}
+	if got.WorkspaceMode != session.WorkerWorkspaceModeNewWorktree {
+		t.Fatalf("WorkspaceMode = %q, want %q", got.WorkspaceMode, session.WorkerWorkspaceModeNewWorktree)
+	}
+}
+
+func TestApplyConfiguredSpawnDefaultsLeavesWorkspaceModeUnsetWithoutProjectSetting(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	ctx := context.Background()
+	projectPath := filepath.Join(t.TempDir(), "repo")
+
+	got, err := applyConfiguredSpawnDefaults(ctx, session.SpawnRequest{
+		Kind:   session.KindWorker,
+		Prompt: "do it",
+	}, projectPath)
+	if err != nil {
+		t.Fatalf("apply configured defaults: %v", err)
+	}
+	if got.WorkspaceMode != "" {
+		t.Fatalf("WorkspaceMode = %q, want empty so engine default applies", got.WorkspaceMode)
+	}
+}
+
+func TestApplyConfiguredSpawnDefaultsDoesNotOverrideInternalWorkspaceMode(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	ctx := context.Background()
+	projectPath := filepath.Join(t.TempDir(), "repo")
+
+	dbPath, err := store.DefaultPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dataStore, err := store.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dataStore.ProjectSettings().SetWorkerWorkspaceMode(ctx, projectPath, string(session.WorkerWorkspaceModeNewWorktree)); err != nil {
+		t.Fatal(err)
+	}
+	if err := dataStore.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := applyConfiguredSpawnDefaults(ctx, session.SpawnRequest{
+		Kind:          session.KindWorker,
+		Prompt:        "do it",
+		WorkspaceMode: session.WorkerWorkspaceModeLocal,
+	}, projectPath)
+	if err != nil {
+		t.Fatalf("apply configured defaults: %v", err)
+	}
+	if got.WorkspaceMode != session.WorkerWorkspaceModeLocal {
+		t.Fatalf("WorkspaceMode = %q, want internal override preserved", got.WorkspaceMode)
 	}
 }
 
@@ -217,8 +320,8 @@ func TestSessionListJSON(t *testing.T) {
 	if session.ID != "sess-1" || session.ProjectPath != "/repo/app" || session.Kind != "orchestrator" || session.Agent != "claude-code" || session.State != "prompt" {
 		t.Fatalf("unexpected session JSON: %#v", session)
 	}
-	if session.Title != "Coordinate the project" {
-		t.Fatalf("Title = %q, want prompt-derived title", session.Title)
+	if session.Title != "Orchestrator" {
+		t.Fatalf("Title = %q, want orchestrator fallback title", session.Title)
 	}
 	if session.Metadata["prompt"] != "Coordinate the project" {
 		t.Fatalf("metadata = %#v, want prompt", session.Metadata)

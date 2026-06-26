@@ -1,6 +1,5 @@
 // Package codex implements the Codex agent plugin: launching new sessions,
-// resuming hook-tracked sessions, installing workspace-local hooks, and reading
-// hook-derived session info.
+// resuming hook-tracked sessions, and installing workspace-local hooks.
 //
 // yyork-managed sessions derive native session identity and display
 // metadata from Codex hooks instead of transcript/cache scans.
@@ -22,9 +21,7 @@ import (
 
 const (
 	codexAgentSessionIDMetadataKey = "agentSessionId"
-	codexTitleMetadataKey          = "title"
-	codexRecapMetadataKey          = "recap"
-	codexLegacySummaryMetadataKey  = "summary"
+	codexNoAltScreenFlag           = "--no-alt-screen"
 )
 
 type Plugin struct {
@@ -66,6 +63,7 @@ func (p *Plugin) GetLaunchCommand(ctx context.Context, cfg agent.LaunchConfig) (
 
 	cmd = []string{binary}
 	appendNoUpdateCheckFlag(&cmd)
+	cmd = append(cmd, codexNoAltScreenFlag)
 	appendApprovalFlags(&cmd, cfg.Permissions)
 
 	if cfg.SystemPromptFile != "" {
@@ -86,6 +84,36 @@ func (p *Plugin) GetPromptDeliveryStrategy(ctx context.Context, cfg agent.Launch
 		return "", err
 	}
 	return agent.PromptDeliveryInCommand, nil
+}
+
+func (p *Plugin) GetSessionTitleCommand(ctx context.Context, cfg agent.TitleConfig) (cmd []string, err error) {
+	return p.getSessionMetadataCommand(ctx, agent.TitleGenerationPrompt(cfg.Prompt))
+}
+
+func (p *Plugin) GetSessionRecapCommand(ctx context.Context, cfg agent.RecapConfig) (cmd []string, err error) {
+	return p.getSessionMetadataCommand(ctx, agent.RecapGenerationPrompt(cfg.LastAssistantMessage))
+}
+
+func (p *Plugin) getSessionMetadataCommand(ctx context.Context, prompt string) (cmd []string, err error) {
+	binary, err := p.codexBinary(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	cmd = []string{binary, "exec"}
+	appendNoUpdateCheckFlag(&cmd)
+	cmd = append(cmd, "-c", `approval_policy="never"`)
+	cmd = append(cmd,
+		"--skip-git-repo-check",
+		"--ephemeral",
+		"--ignore-user-config",
+		"--ignore-rules",
+		"--sandbox", "read-only",
+		"--color", "never",
+		"--cd", os.TempDir(),
+		prompt,
+	)
+	return cmd, nil
 }
 
 // GetRestoreCommand rebuilds the argv that continues an existing Codex
@@ -109,34 +137,9 @@ func (p *Plugin) GetRestoreCommand(ctx context.Context, cfg agent.RestoreConfig)
 	cmd = []string{binary, "resume"}
 	appendNoUpdateCheckFlag(&cmd)
 	appendApprovalFlags(&cmd, cfg.Permissions)
+	cmd = append(cmd, codexNoAltScreenFlag)
 	cmd = append(cmd, agentSessionID)
 	return cmd, true, nil
-}
-
-// SessionInfo surfaces Codex hook-derived metadata. Metadata is intentionally
-// nil for Codex: callers get the normalized fields directly.
-func (p *Plugin) SessionInfo(ctx context.Context, session agent.SessionRef) (agent.SessionInfo, bool, error) {
-	if err := ctx.Err(); err != nil {
-		return agent.SessionInfo{}, false, err
-	}
-	info := agent.SessionInfo{
-		AgentSessionID: session.Metadata[codexAgentSessionIDMetadataKey],
-		Title:          session.Metadata[codexTitleMetadataKey],
-		Recap:          metadataValue(session.Metadata, codexRecapMetadataKey, codexLegacySummaryMetadataKey),
-	}
-	if info.AgentSessionID == "" && info.Title == "" && info.Recap == "" {
-		return agent.SessionInfo{}, false, nil
-	}
-	return info, true, nil
-}
-
-func metadataValue(metadata map[string]string, keys ...string) string {
-	for _, key := range keys {
-		if value := strings.TrimSpace(metadata[key]); value != "" {
-			return value
-		}
-	}
-	return ""
 }
 
 // ResolveCodexBinary returns the path to the codex binary on this machine,

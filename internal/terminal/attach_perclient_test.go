@@ -2,18 +2,21 @@ package terminal
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/yyopc/yyork/internal/terminalipc"
 )
 
-// These tests exercise Option A — the per-client attach strategy. Each one
-// selects StrategyPerClient explicitly via ManagerConfig so the suite does not
-// depend on the YYORK_TERMINAL_ATTACH env var or the package default.
+// These tests exercise the direct attach strategy. Some still select the legacy
+// StrategyPerClient alias explicitly to prove old config values continue to use
+// the direct pipe.
 
 // TestClientAttachHandlesResizeAndInput verifies that resize control messages
 // and binary input route to the per-connection attach process.
@@ -216,11 +219,115 @@ func TestPerClientServeWSPipesProcessIO(t *testing.T) {
 	}
 }
 
-// TestPerClientServeWSSpawnsOwnAttachProcessPerConnection is the heart of the
-// Option A model: every WebSocket connection gets its OWN attach process. Two
-// concurrent connections to the same session must produce two distinct
-// processes, each driven independently. (Multi-tab mirroring is each tab's
-// own attach to the same shared Zellij session.)
+func TestDirectServeWSUsesTerminalHostSocket(t *testing.T) {
+	home, err := os.MkdirTemp("/tmp", "yyh-*")
+	if err != nil {
+		t.Fatalf("create short test home: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(home) })
+	t.Setenv("HOME", home)
+
+	socketPath, err := terminalipc.SocketPath("zellij-session-1")
+	if err != nil {
+		t.Fatalf("terminal host socket path: %v", err)
+	}
+	if err := terminalipc.EnsureSocketDir(socketPath); err != nil {
+		t.Fatalf("create terminal host socket dir: %v", err)
+	}
+	listener, err := net.Listen("unix", socketPath)
+	if err != nil {
+		t.Fatalf("listen terminal host socket: %v", err)
+	}
+	t.Cleanup(func() { _ = listener.Close() })
+
+	type hostFrame struct {
+		payload []byte
+		typ     byte
+	}
+	frames := make(chan hostFrame, 4)
+	hostDone := make(chan error, 1)
+	go func() {
+		conn, err := listener.Accept()
+		if err != nil {
+			hostDone <- err
+			return
+		}
+		defer conn.Close()
+		for {
+			frameType, payload, err := terminalipc.ReadFrame(conn)
+			if err != nil {
+				hostDone <- nil
+				return
+			}
+			frames <- hostFrame{payload: payload, typ: frameType}
+			if frameType == terminalipc.FrameResize {
+				if err := terminalipc.WriteFrame(conn, terminalipc.FrameOutput, []byte("host-ready")); err != nil {
+					hostDone <- err
+					return
+				}
+			}
+		}
+	}()
+
+	runner := &fakeRunner{}
+	manager := NewManager(ManagerConfig{Runner: runner})
+	t.Cleanup(func() {
+		if err := manager.Close(); err != nil {
+			t.Fatalf("close manager: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		manager.ServeWS(w, r, SessionConfig{
+			ID:            "session-1",
+			InitialCols:   111,
+			InitialRows:   37,
+			ZellijSession: "zellij-session-1",
+		})
+	}))
+	t.Cleanup(server.Close)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	url := "ws" + strings.TrimPrefix(server.URL, "http")
+	conn, _, err := websocket.Dial(ctx, url, nil)
+	if err != nil {
+		t.Fatalf("dial terminal websocket: %v", err)
+	}
+	defer conn.Close(websocket.StatusNormalClosure, "")
+
+	select {
+	case frame := <-frames:
+		if frame.typ != terminalipc.FrameResize {
+			t.Fatalf("expected initial resize frame, got type %d", frame.typ)
+		}
+		cols, rows, err := terminalipc.DecodeResize(frame.payload)
+		if err != nil {
+			t.Fatalf("decode initial resize: %v", err)
+		}
+		if cols != 111 || rows != 37 {
+			t.Fatalf("expected initial resize 111x37, got %dx%d", cols, rows)
+		}
+	case <-ctx.Done():
+		t.Fatal("timed out waiting for initial terminal-host resize")
+	}
+
+	_, payload, err := conn.Read(ctx)
+	if err != nil {
+		t.Fatalf("read terminal-host output: %v", err)
+	}
+	if string(payload) != "host-ready" {
+		t.Fatalf("expected terminal-host output, got %q", string(payload))
+	}
+	if got := runner.startCount(); got != 0 {
+		t.Fatalf("expected terminal-host socket to bypass runner, got %d runner starts", got)
+	}
+}
+
+// TestPerClientServeWSSpawnsOwnAttachProcessPerConnection covers the fallback
+// runner path: when there is no terminal-host socket, every WebSocket connection
+// gets its own process and is driven independently.
 func TestPerClientServeWSSpawnsOwnAttachProcessPerConnection(t *testing.T) {
 	runner := &fakeRunner{}
 	manager := NewManager(ManagerConfig{AttachStrategy: StrategyPerClient, Runner: runner})
@@ -314,9 +421,9 @@ func TestPerClientServeWSNoRawByteReplayOnAttach(t *testing.T) {
 		t.Fatalf("close first websocket: %v", err)
 	}
 
-	// Second connection: a brand new attach process. It must NOT receive the
-	// first process's bytes replayed. Zellij would repaint via its own
-	// process output, which we model as the second process's own emit.
+	// Second connection: a brand new fallback process. It must NOT receive the
+	// first process's bytes replayed. Any repaint must arrive as fresh output
+	// from the current process/host connection.
 	second, _, err := websocket.Dial(ctx, url, nil)
 	if err != nil {
 		t.Fatalf("dial second websocket: %v", err)
@@ -369,9 +476,8 @@ func TestPerClientServeWSAppliesResizeControlMessages(t *testing.T) {
 }
 
 // TestPerClientServeWSClosesAttachProcessOnDisconnect verifies that closing the
-// WebSocket tears down that connection's attach process (detaching the client
-// from Zellij) and removes the now-clientless logical session, and that a
-// reconnect spawns a fresh attach process.
+// WebSocket tears down that connection's Process and removes the now-clientless
+// logical session, and that a reconnect starts a fresh fallback process.
 func TestPerClientServeWSClosesAttachProcessOnDisconnect(t *testing.T) {
 	runner := &fakeRunner{}
 	manager := NewManager(ManagerConfig{AttachStrategy: StrategyPerClient, IdleTimeout: -1, Runner: runner})
@@ -411,9 +517,9 @@ func TestPerClientServeWSClosesAttachProcessOnDisconnect(t *testing.T) {
 	waitForStartCount(t, runner, 2)
 }
 
-// TestPerClientServeWSReconnectSpawnsFreshAttach confirms that reconnecting
-// always produces a new attach process (a fresh Zellij redraw), even within
-// an idle-grace window — there is no shared attach process to reuse.
+// TestPerClientServeWSReconnectSpawnsFreshAttach confirms that reconnecting on
+// the fallback path always produces a new process, even within an idle-grace
+// window. The Manager only reuses bookkeeping.
 func TestPerClientServeWSReconnectSpawnsFreshAttach(t *testing.T) {
 	runner := &fakeRunner{}
 	manager := NewManager(ManagerConfig{AttachStrategy: StrategyPerClient, IdleTimeout: time.Minute, Runner: runner})
@@ -448,7 +554,7 @@ func TestPerClientServeWSReconnectSpawnsFreshAttach(t *testing.T) {
 	}
 	defer reconnected.Close(websocket.StatusNormalClosure, "")
 
-	// A new connection = a new attach = a fresh Zellij redraw.
+	// A new fallback connection = a new process.
 	waitForStartCount(t, runner, 2)
 	secondProcess := runner.lastProcess()
 	if secondProcess == firstProcess {
@@ -462,7 +568,7 @@ func TestPerClientServeWSReconnectSpawnsFreshAttach(t *testing.T) {
 	}
 }
 
-// --- Option A-only helpers -------------------------------------------------
+// --- Direct attach helpers --------------------------------------------------
 
 func processInput(process *fakeProcess) string {
 	process.mu.Lock()

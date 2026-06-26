@@ -10,21 +10,21 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/yyopc/yyork/internal/terminalipc"
 )
 
-// Option A — per-client attach.
+// Direct attach.
 //
-// Each WebSocket connection gets its OWN `zellij attach` process (its own
-// PTY). Zellij is a multiplexer whose core job is maintaining the session's
-// screen state and redrawing the FULL screen whenever a client attaches, so a
-// fresh per-connection attach IS a faithful repaint for free — no byte replay,
-// no scrollback buffer, no fan-out.
+// Each WebSocket connection is a thin byte pipe to the durable terminal-host
+// PTY when cfg.ZellijSession is present. Tests and non-durable sessions can
+// still fall back to starting cfg.Command through Runner.
 //
 // The Manager only tracks logical sessions for idle bookkeeping. Closing an
-// attach process detaches that single client; it never kills the session.
+// attach connection detaches that single browser socket; it never kills the
+// durable terminal session.
 
 // serveWSPerClient registers the connection for idle bookkeeping, spawns its
-// own attach process, and pipes PTY <-> WebSocket.
+// process/host connection, and pipes PTY <-> WebSocket.
 func (m *Manager) serveWSPerClient(conn *websocket.Conn, cfg SessionConfig) {
 	cfg = withDefaults(cfg)
 	if cfg.ID == "" {
@@ -42,18 +42,16 @@ func (m *Manager) serveWSPerClient(conn *websocket.Conn, cfg SessionConfig) {
 	sess := m.acquire(key)
 	defer m.release(key, sess)
 
-	// Each connection spawns its OWN attach process. A fresh attach is a
-	// faithful Zellij redraw of the current screen — no replay needed.
-	process, err := m.runner.Start(m.ctx, StartOptions{
-		Command: cfg.Command,
-		CWD:     cfg.CWD,
-		Cols:    cfg.InitialCols,
-		Env:     cfg.Env,
-		Rows:    cfg.InitialRows,
-	})
+	process, err := m.startProcess(cfg)
 	if err != nil {
 		slog.Warn("failed to start terminal attach", "session_id", cfg.ID, "error", err)
 		_ = conn.Close(websocket.StatusInternalError, "failed to start terminal")
+		return
+	}
+	if err := process.Resize(cfg.InitialCols, cfg.InitialRows); err != nil {
+		slog.Warn("failed to apply terminal attach size", "session_id", cfg.ID, "cols", cfg.InitialCols, "rows", cfg.InitialRows, "error", err)
+		_ = process.Close()
+		_ = conn.Close(websocket.StatusInternalError, "failed to size terminal")
 		return
 	}
 
@@ -61,6 +59,24 @@ func (m *Manager) serveWSPerClient(conn *websocket.Conn, cfg SessionConfig) {
 	if err := client.pipe(conn); err != nil && !isExpectedWebsocketClose(err) {
 		slog.Debug("terminal websocket closed", "session_id", cfg.ID, "error", err)
 	}
+}
+
+func (m *Manager) startProcess(cfg SessionConfig) (Process, error) {
+	if cfg.ZellijSession != "" {
+		if socketPath, err := terminalipc.SocketPath(cfg.ZellijSession); err == nil {
+			if process, err := dialTerminalHost(m.ctx, socketPath); err == nil {
+				return process, nil
+			}
+		}
+	}
+
+	return m.runner.Start(m.ctx, StartOptions{
+		Command: cfg.Command,
+		CWD:     cfg.CWD,
+		Cols:    cfg.InitialCols,
+		Env:     cfg.Env,
+		Rows:    cfg.InitialRows,
+	})
 }
 
 // acquire returns the logical session for key, creating it if needed, and
@@ -110,10 +126,9 @@ func (m *Manager) release(key string, sess *session) {
 	})
 }
 
-// session is pure bookkeeping for a logical terminal. It owns no process and
-// no scrollback; it just counts live attach connections so the Manager knows
-// when a session has gone idle. The actual screen state lives in the Zellij
-// server, reached anew by each per-client attach process.
+// session is pure bookkeeping for a logical terminal. It owns no process and no
+// scrollback; it just counts live attach connections so the Manager knows when a
+// session has gone idle. The actual PTY state lives in terminal-host.
 type session struct {
 	clients   int
 	idleTimer *time.Timer
@@ -128,8 +143,7 @@ func (s *session) cancelIdle() {
 	}
 }
 
-// clientAttach is a thin PTY <-> WebSocket pipe bound to a single connection's
-// own attach process.
+// clientAttach is a thin PTY <-> WebSocket pipe bound to one browser connection.
 type clientAttach struct {
 	process Process
 }
@@ -138,10 +152,10 @@ func newClientAttach(process Process) *clientAttach {
 	return &clientAttach{process: process}
 }
 
-// pipe streams the attach process's PTY output to conn, forwards conn input
-// and resize control messages to the process, and tears the process down when
-// the connection ends. Closing the attach process detaches this client only;
-// the Zellij session survives.
+// pipe streams PTY output to conn, forwards conn input and resize control
+// messages to the process, and tears this connection down when the WebSocket
+// ends. Closing the Process detaches this browser socket only; the durable
+// terminal session survives.
 func (c *clientAttach) pipe(conn *websocket.Conn) error {
 	conn.SetReadLimit(64 * 1024)
 
@@ -149,7 +163,7 @@ func (c *clientAttach) pipe(conn *websocket.Conn) error {
 	defer cancel()
 
 	// Closing the process unblocks the writer's PTY read and detaches this
-	// client from Zellij. It does NOT kill the Zellij session.
+	// client. For terminal-host sockets it does not kill the durable PTY.
 	defer func() { _ = c.process.Close() }()
 
 	writerDone := make(chan error, 1)
@@ -170,7 +184,7 @@ func (c *clientAttach) pipe(conn *websocket.Conn) error {
 }
 
 // writeToConn copies PTY output straight to the WebSocket. There is no replay
-// buffer: the first bytes a client receives are Zellij's fresh repaint.
+// buffer in the attach layer.
 func (c *clientAttach) writeToConn(ctx context.Context, conn *websocket.Conn) error {
 	buf := make([]byte, 32*1024)
 	for {

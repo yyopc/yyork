@@ -63,6 +63,7 @@ func TestListSessionsReturnsSeededRows(t *testing.T) {
 	for _, row := range []store.Session{
 		{ID: "01HRSERVER000000000000000A", ProjectPath: "/tmp/a", ProjectName: "a", AgentPlugin: "codex", WorkspacePath: "/tmp/a/.w", ZellijSession: "01HRSERVER000000000000000A", Metadata: map[string]any{"recap": "Reviewed the workspace setup."}},
 		{ID: "01HRSERVER000000000000000B", ProjectPath: "/tmp/b", ProjectName: "b", AgentPlugin: "codex", WorkspacePath: "/tmp/b/.w", ZellijSession: "01HRSERVER000000000000000B", Metadata: map[string]any{"displayName": "Project overview", "prompt": "tell me about this project"}},
+		{ID: "01HRSERVER000000000000000C", ProjectPath: "/tmp/c", ProjectName: "c", AgentPlugin: "codex", WorkspacePath: "/tmp/c/.w", ZellijSession: "01HRSERVER000000000000000C", Metadata: map[string]any{"prompt": "do not show this full prompt as the session title"}},
 	} {
 		if err := repo.Insert(context.Background(), row); err != nil {
 			t.Fatalf("Insert: %v", err)
@@ -80,12 +81,13 @@ func TestListSessionsReturnsSeededRows(t *testing.T) {
 	defer resp.Body.Close()
 	var got []map[string]any
 	_ = json.NewDecoder(resp.Body).Decode(&got)
-	if len(got) != 2 {
-		t.Fatalf("expected 2 rows, got %d", len(got))
+	if len(got) != 3 {
+		t.Fatalf("expected 3 rows, got %d", len(got))
 	}
 	var recap string
 	var renamedTitle string
 	var renamedRecap string
+	var pendingTitle string
 	for _, row := range got {
 		if row["id"] == "01HRSERVER000000000000000A" {
 			recap, _ = row["recap"].(string)
@@ -93,6 +95,9 @@ func TestListSessionsReturnsSeededRows(t *testing.T) {
 		if row["id"] == "01HRSERVER000000000000000B" {
 			renamedTitle, _ = row["title"].(string)
 			renamedRecap, _ = row["recap"].(string)
+		}
+		if row["id"] == "01HRSERVER000000000000000C" {
+			pendingTitle, _ = row["title"].(string)
 		}
 	}
 	if recap != "Reviewed the workspace setup." {
@@ -103,6 +108,9 @@ func TestListSessionsReturnsSeededRows(t *testing.T) {
 	}
 	if renamedRecap != "" {
 		t.Fatalf("renamed recap = %q, want empty until last assistant message exists", renamedRecap)
+	}
+	if pendingTitle != "New worker agent" {
+		t.Fatalf("pending title = %q, want generic worker label", pendingTitle)
 	}
 
 	// ?project filter
@@ -328,6 +336,96 @@ func TestRenameSessionNotFound(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", resp.StatusCode)
+	}
+}
+
+func TestPatchSessionMarksPromptWorkerDone(t *testing.T) {
+	t.Parallel()
+	s := openTestStore(t)
+	repo := s.Sessions()
+	if err := repo.Insert(context.Background(), store.Session{
+		ID: "01HRDONE00000000000000001", ProjectPath: "/tmp/a", ProjectName: "a",
+		AgentPlugin: "codex", WorkspacePath: "/tmp/a/.w", ZellijSession: "01HRDONE00000000000000001",
+		Metadata: map[string]any{"displayName": "Keep Name", "kind": "worker", "state": "prompt"},
+	}); err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+
+	srv := server.New(server.Config{Sessions: repo, EventBus: events.NewBus()})
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	resp := patchSession(t, ts.URL, "01HRDONE00000000000000001", `{"state":"done"}`)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	var dto map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&dto); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	metadata, _ := dto["metadata"].(map[string]any)
+	if metadata["state"] != "done" {
+		t.Fatalf("state = %v, want done", metadata["state"])
+	}
+	if metadata["displayName"] != "Keep Name" {
+		t.Fatalf("displayName = %v, want preserved display name", metadata["displayName"])
+	}
+
+	row, err := repo.Get(context.Background(), "01HRDONE00000000000000001")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if row.Metadata["state"] != "done" {
+		t.Fatalf("persisted state = %v, want done", row.Metadata["state"])
+	}
+}
+
+func TestPatchSessionRejectsDoneForNonPromptSession(t *testing.T) {
+	t.Parallel()
+	s := openTestStore(t)
+	repo := s.Sessions()
+	if err := repo.Insert(context.Background(), store.Session{
+		ID: "01HRDONE00000000000000002", ProjectPath: "/tmp/a", ProjectName: "a",
+		AgentPlugin: "codex", WorkspacePath: "/tmp/a/.w", ZellijSession: "01HRDONE00000000000000002",
+		Metadata: map[string]any{"kind": "worker", "state": "working"},
+	}); err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+
+	srv := server.New(server.Config{Sessions: repo, EventBus: events.NewBus()})
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	resp := patchSession(t, ts.URL, "01HRDONE00000000000000002", `{"state":"done"}`)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("status = %d, want 409", resp.StatusCode)
+	}
+
+	row, err := repo.Get(context.Background(), "01HRDONE00000000000000002")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if row.Metadata["state"] != "working" {
+		t.Fatalf("persisted state = %v, want working", row.Metadata["state"])
+	}
+}
+
+func TestPatchSessionRejectsUnsupportedState(t *testing.T) {
+	t.Parallel()
+	srv := server.New(server.Config{
+		Sessions: openTestStore(t).Sessions(),
+		EventBus: events.NewBus(),
+	})
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	resp := patchSession(t, ts.URL, "any", `{"state":"working"}`)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", resp.StatusCode)
 	}
 }
 

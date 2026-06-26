@@ -5,13 +5,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/yyopc/yyork/internal/session"
+	"github.com/yyopc/yyork/internal/terminalipc"
 )
 
 const zellijRuntimeName = "zellij"
@@ -62,6 +65,12 @@ func (z *ZellijProvider) SendMessage(ctx context.Context, sess session.Session, 
 	}
 	message = strings.TrimRight(message, "\n")
 
+	if socketPath, err := terminalipc.SocketPath(name); err == nil {
+		if err := sendToTerminalHost(ctx, socketPath, message+"\r"); err == nil {
+			return nil
+		}
+	}
+
 	path, err := z.resolvePath()
 	if err != nil {
 		return err
@@ -81,6 +90,18 @@ func (z *ZellijProvider) SendMessage(ctx context.Context, sess session.Session, 
 	}
 
 	return nil
+}
+
+func sendToTerminalHost(ctx context.Context, socketPath string, input string) error {
+	dialCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	dialer := net.Dialer{}
+	conn, err := dialer.DialContext(dialCtx, "unix", socketPath)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	return terminalipc.WriteFrame(conn, terminalipc.FrameInput, []byte(input))
 }
 
 // resolvePath finds the zellij binary yyork should use for its managed runtime.

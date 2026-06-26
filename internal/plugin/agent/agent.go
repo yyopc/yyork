@@ -19,6 +19,14 @@ type Agent interface {
 	// the launch command or must be sent after the agent process starts.
 	GetPromptDeliveryStrategy(ctx context.Context, cfg LaunchConfig) (PromptDeliveryStrategy, error)
 
+	// GetSessionTitleCommand builds a short-lived command that generates a
+	// human-readable title for a new session from the first user prompt.
+	GetSessionTitleCommand(ctx context.Context, cfg TitleConfig) (cmd []string, err error)
+
+	// GetSessionRecapCommand builds a short-lived command that generates a
+	// human-readable recap for a completed turn from the assistant's reply.
+	GetSessionRecapCommand(ctx context.Context, cfg RecapConfig) (cmd []string, err error)
+
 	// GetAgentHooks installs or merges yyork hooks into the agent's
 	// native workspace-local hook config. It must preserve user-defined hooks.
 	GetAgentHooks(ctx context.Context, cfg WorkspaceHookConfig) error
@@ -26,10 +34,6 @@ type Agent interface {
 	// GetRestoreCommand builds a command that continues an existing native agent
 	// session. ok=false means no existing native session can be continued.
 	GetRestoreCommand(ctx context.Context, cfg RestoreConfig) (cmd []string, ok bool, err error)
-
-	// SessionInfo reads agent-owned session metadata such as native session id,
-	// display title, or recap. ok=false means no info is available.
-	SessionInfo(ctx context.Context, session SessionRef) (info SessionInfo, ok bool, err error)
 }
 
 // Config contains values loaded from the selected agent's section in
@@ -75,6 +79,24 @@ type LaunchConfig struct {
 	WorkspacePath    string
 }
 
+// TitleConfig carries inputs needed to build a session-title generation
+// command. Agent plugins decide how to ask their native CLI for a concise title.
+type TitleConfig struct {
+	Config        Config
+	Prompt        string
+	SessionID     string
+	WorkspacePath string
+}
+
+// RecapConfig carries inputs needed to build a session-recap generation
+// command. Agent plugins decide how to ask their native CLI for a concise recap.
+type RecapConfig struct {
+	Config               Config
+	LastAssistantMessage string
+	SessionID            string
+	WorkspacePath        string
+}
+
 // WorkspaceHookConfig carries inputs needed to install workspace-local agent hooks.
 type WorkspaceHookConfig struct {
 	Config        Config
@@ -90,19 +112,11 @@ type RestoreConfig struct {
 	Session     SessionRef
 }
 
-// SessionRef identifies a yyork session whose agent-owned metadata may be read.
+// SessionRef identifies a yyork session whose native runtime may be restored.
 type SessionRef struct {
 	ID            string
 	Metadata      map[string]string
 	WorkspacePath string
-}
-
-// SessionInfo contains agent-owned session metadata.
-type SessionInfo struct {
-	AgentSessionID string
-	Metadata       map[string]string
-	Title          string
-	Recap          string
 }
 
 // PermissionMode controls how much review an agent requires before acting.

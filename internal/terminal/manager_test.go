@@ -12,41 +12,41 @@ import (
 
 // TestResolveStrategyPrecedence asserts the selector rule: an explicit config
 // field overrides the env var, the env var overrides the default, and the
-// default is the emulator strategy. Invalid values fall through to the next
-// source.
+// default is the direct terminal-host strategy. Invalid values fall through to
+// the next source. Legacy strategy names are accepted as aliases.
 func TestResolveStrategyPrecedence(t *testing.T) {
 	t.Run("default when unset", func(t *testing.T) {
 		t.Setenv("YYORK_TERMINAL_ATTACH", "")
-		if got := resolveStrategy(""); got != StrategyEmulator {
-			t.Fatalf("expected default %q, got %q", StrategyEmulator, got)
+		if got := resolveStrategy(""); got != StrategyDirect {
+			t.Fatalf("expected default %q, got %q", StrategyDirect, got)
 		}
 	})
 
 	t.Run("default when invalid", func(t *testing.T) {
 		t.Setenv("YYORK_TERMINAL_ATTACH", "bogus")
-		if got := resolveStrategy("nonsense"); got != StrategyEmulator {
-			t.Fatalf("expected invalid values to fall through to default %q, got %q", StrategyEmulator, got)
+		if got := resolveStrategy("nonsense"); got != StrategyDirect {
+			t.Fatalf("expected invalid values to fall through to default %q, got %q", StrategyDirect, got)
 		}
 	})
 
-	t.Run("env overrides default", func(t *testing.T) {
+	t.Run("env legacy alias overrides default", func(t *testing.T) {
 		t.Setenv("YYORK_TERMINAL_ATTACH", string(StrategyPerClient))
-		if got := resolveStrategy(""); got != StrategyPerClient {
-			t.Fatalf("expected env to select %q, got %q", StrategyPerClient, got)
+		if got := resolveStrategy(""); got != StrategyDirect {
+			t.Fatalf("expected env alias to select %q, got %q", StrategyDirect, got)
 		}
 	})
 
 	t.Run("config field overrides env", func(t *testing.T) {
 		t.Setenv("YYORK_TERMINAL_ATTACH", string(StrategyPerClient))
-		if got := resolveStrategy(StrategyEmulator); got != StrategyEmulator {
+		if got := resolveStrategy(StrategyDirect); got != StrategyDirect {
 			t.Fatalf("expected config field to override env, got %q", got)
 		}
 	})
 
 	t.Run("invalid config field falls through to env", func(t *testing.T) {
-		t.Setenv("YYORK_TERMINAL_ATTACH", string(StrategyPerClient))
-		if got := resolveStrategy("garbage"); got != StrategyPerClient {
-			t.Fatalf("expected invalid config field to fall through to env %q, got %q", StrategyPerClient, got)
+		t.Setenv("YYORK_TERMINAL_ATTACH", string(StrategyEmulator))
+		if got := resolveStrategy("garbage"); got != StrategyDirect {
+			t.Fatalf("expected invalid config field to fall through to env alias %q, got %q", StrategyDirect, got)
 		}
 	})
 
@@ -54,8 +54,8 @@ func TestResolveStrategyPrecedence(t *testing.T) {
 		t.Setenv("YYORK_TERMINAL_ATTACH", "")
 		m := NewManager(ManagerConfig{AttachStrategy: StrategyPerClient})
 		t.Cleanup(func() { _ = m.Close() })
-		if got := m.Strategy(); got != StrategyPerClient {
-			t.Fatalf("expected manager strategy %q, got %q", StrategyPerClient, got)
+		if got := m.Strategy(); got != StrategyDirect {
+			t.Fatalf("expected manager strategy %q, got %q", StrategyDirect, got)
 		}
 	})
 }
@@ -64,6 +64,7 @@ func TestResolveStrategyPrecedence(t *testing.T) {
 
 type fakeRunner struct {
 	mu        sync.Mutex
+	options   []StartOptions
 	processes []*fakeProcess
 }
 
@@ -73,6 +74,13 @@ func (r *fakeRunner) Start(_ context.Context, opts StartOptions) (Process, error
 	process.rows = opts.Rows
 
 	r.mu.Lock()
+	r.options = append(r.options, StartOptions{
+		Command: append([]string(nil), opts.Command...),
+		CWD:     opts.CWD,
+		Cols:    opts.Cols,
+		Env:     append([]string(nil), opts.Env...),
+		Rows:    opts.Rows,
+	})
 	r.processes = append(r.processes, process)
 	r.mu.Unlock()
 
@@ -89,6 +97,12 @@ func (r *fakeRunner) startCount() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return len(r.processes)
+}
+
+func (r *fakeRunner) lastStartOptions() StartOptions {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.options[len(r.options)-1]
 }
 
 type fakeProcess struct {
@@ -292,8 +306,8 @@ func waitForProcessClosed(t *testing.T, process *fakeProcess) {
 	}
 }
 
-// waitForManagerSessionRemoved waits until sessionID is absent from BOTH
-// strategy maps, so it works regardless of which strategy a test selected.
+// waitForManagerSessionRemoved waits until sessionID is absent from the direct
+// attach bookkeeping map.
 func waitForManagerSessionRemoved(t *testing.T, manager *Manager, sessionID string) {
 	t.Helper()
 
@@ -304,10 +318,9 @@ func waitForManagerSessionRemoved(t *testing.T, manager *Manager, sessionID stri
 	for {
 		manager.mu.Lock()
 		_, perClient := manager.perClient[sessionID]
-		_, emulator := manager.emulator[sessionID]
 		manager.mu.Unlock()
 
-		if !perClient && !emulator {
+		if !perClient {
 			return
 		}
 

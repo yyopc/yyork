@@ -227,7 +227,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/annotations/{sessionID}", s.handleAnnotations)
 	mux.HandleFunc("POST /api/browser-preview/targets", s.handleBrowserPreviewTarget)
 	mux.HandleFunc("GET /api/sessions", s.handleListSessions)
-	mux.HandleFunc("PATCH /api/sessions/{sessionID}", s.handleRenameSession)
+	mux.HandleFunc("PATCH /api/sessions/{sessionID}", s.handlePatchSession)
 	mux.HandleFunc("DELETE /api/sessions/{sessionID}", s.handleStopSession)
 	mux.HandleFunc("GET /api/events", s.handleEventsStream)
 	mux.HandleFunc("POST /api/events", s.handlePublishEvent)
@@ -315,15 +315,16 @@ func (s *Server) handleSessionTerminal(w http.ResponseWriter, r *http.Request) {
 	cols := parsePositiveInt(r.URL.Query().Get("cols"), 100)
 	rows := parsePositiveInt(r.URL.Query().Get("rows"), 30)
 	s.terminalManager.ServeWS(w, r, terminal.SessionConfig{
-		Command:     workerSession.AttachCommand,
-		CWD:         workerSession.CWD,
-		Env:         terminalEnvForSession(workerSession),
-		ID:          workerSession.ID,
-		InitialCols: cols,
-		InitialRows: rows,
-		TerminalKey: workerSession.TerminalKey,
-		Title:       workerSession.Title,
-		WorkerID:    workerSession.WorkerID,
+		Command:       workerSession.AttachCommand,
+		CWD:           workerSession.CWD,
+		Env:           terminalEnvForSession(workerSession),
+		ID:            workerSession.ID,
+		InitialCols:   cols,
+		InitialRows:   rows,
+		TerminalKey:   workerSession.TerminalKey,
+		Title:         workerSession.Title,
+		WorkerID:      workerSession.WorkerID,
+		ZellijSession: workerSession.ZellijSession,
 	})
 }
 

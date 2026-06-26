@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/yyopc/yyork/internal/session"
 )
 
 // The launch layout must contain nothing but the agent pane: no tab-bar or
@@ -38,5 +40,33 @@ func TestWriteLaunchLayoutHasNoZellijChrome(t *testing.T) {
 	}
 	if !strings.Contains(content, "'hello world'") {
 		t.Errorf("layout lost launch command quoting:\n%s", content)
+	}
+}
+
+func TestTerminalHostLaunchCommandWrapsAgent(t *testing.T) {
+	cmd, err := terminalHostLaunchCommand(session.CreateOpts{
+		Name:      "sess-1",
+		Cwd:       "/tmp/project",
+		LaunchCmd: []string{"codex", "--no-alt-screen", "--", "do it"},
+	})
+	if err != nil {
+		t.Fatalf("terminalHostLaunchCommand: %v", err)
+	}
+
+	joined := strings.Join(cmd, "\x00")
+	for _, want := range []string{
+		"terminal-host",
+		"--session",
+		"sess-1",
+		"--socket",
+		"--cwd",
+		"/tmp/project",
+		"bash",
+		"-c",
+		"codex --no-alt-screen -- 'do it'; exec",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("host command missing %q:\n%#v", want, cmd)
+		}
 	}
 }

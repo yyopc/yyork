@@ -7,10 +7,11 @@
 // keybinding (all keystrokes pass through to the agent; nothing can switch
 // zellij modes, detach, or kill the session from the keyboard), turns off pane
 // frames, and suppresses the startup-tips / release-notes floating panes and
-// mouse hover effects. The launch layout (internal/durabilityprovider)
-// completes the picture by omitting the tab-bar and status-bar plugin panes.
-// Session control stays fully available to yyork itself via `zellij action`
-// CLI commands, which do not depend on keybindings.
+// mouse hover effects, and disables zellij's mouse mode so ordinary terminal
+// selection/copy stays controlled by the browser terminal. The launch layout
+// (internal/durabilityprovider) completes the picture by omitting the tab-bar
+// and status-bar plugin panes. Session control stays fully available to yyork
+// itself via `zellij action` CLI commands, which do not depend on keybindings.
 //
 // The "yyork" theme covers whatever little zellij still draws (the brief
 // loading screen, search prompts). It is defined in terms of ANSI palette
@@ -56,6 +57,11 @@ show_release_notes false
 
 // No hover highlights or alt-click pane grouping (zellij 0.43+).
 advanced_mouse_actions false
+
+// Let the browser terminal own normal drag-selection/copy. Zellij's default
+// mouse_mode=true asks the host terminal for mouse reports, which makes xterm.js
+// disable regular selection for every managed session.
+mouse_mode false
 
 // Colors are ANSI palette indices (0-15), not RGB. yyork's web terminal
 // remaps 0-15 to its own light/dark palette (internal/web/src/styles/app.css,

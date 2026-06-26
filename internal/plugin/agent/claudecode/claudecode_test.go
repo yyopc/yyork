@@ -116,6 +116,63 @@ func TestGetLaunchCommandMissingSystemPromptFileErrors(t *testing.T) {
 	}
 }
 
+func TestGetSessionTitleCommandBuildsPrintArgv(t *testing.T) {
+	p := &Plugin{resolvedBinary: "claude"}
+
+	cmd, err := p.GetSessionTitleCommand(context.Background(), agent.TitleConfig{
+		Prompt: "Explain the current state of agent hooks. Scope: do not modify files.",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantPrefix := []string{
+		"claude",
+		"--safe-mode",
+		"-p",
+		"--output-format",
+		"text",
+		"--no-session-persistence",
+	}
+	if !reflect.DeepEqual(cmd[:len(wantPrefix)], wantPrefix) {
+		t.Fatalf("cmd prefix = %#v, want %#v", cmd[:len(wantPrefix)], wantPrefix)
+	}
+	prompt := cmd[len(cmd)-1]
+	if !strings.Contains(prompt, "Use 3 to 5 words.") ||
+		!strings.Contains(prompt, "Use 60 characters or fewer.") ||
+		!strings.Contains(prompt, "Explain the current state of agent hooks") {
+		t.Fatalf("title prompt = %q", prompt)
+	}
+}
+
+func TestGetSessionRecapCommandBuildsPrintArgv(t *testing.T) {
+	p := &Plugin{resolvedBinary: "claude"}
+
+	cmd, err := p.GetSessionRecapCommand(context.Background(), agent.RecapConfig{
+		LastAssistantMessage: "Implemented the hook title fix and paused for release validation.",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantPrefix := []string{
+		"claude",
+		"--safe-mode",
+		"-p",
+		"--output-format",
+		"text",
+		"--no-session-persistence",
+	}
+	if !reflect.DeepEqual(cmd[:len(wantPrefix)], wantPrefix) {
+		t.Fatalf("cmd prefix = %#v, want %#v", cmd[:len(wantPrefix)], wantPrefix)
+	}
+	prompt := cmd[len(cmd)-1]
+	if !strings.Contains(prompt, "Use 240 characters or fewer.") ||
+		!strings.Contains(prompt, "Implemented the hook title fix") {
+		t.Fatalf("recap prompt = %q", prompt)
+	}
+}
+
 func TestGetLaunchCommandInjectsSessionID(t *testing.T) {
 	p := &Plugin{resolvedBinary: "claude"}
 	cmd, err := p.GetLaunchCommand(context.Background(), agent.LaunchConfig{
@@ -335,64 +392,6 @@ func TestUninstallHooksNoSettingsFile(t *testing.T) {
 	}
 	if installed, err := p.AreHooksInstalled(context.Background(), workspace); err != nil || installed {
 		t.Fatalf("AreHooksInstalled = (%v, %v), want (false, nil)", installed, err)
-	}
-}
-
-func TestSessionInfoReadsHookMetadata(t *testing.T) {
-	info, ok, err := (&Plugin{resolvedBinary: "claude"}).SessionInfo(context.Background(), agent.SessionRef{
-		WorkspacePath: "/some/path",
-		Metadata: map[string]string{
-			claudeAgentSessionIDMetadataKey: "claude-native-1",
-			claudeTitleMetadataKey:          "Fix login redirect",
-			claudeRecapMetadataKey:          "Updated the auth callback and tests.",
-			"ignored":                       "not returned",
-		},
-	})
-	if err != nil || !ok {
-		t.Fatalf("SessionInfo = (ok=%v, err=%v), want ok", ok, err)
-	}
-	if info.AgentSessionID != "claude-native-1" {
-		t.Fatalf("AgentSessionID = %q", info.AgentSessionID)
-	}
-	if info.Title != "Fix login redirect" {
-		t.Fatalf("Title = %q", info.Title)
-	}
-	if info.Recap != "Updated the auth callback and tests." {
-		t.Fatalf("Recap = %q", info.Recap)
-	}
-	if info.Metadata != nil {
-		t.Fatalf("Metadata = %#v, want nil for Claude", info.Metadata)
-	}
-}
-
-func TestSessionInfoReadsLegacySummaryAsRecap(t *testing.T) {
-	info, ok, err := (&Plugin{resolvedBinary: "claude"}).SessionInfo(context.Background(), agent.SessionRef{
-		WorkspacePath: "/some/path",
-		Metadata: map[string]string{
-			claudeLegacySummaryMetadataKey: "Legacy stop hook message.",
-		},
-	})
-	if err != nil || !ok {
-		t.Fatalf("SessionInfo = (ok=%v, err=%v), want ok", ok, err)
-	}
-	if info.Recap != "Legacy stop hook message." {
-		t.Fatalf("Recap = %q", info.Recap)
-	}
-}
-
-func TestSessionInfoFalseWhenNoHookMetadata(t *testing.T) {
-	info, ok, err := (&Plugin{resolvedBinary: "claude"}).SessionInfo(context.Background(), agent.SessionRef{
-		WorkspacePath: "/some/path",
-		Metadata:      map[string]string{},
-	})
-	if err != nil {
-		t.Fatalf("err = %v", err)
-	}
-	if ok {
-		t.Fatalf("ok = true, want false")
-	}
-	if !reflect.DeepEqual(info, agent.SessionInfo{}) {
-		t.Fatalf("info = %#v, want zero", info)
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/yyopc/yyork/internal/control"
 	"github.com/yyopc/yyork/internal/events"
+	"github.com/yyopc/yyork/internal/session"
 	"github.com/yyopc/yyork/internal/store"
 )
 
@@ -50,12 +51,27 @@ func toSessionDTO(s store.Session) sessionDTO {
 }
 
 func resolvedSessionTitle(s store.Session) string {
-	for _, key := range []string{"displayName", "title", "prompt"} {
+	for _, key := range []string{"displayName", "title"} {
 		if value := metadataString(s.Metadata, key); value != "" {
 			return value
 		}
 	}
-	return "new agent: " + s.ID
+	if sessionKind(s.Metadata) == "orchestrator" {
+		return "Orchestrator"
+	}
+	return "New worker agent"
+}
+
+func sessionKind(metadata map[string]any) string {
+	for _, key := range []string{"kind", "role"} {
+		switch metadataString(metadata, key) {
+		case "orchestrator":
+			return "orchestrator"
+		case "worker":
+			return "worker"
+		}
+	}
+	return "worker"
 }
 
 func resolvedSessionRecap(s store.Session) string {
@@ -107,17 +123,18 @@ func (s *Server) handleStopSession(w http.ResponseWriter, r *http.Request) {
 // a narrow sidebar row, so anything longer is noise; the UI truncates anyway.
 const displayNameMaxLen = 120
 
-// renameRequest is the JSON body for PATCH /api/sessions/{sessionID}. An empty
-// (or whitespace-only) displayName clears the override, reverting the session
-// to its auto-derived title.
-type renameRequest struct {
-	DisplayName string `json:"displayName"`
+// sessionPatchRequest is the JSON body for PATCH /api/sessions/{sessionID}.
+// displayName is optional so a state-only patch does not clear the existing
+// display name. An explicitly empty displayName still clears the override.
+type sessionPatchRequest struct {
+	DisplayName *string        `json:"displayName"`
+	State       *session.State `json:"state"`
 }
 
-// handleRenameSession sets (or clears) the user-facing display name for a
-// session by updating the SQLite metadata row. On success it publishes a
-// session.updated event so every open app refreshes via SSE.
-func (s *Server) handleRenameSession(w http.ResponseWriter, r *http.Request) {
+// handlePatchSession updates session metadata exposed through the app. On
+// success it publishes a session.updated event so every open app refreshes via
+// SSE.
+func (s *Server) handlePatchSession(w http.ResponseWriter, r *http.Request) {
 	if s.sessions == nil {
 		http.Error(w, "session store unavailable", http.StatusServiceUnavailable)
 		return
@@ -129,18 +146,45 @@ func (s *Server) handleRenameSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var payload renameRequest
+	var payload sessionPatchRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&payload); err != nil {
-		http.Error(w, "invalid rename payload", http.StatusBadRequest)
+		http.Error(w, "invalid session patch payload", http.StatusBadRequest)
 		return
 	}
 
-	displayName := truncateRunes(strings.TrimSpace(payload.DisplayName), displayNameMaxLen)
-
 	ctx := r.Context()
-	err := s.sessions.MergeMetadata(ctx, sessionID, map[string]any{
-		"displayName": displayName,
-	})
+	fields := map[string]any{}
+	if payload.DisplayName != nil {
+		fields["displayName"] = truncateRunes(strings.TrimSpace(*payload.DisplayName), displayNameMaxLen)
+	}
+	if payload.State != nil {
+		if *payload.State != session.StateDone {
+			http.Error(w, "only marking a session done is supported", http.StatusBadRequest)
+			return
+		}
+
+		row, err := s.sessions.Get(ctx, sessionID)
+		if errors.Is(err, store.ErrSessionNotFound) {
+			http.Error(w, "session not found", http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if sessionKind(row.Metadata) != string(session.KindWorker) || sessionState(row.Metadata) != session.StatePrompt {
+			http.Error(w, "only prompt worker sessions can be marked done", http.StatusConflict)
+			return
+		}
+
+		fields["state"] = string(session.StateDone)
+	}
+	if len(fields) == 0 {
+		http.Error(w, "session patch is empty", http.StatusBadRequest)
+		return
+	}
+
+	err := s.sessions.MergeMetadata(ctx, sessionID, fields)
 	if errors.Is(err, store.ErrSessionNotFound) {
 		http.Error(w, "session not found", http.StatusNotFound)
 		return
@@ -165,6 +209,21 @@ func (s *Server) handleRenameSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, toSessionDTO(row))
+}
+
+func sessionState(metadata map[string]any) session.State {
+	switch session.State(metadataString(metadata, "state")) {
+	case session.StatePrompt:
+		return session.StatePrompt
+	case session.StateTriage:
+		return session.StateTriage
+	case session.StateDone:
+		return session.StateDone
+	case session.StateWorking:
+		return session.StateWorking
+	default:
+		return session.StateWorking
+	}
 }
 
 // truncateRunes shortens s to at most max runes, preserving valid UTF-8.

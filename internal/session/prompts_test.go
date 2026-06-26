@@ -46,6 +46,17 @@ func TestDefaultPromptsRenderContext(t *testing.T) {
 			t.Errorf("worker prompt missing %q", want)
 		}
 	}
+
+	orchestrator, err := session.DefaultOrchestratorSystemPrompt(pc)
+	if err != nil {
+		t.Fatalf("orchestrator: render: %v", err)
+	}
+	if !strings.Contains(orchestrator, `yyork spawn --json --type worker --prompt "<task>"`) {
+		t.Errorf("orchestrator prompt missing plain spawn example: %q", orchestrator)
+	}
+	if strings.Contains(orchestrator, "--workspace") {
+		t.Errorf("orchestrator prompt should not expose --workspace: %q", orchestrator)
+	}
 }
 
 func TestDefaultPromptsTellYyorkAgentsToUsePortlessURL(t *testing.T) {

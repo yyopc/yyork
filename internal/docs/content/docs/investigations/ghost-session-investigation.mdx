@@ -140,6 +140,8 @@ Three things line up to turn that rare death into the permanent ghost you clicke
 
 > **cause**
 > `StoreWorkspaceSource.Workspace` maps every row to a session with hardcoded `State: StateWorking` (*"v1: no activity-state capture yet"*) and `AttachCommand: ["zellij","attach", id]`. Dead rows look working; clicking them leaks zellij's raw stderr into the panel.
+>
+> **Update (2026-06):** Hook callbacks now persist `state` metadata and `rowState` maps it to dashboard `State` (see [yyork hooks](/docs/architecture/yyork-hooks)). A row can still look `working` if hooks stop firing before Zellij dies — the stale-activity gap called out there still applies.
 
 t0
 
