@@ -120,7 +120,9 @@ Do not edit these files by hand:
    `*.browser.spec.tsx`; Vitest is already configured for both projects.
 5. Use package scripts through pnpm:
    - `pnpm --filter @yyork/web lint`
-   - `pnpm --filter @yyork/web test:ci`
+   - `pnpm --filter @yyork/web test:unit`
+   - `pnpm --filter @yyork/web test:browser`
+   - `pnpm --filter @yyork/web test:ci` for the full web suite
    - `pnpm --filter @yyork/web build`
    - `pnpm mock:dev` (from repo root; opens at `https://mock.yyork.localhost`)
    - `pnpm storybook:dev` (from repo root; opens at `https://storybook.yyork.localhost`)
