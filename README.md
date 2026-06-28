@@ -25,12 +25,17 @@ yyork is a local app for supervising multiple AI coding agents at once.
 
 ## Install
 
+yyork is currently published under the scoped npm package `@yyopc/yyork` on the `alpha` tag.
+
 ```bash
 # try without installing
-npx yyork ~/Projects/my-app
+pnpx @yyopc/yyork@alpha ~/Projects/my-app
+
+# or with npm
+npx @yyopc/yyork@alpha ~/Projects/my-app
 
 # npm
-npm i -g @yyopc/yyork
+npm i -g @yyopc/yyork@alpha
 
 # Nix flakes
 nix profile add github:yyopc/yyork
