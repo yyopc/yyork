@@ -194,8 +194,14 @@ jobs:
               --omit=optional
 
           yyork_bin="$install_prefix/bin/yyork"
-          env HOME="$install_home" USERPROFILE="$install_home" PATH="$no_go_bin:$PATH" \
-            "$yyork_bin" --version
+          expected_version="yyork version ${{ needs.preflight.outputs.version }}"
+          version_output="$(env HOME="$install_home" USERPROFILE="$install_home" PATH="$no_go_bin:$PATH" \
+            "$yyork_bin" --version)"
+          echo "$version_output"
+          if [[ "$version_output" != "$expected_version" ]]; then
+            echo "Expected $expected_version, got $version_output"
+            exit 1
+          fi
 
           set +e
           env HOME="$install_home" USERPROFILE="$install_home" PATH="$no_go_bin:$PATH" \
@@ -252,8 +258,13 @@ jobs:
               --prefix "$alias_project"
 
           alias_bin="$alias_project/node_modules/yyork/bin/yyork.mjs"
-          env HOME="$alias_home" USERPROFILE="$alias_home" PATH="$no_go_bin:$PATH" \
-            node "$alias_bin" --version
+          alias_version_output="$(env HOME="$alias_home" USERPROFILE="$alias_home" PATH="$no_go_bin:$PATH" \
+            node "$alias_bin" --version)"
+          echo "$alias_version_output"
+          if [[ "$alias_version_output" != "$expected_version" ]]; then
+            echo "Expected $expected_version, got $alias_version_output"
+            exit 1
+          fi
 
           set +e
           env HOME="$alias_home" USERPROFILE="$alias_home" PATH="$no_go_bin:$PATH" \

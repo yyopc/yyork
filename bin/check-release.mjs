@@ -152,7 +152,7 @@ try {
     fail(`Installed yyork CLI skill was not found at ${installedSkill}.`);
   }
 
-  run(yyorkBin, ['--version'], { cwd: rootDir, env: installEnv });
+  requireYyorkVersion(yyorkBin, ['--version'], installEnv);
   run(yyorkBin, ['--help'], {
     cwd: rootDir,
     env: installEnv,
@@ -341,10 +341,7 @@ function runAliasInstallSmoke({
   if (!existsSync(aliasBin)) {
     fail(`Installed yyork alias launcher was not found at ${aliasBin}.`);
   }
-  run(process.execPath, [aliasBin, '--version'], {
-    cwd: rootDir,
-    env: aliasEnv,
-  });
+  requireYyorkVersion(process.execPath, [aliasBin, '--version'], aliasEnv);
   requireBundledZellijDoctorCommand(
     process.execPath,
     [aliasBin, 'doctor', '--json'],
@@ -364,6 +361,33 @@ function createNoGoShim(binDir) {
       : '#!/bin/sh\necho go intentionally unavailable for release check >&2\nexit 127\n';
   writeFileSync(goPath, script);
   chmodSync(goPath, 0o755);
+}
+
+function requireYyorkVersion(command, args, env) {
+  const result = spawnSync(command, args, {
+    cwd: rootDir,
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+    shell: process.platform === 'win32',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    throw new Error(
+      `${command} ${args.join(' ')} failed with exit code ${result.status}.\n${result.stderr}`
+    );
+  }
+
+  const expected = `yyork version ${packageJSON.version}`;
+  const actual = result.stdout.trim();
+  if (actual !== expected) {
+    fail(
+      `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}.`
+    );
+  }
 }
 
 function run(command, args, options = {}) {

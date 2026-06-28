@@ -1,6 +1,6 @@
 {
   "name": "@yyopc/yyork",
-  "version": "0.1.0-alpha.5",
+  "version": "0.1.0-alpha.6",
   "private": false,
   "description": "Agent routing platform with an interface to the agent router.",
   "homepage": "https://github.com/yyopc/yyork#readme",
@@ -58,7 +58,7 @@
     "mock:dev": "portless mock.yyork --force -- pnpm --filter @yyork/web mock:dev",
     "mock:dev:direct": "pnpm --filter @yyork/web mock:dev:direct",
     "docs:build": "pnpm --filter @yyork/docs build",
-    "backend:build": "pnpm web:build && go build -o ./yyork .",
+    "backend:build": "pnpm web:build && node ./bin/build-backend.mjs",
     "backend:test": "go test ./...",
     "build": "pnpm web:build && pnpm backend:build",
     "lint": "pnpm backend:test && pnpm web:lint",
@@ -76,10 +76,10 @@
     "portless": "0.14.0"
   },
   "optionalDependencies": {
-    "@yyopc/yyork-darwin-arm64": "workspace:0.1.0-alpha.5",
-    "@yyopc/yyork-darwin-x64": "workspace:0.1.0-alpha.5",
-    "@yyopc/yyork-linux-arm64": "workspace:0.1.0-alpha.5",
-    "@yyopc/yyork-linux-x64": "workspace:0.1.0-alpha.5"
+    "@yyopc/yyork-darwin-arm64": "workspace:0.1.0-alpha.6",
+    "@yyopc/yyork-darwin-x64": "workspace:0.1.0-alpha.6",
+    "@yyopc/yyork-linux-arm64": "workspace:0.1.0-alpha.6",
+    "@yyopc/yyork-linux-x64": "workspace:0.1.0-alpha.6"
   },
   "engines": {
     "node": ">=18"
