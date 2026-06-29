@@ -3,11 +3,14 @@ package terminal
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/yyopc/yyork/internal/durabilityprovider"
 )
 
 func TestPTYRunnerSmoke(t *testing.T) {
@@ -68,6 +71,46 @@ func terminalSmokeCommand(prefix string) (command string, expectedOutput string)
 	return "printf " + prefix + "-$((21*2))\r", prefix + "-42"
 }
 
+func TestCommandForStartResolvesLiteralZellijCommand(t *testing.T) {
+	old := resolveZellijBinaryForStart
+	t.Cleanup(func() { resolveZellijBinaryForStart = old })
+	resolveZellijBinaryForStart = func() (durabilityprovider.ZellijBinary, error) {
+		return durabilityprovider.ZellijBinary{
+			Path:   "/opt/yyork/bin/zellij",
+			Source: durabilityprovider.ZellijBinarySourceBundled,
+		}, nil
+	}
+
+	command, args, err := commandForStart([]string{"zellij", "--config", "/tmp/config.kdl", "attach", "ao-1"})
+	if err != nil {
+		t.Fatalf("commandForStart returned error: %v", err)
+	}
+	if command != "/opt/yyork/bin/zellij" {
+		t.Fatalf("command = %q, want bundled zellij path", command)
+	}
+
+	wantArgs := []string{"--config", "/tmp/config.kdl", "attach", "ao-1"}
+	if !equalStringSlices(args, wantArgs) {
+		t.Fatalf("args = %#v, want %#v", args, wantArgs)
+	}
+}
+
+func TestCommandForStartSurfacesZellijResolutionError(t *testing.T) {
+	old := resolveZellijBinaryForStart
+	t.Cleanup(func() { resolveZellijBinaryForStart = old })
+	resolveZellijBinaryForStart = func() (durabilityprovider.ZellijBinary, error) {
+		return durabilityprovider.ZellijBinary{}, errors.New("bad override")
+	}
+
+	_, _, err := commandForStart([]string{"zellij", "attach", "ao-1"})
+	if err == nil {
+		t.Fatal("expected zellij resolution error")
+	}
+	if !strings.Contains(err.Error(), "resolve zellij binary: bad override") {
+		t.Fatalf("error = %q, want resolver context", err.Error())
+	}
+}
+
 // The attach client's env can become a resurrected zellij server's env, so it
 // must never carry color-disabling vars from an agent/CI-launched backend
 // (Codex CLI exports NO_COLOR=1 and a blank COLORTERM).
@@ -108,4 +151,16 @@ func TestMergeTerminalEnvNormalizesColorVars(t *testing.T) {
 	if got["YYORK_SESSION_ID"] != "abc" {
 		t.Fatalf("YYORK_SESSION_ID = %q, want abc", got["YYORK_SESSION_ID"])
 	}
+}
+
+func equalStringSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

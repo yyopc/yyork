@@ -11,6 +11,8 @@ import (
 	"runtime"
 
 	crosspty "github.com/aymanbagabas/go-pty"
+
+	"github.com/yyopc/yyork/internal/durabilityprovider"
 )
 
 type StartOptions struct {
@@ -36,6 +38,8 @@ type PTYRunner struct{}
 func NewPTYRunner() *PTYRunner {
 	return &PTYRunner{}
 }
+
+var resolveZellijBinaryForStart = durabilityprovider.ResolveZellijBinary
 
 func (r *PTYRunner) Start(ctx context.Context, opts StartOptions) (Process, error) {
 	if opts.Cols <= 0 {
@@ -108,6 +112,13 @@ func commandForStart(command []string) (string, []string, error) {
 	}
 	if command[0] == "" {
 		return "", nil, errors.New("terminal command path is required")
+	}
+	if command[0] == "zellij" {
+		binary, err := resolveZellijBinaryForStart()
+		if err != nil {
+			return "", nil, fmt.Errorf("resolve zellij binary: %w", err)
+		}
+		return binary.Path, append([]string(nil), command[1:]...), nil
 	}
 
 	return command[0], append([]string(nil), command[1:]...), nil
