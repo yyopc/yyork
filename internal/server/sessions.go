@@ -1,7 +1,6 @@
 package server
 
 import (
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -131,6 +130,10 @@ type sessionPatchRequest struct {
 	State       *session.State `json:"state"`
 }
 
+type sessionForkRequest struct {
+	Prompt string `json:"prompt"`
+}
+
 // handlePatchSession updates session metadata exposed through the app. On
 // success it publishes a session.updated event so every open app refreshes via
 // SSE.
@@ -226,6 +229,80 @@ func sessionState(metadata map[string]any) session.State {
 	}
 }
 
+// handleForkSession creates a new yyork worker in a fresh worktree by forking
+// the selected worker's native Codex/Claude conversation.
+func (s *Server) handleForkSession(w http.ResponseWriter, r *http.Request) {
+	if s.forker == nil {
+		http.Error(w, "session fork not available", http.StatusNotImplemented)
+		return
+	}
+
+	sessionID := r.PathValue("sessionID")
+	if sessionID == "" {
+		http.Error(w, "session id is required", http.StatusBadRequest)
+		return
+	}
+
+	var payload sessionForkRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&payload); err != nil {
+		http.Error(w, "invalid session fork payload", http.StatusBadRequest)
+		return
+	}
+
+	row, err := s.forker.Fork(r.Context(), session.ForkRequest{
+		SourceSessionID: sessionID,
+		Prompt:          payload.Prompt,
+	})
+	if errors.Is(err, store.ErrSessionNotFound) {
+		http.Error(w, "session not found", http.StatusNotFound)
+		return
+	}
+	if errors.Is(err, session.ErrForkUnsupported) {
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, toSessionDTO(row))
+}
+
+// handleRestartSession restarts the selected yyork session in place from its
+// native Codex/Claude transcript. The row id and workspace stay stable; only the
+// durable terminal process is replaced.
+func (s *Server) handleRestartSession(w http.ResponseWriter, r *http.Request) {
+	if s.restarter == nil {
+		http.Error(w, "session restart not available", http.StatusNotImplemented)
+		return
+	}
+
+	sessionID := r.PathValue("sessionID")
+	if sessionID == "" {
+		http.Error(w, "session id is required", http.StatusBadRequest)
+		return
+	}
+
+	row, err := s.restarter.Restart(r.Context(), session.RestartRequest{
+		SessionID: sessionID,
+	})
+	if errors.Is(err, store.ErrSessionNotFound) {
+		http.Error(w, "session not found", http.StatusNotFound)
+		return
+	}
+	if errors.Is(err, session.ErrRestartUnsupported) {
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, toSessionDTO(row))
+}
+
 // truncateRunes shortens s to at most max runes, preserving valid UTF-8.
 func truncateRunes(s string, max int) string {
 	runes := []rune(s)
@@ -288,9 +365,7 @@ func (s *Server) handlePublishEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	presented := []byte(r.Header.Get(control.TokenHeader))
-	expected := []byte(s.controlToken)
-	if len(expected) == 0 || subtle.ConstantTimeCompare(presented, expected) != 1 {
+	if !s.validControlToken(r) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}

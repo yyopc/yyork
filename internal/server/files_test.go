@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -88,6 +89,49 @@ func TestListWorkspaceFilePathsMarksSymlinkedDirectories(t *testing.T) {
 	}
 	if stringSliceContains(paths, ".claude/skills/shadcn") {
 		t.Fatalf("expected symlinked directory not to be emitted as file, got %#v", paths)
+	}
+}
+
+func TestHandleSessionFilesDoesNotTruncateLargeWorkspaceTree(t *testing.T) {
+	workspacePath := t.TempDir()
+	for index := 0; index < 20005; index++ {
+		writeTestFile(t, filepath.Join(workspacePath, ".cache", "entry-"+formatPaddedInt(index)+".txt"))
+	}
+	writeTestFile(t, filepath.Join(workspacePath, "launch-video", "README.md"))
+
+	server := New(Config{
+		Workspace: session.Workspace{
+			Sessions: []session.Session{
+				{
+					CWD:     workspacePath,
+					ID:      "ao-1",
+					Project: "project-a",
+				},
+			},
+		},
+	})
+	request := httptest.NewRequest(http.MethodGet, "/api/sessions/ao-1/files?project=project-a", nil)
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected files request to succeed, got %d: %s", response.Code, response.Body.String())
+	}
+
+	var payload fileTreeResponse
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode files response: %v", err)
+	}
+
+	if payload.Truncated {
+		t.Fatal("expected large workspace tree not to be marked truncated")
+	}
+	if !stringSliceContains(payload.Paths, "launch-video/") {
+		t.Fatalf("expected launch-video directory after large earlier-sorting tree, got %d paths", len(payload.Paths))
+	}
+	if !stringSliceContains(payload.Paths, "launch-video/README.md") {
+		t.Fatalf("expected launch-video README after large earlier-sorting tree, got %d paths", len(payload.Paths))
 	}
 }
 
@@ -227,6 +271,10 @@ func TestParseGitStatusOutput(t *testing.T) {
 			t.Fatalf("expected status[%d] %#v, got %#v", idx, want[idx], status[idx])
 		}
 	}
+}
+
+func formatPaddedInt(value int) string {
+	return fmt.Sprintf("%05d", value)
 }
 
 func writeTestFile(t *testing.T, path string, contents ...string) {

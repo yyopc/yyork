@@ -217,6 +217,36 @@ type SpawnRequest struct {
 	Permissions agent.PermissionMode
 }
 
+// ForkRequest creates a new yyork worker session in an isolated worktree by
+// forking the native conversation from an existing worker session.
+type ForkRequest struct {
+	// SourceSessionID is the yyork session id to fork from. Required.
+	SourceSessionID string
+
+	// Prompt is the visible user prompt submitted to the forked native
+	// conversation. Empty defaults to "Start implementation."
+	Prompt string
+
+	// Permissions sets the agent's approval mode. Optional; when empty the
+	// engine falls back to its DefaultPermissions.
+	Permissions agent.PermissionMode
+}
+
+// RestartRequest replaces a session's durability process while preserving its
+// yyork row and workspace. The agent plugin must be able to restore the native
+// conversation recorded on that row.
+type RestartRequest struct {
+	// SessionID is the yyork session id to restart in place. Required.
+	SessionID string
+
+	// Permissions sets the agent's approval mode for the restarted process.
+	// Optional; when empty the engine falls back to its DefaultPermissions.
+	Permissions agent.PermissionMode
+}
+
+var ErrForkUnsupported = errors.New("session fork unsupported")
+var ErrRestartUnsupported = errors.New("session restart unsupported")
+
 // Spawn brings up a new session: creates a git worktree, asks the agent
 // plugin for its launch command, installs agent hooks, persists the session
 // row, and hands the launch command to the durability provider.
@@ -390,6 +420,268 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 
 	e.bus.Publish(events.NewSessionCreated(id))
 	return sess, nil
+}
+
+// Fork creates a new yyork-managed worker session in a fresh worktree while
+// asking the native agent CLI to fork the source conversation. The source
+// session remains unchanged.
+func (e *Engine) Fork(ctx context.Context, req ForkRequest) (store.Session, error) {
+	sourceID := strings.TrimSpace(req.SourceSessionID)
+	if sourceID == "" {
+		return store.Session{}, errors.New("session.Fork: SourceSessionID is required")
+	}
+
+	source, err := e.repo.Get(ctx, sourceID)
+	if err != nil {
+		return store.Session{}, err
+	}
+	if rowKind(source.Metadata) != KindWorker {
+		return store.Session{}, fmt.Errorf("%w: only worker sessions can be forked", ErrForkUnsupported)
+	}
+	if strings.TrimSpace(source.ProjectPath) == "" {
+		return store.Session{}, errors.New("session.Fork: source ProjectPath is required")
+	}
+	if !filepath.IsAbs(source.ProjectPath) {
+		return store.Session{}, fmt.Errorf("session.Fork: source ProjectPath must be absolute, got %q", source.ProjectPath)
+	}
+	if !e.worktree.IsGitRepo(ctx, source.ProjectPath) {
+		return store.Session{}, fmt.Errorf("session.Fork: %q is not a git repository", source.ProjectPath)
+	}
+
+	agentPlugin, err := e.resolveAgent(source.AgentPlugin)
+	if err != nil {
+		return store.Session{}, err
+	}
+	forker, ok := agentPlugin.(agent.Forker)
+	if !ok {
+		return store.Session{}, fmt.Errorf("%w: agent %q does not support native session forks", ErrForkUnsupported, source.AgentPlugin)
+	}
+
+	permissions := req.Permissions
+	if permissions == "" {
+		permissions = e.defaultPermissions
+	}
+	prompt := strings.TrimSpace(req.Prompt)
+	if prompt == "" {
+		prompt = "Start implementation."
+	}
+
+	id := e.newID()
+	baseRef, err := e.worktree.BaseRef(ctx, source.ProjectPath)
+	if err != nil {
+		return store.Session{}, fmt.Errorf("session.Fork: detect base ref: %w", err)
+	}
+	workspacePath := filepath.Join(e.worktreeBase, id)
+	branchName := branchNameFor(id)
+
+	pc := PromptContext{
+		SessionID:     id,
+		ProjectPath:   source.ProjectPath,
+		ProjectName:   filepath.Base(source.ProjectPath),
+		WorkspacePath: workspacePath,
+		Branch:        branchName,
+		BaseRef:       baseRef,
+	}
+	applyWorkspacePromptInstructions(&pc, KindWorker, WorkerWorkspaceModeNewWorktree)
+	systemPrompt, err := DefaultWorkerSystemPrompt(pc)
+	if err != nil {
+		return store.Session{}, fmt.Errorf("session.Fork: render worker system prompt: %w", err)
+	}
+
+	if err := e.worktree.Create(ctx, source.ProjectPath, workspacePath, branchName, baseRef); err != nil {
+		return store.Session{}, fmt.Errorf("session.Fork: create worktree: %w", err)
+	}
+
+	launchCfg := agent.LaunchConfig{
+		Permissions:   permissions,
+		Prompt:        prompt,
+		SessionID:     id,
+		SystemPrompt:  systemPrompt,
+		WorkspacePath: workspacePath,
+	}
+	forkCmd, ok, err := forker.GetForkCommand(ctx, agent.ForkConfig{
+		Permissions:   permissions,
+		Prompt:        prompt,
+		Session:       sessionRef(source),
+		SystemPrompt:  systemPrompt,
+		WorkspacePath: workspacePath,
+	})
+	if err != nil {
+		e.rollbackWorktree(ctx, source.ProjectPath, workspacePath, branchName, true)
+		return store.Session{}, fmt.Errorf("session.Fork: build fork command: %w", err)
+	}
+	if !ok {
+		e.rollbackWorktree(ctx, source.ProjectPath, workspacePath, branchName, true)
+		return store.Session{}, fmt.Errorf("%w: native session id is unavailable", ErrForkUnsupported)
+	}
+
+	if err := agentPlugin.GetAgentHooks(ctx, agent.WorkspaceHookConfig{
+		SessionID:     id,
+		WorkspacePath: workspacePath,
+		DataDir:       filepath.Dir(e.worktreeBase),
+	}); err != nil {
+		e.rollbackWorktree(ctx, source.ProjectPath, workspacePath, branchName, true)
+		return store.Session{}, fmt.Errorf("session.Fork: install agent hooks: %w", err)
+	}
+
+	if pre, ok := agentPlugin.(preLauncher); ok {
+		if err := pre.PreLaunch(ctx, launchCfg); err != nil {
+			e.rollbackWorktree(ctx, source.ProjectPath, workspacePath, branchName, true)
+			return store.Session{}, fmt.Errorf("session.Fork: agent pre-launch: %w", err)
+		}
+	}
+
+	now := e.now()
+	metadata := map[string]any{
+		"forkKind":        "native-worktree",
+		"kind":            string(KindWorker),
+		"parentSessionId": source.ID,
+		"prompt":          prompt,
+		"role":            string(KindWorker),
+		"workspaceMode":   string(WorkerWorkspaceModeNewWorktree),
+	}
+	if sourceAgentSessionID := stringField(source.Metadata, "agentSessionId"); sourceAgentSessionID != "" {
+		metadata["forkedFromAgentSessionId"] = sourceAgentSessionID
+	}
+	if title := forkSessionTitle(source); title != "" {
+		metadata["title"] = title
+	}
+
+	sess := store.Session{
+		ID:            id,
+		ProjectPath:   source.ProjectPath,
+		ProjectName:   source.ProjectName,
+		AgentPlugin:   source.AgentPlugin,
+		WorkspacePath: workspacePath,
+		ZellijSession: id,
+		Metadata:      metadata,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	if sess.ProjectName == "" {
+		sess.ProjectName = filepath.Base(source.ProjectPath)
+	}
+	if err := e.repo.Insert(ctx, sess); err != nil {
+		e.rollbackWorktree(ctx, source.ProjectPath, workspacePath, branchName, true)
+		return store.Session{}, fmt.Errorf("session.Fork: persist session row: %w", err)
+	}
+
+	if err := e.provider.CreateSession(ctx, CreateOpts{
+		Name:      id,
+		LaunchCmd: forkCmd,
+		Cwd:       workspacePath,
+		Env: map[string]string{
+			"YYORK_PROJECT_PATH": source.ProjectPath,
+			"YYORK_SESSION_ID":   id,
+			"YYORK_SESSION_KIND": string(KindWorker),
+		},
+	}); err != nil {
+		_ = e.repo.Delete(ctx, id)
+		e.rollbackWorktree(ctx, source.ProjectPath, workspacePath, branchName, true)
+		return store.Session{}, fmt.Errorf("session.Fork: create durability session: %w", err)
+	}
+
+	e.bus.Publish(events.NewSessionCreated(id))
+	return sess, nil
+}
+
+// Restart replaces the selected session's running durability process with a
+// fresh one restored from the native agent transcript. It keeps the yyork
+// session id and workspace path stable so users do not lose a worker worktree or
+// navigate to a different row.
+func (e *Engine) Restart(ctx context.Context, req RestartRequest) (store.Session, error) {
+	id := strings.TrimSpace(req.SessionID)
+	if id == "" {
+		return store.Session{}, errors.New("session.Restart: SessionID is required")
+	}
+
+	source, err := e.repo.Get(ctx, id)
+	if err != nil {
+		return store.Session{}, err
+	}
+	if strings.TrimSpace(source.ProjectPath) == "" {
+		return store.Session{}, errors.New("session.Restart: source ProjectPath is required")
+	}
+	if !filepath.IsAbs(source.ProjectPath) {
+		return store.Session{}, fmt.Errorf("session.Restart: source ProjectPath must be absolute, got %q", source.ProjectPath)
+	}
+	if strings.TrimSpace(source.WorkspacePath) == "" {
+		return store.Session{}, errors.New("session.Restart: source WorkspacePath is required")
+	}
+	if !e.worktree.IsGitRepo(ctx, source.ProjectPath) {
+		return store.Session{}, fmt.Errorf("session.Restart: %q is not a git repository", source.ProjectPath)
+	}
+
+	agentPlugin, err := e.resolveAgent(source.AgentPlugin)
+	if err != nil {
+		return store.Session{}, err
+	}
+	permissions := req.Permissions
+	if permissions == "" {
+		permissions = e.defaultPermissions
+	}
+
+	restoreCmd, ok, err := agentPlugin.GetRestoreCommand(ctx, agent.RestoreConfig{
+		Permissions: permissions,
+		Session:     sessionRef(source),
+	})
+	if err != nil {
+		return store.Session{}, fmt.Errorf("session.Restart: build restore command: %w", err)
+	}
+	if !ok {
+		return store.Session{}, fmt.Errorf("%w: native session id is unavailable", ErrRestartUnsupported)
+	}
+
+	if err := agentPlugin.GetAgentHooks(ctx, agent.WorkspaceHookConfig{
+		SessionID:     source.ID,
+		WorkspacePath: source.WorkspacePath,
+		DataDir:       filepath.Dir(e.worktreeBase),
+	}); err != nil {
+		return store.Session{}, fmt.Errorf("session.Restart: install agent hooks: %w", err)
+	}
+
+	if pre, ok := agentPlugin.(preLauncher); ok {
+		if err := pre.PreLaunch(ctx, agent.LaunchConfig{
+			Permissions:   permissions,
+			SessionID:     source.ID,
+			WorkspacePath: source.WorkspacePath,
+		}); err != nil {
+			return store.Session{}, fmt.Errorf("session.Restart: agent pre-launch: %w", err)
+		}
+	}
+
+	zellijSession := strings.TrimSpace(source.ZellijSession)
+	if zellijSession == "" {
+		zellijSession = source.ID
+	}
+	if err := e.provider.KillSession(ctx, zellijSession); err != nil {
+		return store.Session{}, fmt.Errorf("session.Restart: kill durability session: %w", err)
+	}
+
+	kind := rowKind(source.Metadata)
+	if err := e.provider.CreateSession(ctx, CreateOpts{
+		Name:      zellijSession,
+		LaunchCmd: restoreCmd,
+		Cwd:       source.WorkspacePath,
+		Env: map[string]string{
+			"YYORK_PROJECT_PATH": source.ProjectPath,
+			"YYORK_SESSION_ID":   source.ID,
+			"YYORK_SESSION_KIND": string(kind),
+		},
+	}); err != nil {
+		return store.Session{}, fmt.Errorf("session.Restart: create durability session: %w", err)
+	}
+
+	if err := e.repo.MergeMetadata(ctx, source.ID, restartMetadataFields(source.Metadata, e.now())); err != nil {
+		return store.Session{}, fmt.Errorf("session.Restart: update metadata: %w", err)
+	}
+	e.bus.Publish(events.NewSessionUpdated(source.ID))
+
+	updated, err := e.repo.Get(ctx, source.ID)
+	if err != nil {
+		return store.Session{}, fmt.Errorf("session.Restart: reload session: %w", err)
+	}
+	return updated, nil
 }
 
 // EnsureOrchestrator returns the existing live orchestrator for projectPath, or
@@ -596,6 +888,62 @@ func applyWorkspacePromptInstructions(pc *PromptContext, kind Kind, mode WorkerW
 	default:
 		pc.WorkspaceInstruction = "Your workspace is an isolated git worktree at " + pc.WorkspacePath + ", on branch " + pc.Branch + " (cut from " + pc.BaseRef + ")."
 		pc.CompletionInstruction = "Commit your work on this branch and stay on it."
+	}
+}
+
+func sessionRef(row store.Session) agent.SessionRef {
+	metadata := map[string]string{}
+	for key, value := range row.Metadata {
+		if text, ok := value.(string); ok {
+			metadata[key] = text
+		}
+	}
+	return agent.SessionRef{
+		ID:            row.ID,
+		Metadata:      metadata,
+		WorkspacePath: row.WorkspacePath,
+	}
+}
+
+func forkSessionTitle(source store.Session) string {
+	sourceTitle := stringField(source.Metadata, "displayName")
+	if sourceTitle == "" {
+		sourceTitle = stringField(source.Metadata, "title")
+	}
+	if sourceTitle == "" {
+		sourceTitle = fallbackSessionTitle(source.Metadata)
+	}
+	if sourceTitle == "" {
+		return ""
+	}
+	return "Implement: " + sourceTitle
+}
+
+func restartMetadataFields(metadata map[string]any, now time.Time) map[string]any {
+	timestamp := now.UTC().Format(time.RFC3339Nano)
+	fields := map[string]any{
+		"currentToolCall": "",
+		"lastActivityAt":  timestamp,
+		"restartedAt":     timestamp,
+		"restartCount":    metadataInt(metadata, "restartCount") + 1,
+		"state":           string(StatePrompt),
+	}
+	if agentSessionID := stringField(metadata, "agentSessionId"); agentSessionID != "" {
+		fields["restoredFromAgentSessionId"] = agentSessionID
+	}
+	return fields
+}
+
+func metadataInt(metadata map[string]any, key string) int {
+	switch v := metadata[key].(type) {
+	case int:
+		return v
+	case int64:
+		return int(v)
+	case float64:
+		return int(v)
+	default:
+		return 0
 	}
 }
 

@@ -107,7 +107,7 @@ func TestDevBackendAppConfigCarriesDashboardFS(t *testing.T) {
 	}
 	cfg := devConfig{backendAddr: "127.0.0.1:0"}
 
-	got := devBackendAppConfig(cfg, webFS, nil)
+	got := devBackendAppConfig(cfg, webFS, nil, nil)
 
 	if got.Addr != "127.0.0.1:0" {
 		t.Fatalf("Addr = %q, want 127.0.0.1:0", got.Addr)
@@ -134,7 +134,7 @@ func TestDevBackendAppConfigPointsSelfPreviewAtVite(t *testing.T) {
 		portlessURL: "https://yyork.localhost",
 	}
 
-	got := devBackendAppConfig(cfg, nil, nil)
+	got := devBackendAppConfig(cfg, nil, nil, nil)
 
 	// Always the direct Vite address — never the portless proxy URL, whose
 	// TLS certificate the backend would not trust.
@@ -179,5 +179,15 @@ func TestDevPreviewAliasPortUsesBackendPortUnderPortless(t *testing.T) {
 	}
 	if port != "7331" {
 		t.Fatalf("port = %q, want 7331", port)
+	}
+}
+
+func TestDevPortlessAliasNameForPreviewHost(t *testing.T) {
+	name, err := devPortlessAliasNameForPreviewHost("session-abc-preview.yyork.localhost")
+	if err != nil {
+		t.Fatalf("devPortlessAliasNameForPreviewHost: %v", err)
+	}
+	if name != "session-abc-preview.yyork" {
+		t.Fatalf("name = %q, want session-abc-preview.yyork", name)
 	}
 }

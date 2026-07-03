@@ -19,9 +19,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/yyopc/yyork/internal/events"
@@ -33,6 +35,8 @@ const (
 	// state.db under ~/.yyork/.
 	runfileName = "server.json"
 
+	runfileNote = "Heads up: yyork uses this while running so CLI workers can wake the dashboard. Please don't delete it; yyork cleans it up on shutdown."
+
 	// TokenHeader carries the shared secret on control requests. The runfile
 	// is written 0600, so only processes that can read it — not browser pages
 	// — can present a valid token. This is the defense that stops a malicious
@@ -43,6 +47,11 @@ const (
 	// event. A live local server answers in single-digit milliseconds; this
 	// only bites when the runfile is stale and the socket is dead.
 	forwardTimeout = 750 * time.Millisecond
+
+	// shutdownTimeout bounds an explicit `yyork stop` server-control request.
+	// It can be a little more patient than event forwarding because a human or
+	// script is waiting for a definitive acknowledgement.
+	shutdownTimeout = 2 * time.Second
 )
 
 // Info is the server advertisement persisted to the runfile.
@@ -52,10 +61,26 @@ type Info struct {
 	Token string `json:"token"`
 }
 
+type runfileInfo struct {
+	Note  string `json:"note"`
+	Addr  string `json:"addr"`
+	PID   int    `json:"pid"`
+	Token string `json:"token"`
+}
+
 // Envelope is the control endpoint's wire shape: a flattened lifecycle event.
 type Envelope struct {
 	Type string `json:"type"`
 	ID   string `json:"id"`
+}
+
+// ShutdownResult describes the outcome of an authenticated local shutdown
+// request.
+type ShutdownResult struct {
+	ServerAdvertised  bool
+	ShutdownRequested bool
+	Addr              string
+	PID               int
 }
 
 // Path returns the runfile path, ~/.yyork/server.json.
@@ -86,7 +111,12 @@ func Write(info Info) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("create data directory: %w", err)
 	}
-	data, err := json.Marshal(info)
+	data, err := json.MarshalIndent(runfileInfo{
+		Note:  runfileNote,
+		Addr:  info.Addr,
+		PID:   info.PID,
+		Token: info.Token,
+	}, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode runfile: %w", err)
 	}
@@ -146,6 +176,59 @@ func RemoveIfOwnedBy(pid int) error {
 		return nil // a newer server owns the runfile; leave it
 	}
 	return Remove()
+}
+
+// RequestShutdown asks the locally advertised yyork server to gracefully shut
+// down. A missing runfile or unreachable advertised address is a successful
+// no-op: from the caller's perspective there is no running server to stop.
+func RequestShutdown(ctx context.Context) (ShutdownResult, error) {
+	return requestShutdown(ctx, &http.Client{Timeout: shutdownTimeout})
+}
+
+func requestShutdown(ctx context.Context, client *http.Client) (ShutdownResult, error) {
+	info, err := Read()
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return ShutdownResult{}, nil
+		}
+		return ShutdownResult{}, err
+	}
+
+	result := ShutdownResult{
+		ServerAdvertised: true,
+		Addr:             info.Addr,
+		PID:              info.PID,
+	}
+	if info.Addr == "" {
+		return result, nil
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+info.Addr+"/api/control/shutdown", http.NoBody)
+	if err != nil {
+		return result, err
+	}
+	req.Header.Set(TokenHeader, info.Token)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		if ctx.Err() != nil {
+			return result, ctx.Err()
+		}
+		return result, nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNoContent {
+		result.ShutdownRequested = true
+		return result, nil
+	}
+
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
+	detail := strings.TrimSpace(string(body))
+	if detail != "" {
+		return result, fmt.Errorf("shutdown request failed: %s: %s", resp.Status, detail)
+	}
+	return result, fmt.Errorf("shutdown request failed: %s", resp.Status)
 }
 
 // ToEvent converts a wire envelope into a bus event, rejecting unknown types.

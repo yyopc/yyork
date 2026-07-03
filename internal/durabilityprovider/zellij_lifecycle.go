@@ -119,8 +119,8 @@ func (z *ZellijProvider) CreateSession(ctx context.Context, opts session.CreateO
 	return nil
 }
 
-// KillSession terminates the zellij session named name. Killing a session
-// that no longer exists is treated as success.
+// KillSession terminates and removes the zellij session named name. Killing a
+// session that no longer exists is treated as success.
 func (z *ZellijProvider) KillSession(ctx context.Context, name string) error {
 	if strings.TrimSpace(name) == "" {
 		return errors.New("zellij: KillSession requires a name")
@@ -139,14 +139,14 @@ func (z *ZellijProvider) KillSession(ctx context.Context, name string) error {
 		return nil
 	}
 
-	if err := runWith(z.run, ctx, binary, "kill-session", name); err != nil {
+	if err := runWith(z.run, ctx, binary, "delete-session", "--force", name); err != nil {
 		// One more existence check — zellij may have reaped it between our
-		// probe and the kill. Surface a clean nil in that case.
+		// probe and the delete. Surface a clean nil in that case.
 		stillThere, probeErr := z.SessionExists(ctx, name)
 		if probeErr == nil && !stillThere {
 			return nil
 		}
-		return fmt.Errorf("zellij: kill-session %q: %w", name, err)
+		return fmt.Errorf("zellij: delete-session %q: %w", name, err)
 	}
 	return nil
 }

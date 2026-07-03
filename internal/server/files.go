@@ -15,7 +15,6 @@ import (
 	"unicode/utf8"
 )
 
-const maxFileTreePaths = 20000
 const maxFileContentBytes = 1024 * 1024
 
 type fileTreeResponse struct {
@@ -245,7 +244,8 @@ func walkedFilePaths(cwd string) ([]string, bool, error) {
 		return nil, false, err
 	}
 
-	return capSortedPaths(paths)
+	sort.Strings(paths)
+	return paths, false, nil
 }
 
 func shouldSkipFileTreeDirectory(name string) bool {
@@ -264,15 +264,6 @@ func shouldCollapseFileTreeDirectory(name string) bool {
 	default:
 		return false
 	}
-}
-
-func capSortedPaths(paths []string) ([]string, bool, error) {
-	sort.Strings(paths)
-	if len(paths) <= maxFileTreePaths {
-		return paths, false, nil
-	}
-
-	return paths[:maxFileTreePaths], true, nil
 }
 
 func gitStatusForWorkspace(ctx context.Context, cwd string) []fileTreeGitStatusEntry {

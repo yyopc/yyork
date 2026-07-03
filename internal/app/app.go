@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/yyopc/yyork/internal/control"
@@ -53,12 +54,21 @@ type Config struct {
 	// OS-assigned API port so it can point Vite's proxy at it.
 	OnListen func(net.Addr)
 
+	// BrowserPreviewRouteRegistrar makes preview hostnames routable to this
+	// server. `yyork dev` uses it to register session-scoped preview aliases
+	// with portless after the API listener address is known.
+	BrowserPreviewRouteRegistrar func(context.Context, net.Addr, string) error
+
 	// SuppressBanner skips the server's startup banner. `yyork dev` sets
 	// this and prints its own combined web+backend banner instead.
 	SuppressBanner bool
 }
 
 func Run(ctx context.Context, cfg Config) error {
+	runCtx, stopRun := context.WithCancel(ctx)
+	defer stopRun()
+	var controlShutdownRequested atomic.Bool
+
 	registry := plugin.NewRegistry()
 	if err := registerBuiltInPlugins(registry); err != nil {
 		return err
@@ -143,6 +153,13 @@ func Run(ctx context.Context, cfg Config) error {
 		}
 	}()
 
+	var browserPreviewRouteRegistrar server.BrowserPreviewRouteRegistrar
+	if cfg.BrowserPreviewRouteRegistrar != nil {
+		browserPreviewRouteRegistrar = func(ctx context.Context, previewHost string) error {
+			return cfg.BrowserPreviewRouteRegistrar(ctx, listener.Addr(), previewHost)
+		}
+	}
+
 	appServer := server.New(server.Config{
 		Registry:           registry,
 		WebDir:             cfg.WebDir,
@@ -156,8 +173,15 @@ func Run(ctx context.Context, cfg Config) error {
 		Stopper:         engine,
 		ProjectRemover:  engine,
 		Orchestrators:   engine,
+		Forker:          engine,
+		Restarter:       engine,
 		EventBus:        bus,
 		ControlToken:    controlToken,
+		Shutdown: func() {
+			controlShutdownRequested.Store(true)
+			stopRun()
+		},
+		BrowserPreviewRouteRegistrar: browserPreviewRouteRegistrar,
 	})
 	defer func() {
 		if err := appServer.Close(); err != nil {
@@ -198,7 +222,7 @@ func Run(ctx context.Context, cfg Config) error {
 		}
 	}
 
-	<-ctx.Done()
+	<-runCtx.Done()
 
 	// Cancel in-flight request contexts first so the SSE handler returns,
 	// letting Shutdown complete promptly instead of waiting out the timeout.
@@ -216,7 +240,13 @@ func Run(ctx context.Context, cfg Config) error {
 		return err
 	}
 
-	return ctx.Err()
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if controlShutdownRequested.Load() {
+		return nil
+	}
+	return runCtx.Err()
 }
 
 func registerBuiltInPlugins(registry *plugin.Registry) error {

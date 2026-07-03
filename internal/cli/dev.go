@@ -10,6 +10,8 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -127,14 +129,20 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-func devBackendAppConfig(cfg devConfig, webFS fs.FS, onListen func(net.Addr)) app.Config {
+func devBackendAppConfig(
+	cfg devConfig,
+	webFS fs.FS,
+	onListen func(net.Addr),
+	browserPreviewRouteRegistrar func(context.Context, net.Addr, string) error,
+) app.Config {
 	return app.Config{
-		Addr:               cfg.backendAddr,
-		OpenBrowser:        false,
-		SuppressBanner:     true,
-		OnListen:           onListen,
-		WebFS:              webFS,
-		DashboardDevOrigin: cfg.viteOrigin(),
+		Addr:                         cfg.backendAddr,
+		OpenBrowser:                  false,
+		SuppressBanner:               true,
+		OnListen:                     onListen,
+		BrowserPreviewRouteRegistrar: browserPreviewRouteRegistrar,
+		WebFS:                        webFS,
+		DashboardDevOrigin:           cfg.viteOrigin(),
 	}
 }
 
@@ -163,6 +171,45 @@ func registerDevAPIAlias(ctx context.Context, cmd *cobra.Command, cfg devConfig,
 		return err
 	}
 	return registerDevPortlessAlias(ctx, cmd, devAPIAliasName, port)
+}
+
+func devBrowserPreviewRouteRegistrar(
+	cmd *cobra.Command,
+	cfg devConfig,
+) func(context.Context, net.Addr, string) error {
+	var mu sync.Mutex
+	registered := map[string]struct{}{}
+
+	return func(ctx context.Context, apiAddr net.Addr, previewHost string) error {
+		port, ok, err := devPreviewAliasPort(cfg, apiAddr)
+		if err != nil || !ok {
+			return err
+		}
+
+		name, err := devPortlessAliasNameForPreviewHost(previewHost)
+		if err != nil {
+			return err
+		}
+
+		mu.Lock()
+		defer mu.Unlock()
+		if _, ok := registered[name]; ok {
+			return nil
+		}
+		if err := registerDevPortlessAlias(ctx, cmd, name, port); err != nil {
+			return err
+		}
+		registered[name] = struct{}{}
+		return nil
+	}
+}
+
+func devPortlessAliasNameForPreviewHost(previewHost string) (string, error) {
+	name := strings.TrimSuffix(previewHost, ".localhost")
+	if name == previewHost || name == "" {
+		return "", fmt.Errorf("preview host %q is not a .localhost hostname", previewHost)
+	}
+	return name, nil
 }
 
 func registerDevPortlessAlias(ctx context.Context, cmd *cobra.Command, name string, port string) error {
@@ -205,6 +252,7 @@ func runDev(cmd *cobra.Command, runApp appRunner, webFS fs.FS) error {
 			cfg,
 			webFS,
 			func(addr net.Addr) { apiAddrCh <- addr },
+			devBrowserPreviewRouteRegistrar(cmd, cfg),
 		))
 	}()
 

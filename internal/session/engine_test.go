@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -127,11 +128,19 @@ func (f *fakeProvider) ListSessionNames(_ context.Context) ([]string, error) {
 
 // fakeAgent is a minimal agent.Agent + plugin.Plugin used only for tests.
 type fakeAgent struct {
-	launchCmd   []string
-	launchErr   error
-	hooksErr    error
-	launchCalls []pluginagent.LaunchConfig
-	hookCalls   []pluginagent.WorkspaceHookConfig
+	launchCmd    []string
+	restoreCmd   []string
+	forkCmd      []string
+	launchErr    error
+	restoreErr   error
+	forkErr      error
+	restoreOK    bool
+	forkOK       bool
+	hooksErr     error
+	launchCalls  []pluginagent.LaunchConfig
+	restoreCalls []pluginagent.RestoreConfig
+	forkCalls    []pluginagent.ForkConfig
+	hookCalls    []pluginagent.WorkspaceHookConfig
 }
 
 func (f *fakeAgent) Manifest() plugin.Manifest {
@@ -160,8 +169,19 @@ func (f *fakeAgent) GetAgentHooks(_ context.Context, cfg pluginagent.WorkspaceHo
 	f.hookCalls = append(f.hookCalls, cfg)
 	return f.hooksErr
 }
-func (f *fakeAgent) GetRestoreCommand(context.Context, pluginagent.RestoreConfig) ([]string, bool, error) {
-	return nil, false, nil
+func (f *fakeAgent) GetRestoreCommand(_ context.Context, cfg pluginagent.RestoreConfig) ([]string, bool, error) {
+	f.restoreCalls = append(f.restoreCalls, cfg)
+	if f.restoreErr != nil {
+		return nil, false, f.restoreErr
+	}
+	return f.restoreCmd, f.restoreOK, nil
+}
+func (f *fakeAgent) GetForkCommand(_ context.Context, cfg pluginagent.ForkConfig) ([]string, bool, error) {
+	f.forkCalls = append(f.forkCalls, cfg)
+	if f.forkErr != nil {
+		return nil, false, f.forkErr
+	}
+	return f.forkCmd, f.forkOK, nil
 }
 
 // -- Harness -------------------------------------------------------------
@@ -511,6 +531,246 @@ func TestSpawnWorkerUsesDefaultSystemPrompt(t *testing.T) {
 	}
 	if h.agent.launchCalls[0].SystemPrompt != want {
 		t.Fatalf("launch SystemPrompt = %q, want default worker prompt", h.agent.launchCalls[0].SystemPrompt)
+	}
+}
+
+func TestForkCreatesWorktreeAndNativeForkSession(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	ctx := context.Background()
+	h.agent.forkOK = true
+	h.agent.forkCmd = []string{"fake", "fork", "native-1"}
+
+	source := store.Session{
+		ID:            "source-1",
+		ProjectPath:   "/tmp/proj",
+		ProjectName:   "proj",
+		AgentPlugin:   "fake",
+		WorkspacePath: "/tmp/proj",
+		ZellijSession: "source-1",
+		Metadata: map[string]any{
+			"agentSessionId": "native-1",
+			"kind":           "worker",
+			"title":          "Design the migration",
+			"workspaceMode":  string(session.WorkerWorkspaceModeLocal),
+		},
+	}
+	if err := h.repo.Insert(ctx, source); err != nil {
+		t.Fatalf("insert source: %v", err)
+	}
+
+	forked, err := h.engine.Fork(ctx, session.ForkRequest{
+		SourceSessionID: source.ID,
+		Prompt:          "Start implementation.",
+	})
+	if err != nil {
+		t.Fatalf("Fork: %v", err)
+	}
+
+	if forked.ID == "" || forked.ID == source.ID {
+		t.Fatalf("forked.ID = %q, want new non-empty id", forked.ID)
+	}
+	wantWorktree := filepath.Join(h.wbase, forked.ID)
+	if forked.WorkspacePath != wantWorktree {
+		t.Fatalf("forked.WorkspacePath = %q, want %q", forked.WorkspacePath, wantWorktree)
+	}
+	if forked.Metadata["parentSessionId"] != source.ID {
+		t.Fatalf("parentSessionId = %#v, want %q", forked.Metadata["parentSessionId"], source.ID)
+	}
+	if forked.Metadata["workspaceMode"] != string(session.WorkerWorkspaceModeNewWorktree) {
+		t.Fatalf("workspaceMode = %#v, want new-worktree", forked.Metadata["workspaceMode"])
+	}
+	if forked.Metadata["title"] != "Implement: Design the migration" {
+		t.Fatalf("title = %#v, want implementation title", forked.Metadata["title"])
+	}
+
+	if len(h.worktree.createCalls) != 1 {
+		t.Fatalf("worktree createCalls = %d, want 1", len(h.worktree.createCalls))
+	}
+	if h.worktree.createCalls[0].worktreePath != wantWorktree {
+		t.Fatalf("worktree path = %q, want %q", h.worktree.createCalls[0].worktreePath, wantWorktree)
+	}
+	if h.worktree.createCalls[0].branchName != "yyork/"+forked.ID {
+		t.Fatalf("branch = %q, want yyork/%s", h.worktree.createCalls[0].branchName, forked.ID)
+	}
+	if len(h.agent.forkCalls) != 1 {
+		t.Fatalf("forkCalls = %d, want 1", len(h.agent.forkCalls))
+	}
+	if h.agent.forkCalls[0].Session.Metadata["agentSessionId"] != "native-1" {
+		t.Fatalf("fork source native id = %#v, want native-1", h.agent.forkCalls[0].Session.Metadata)
+	}
+	if h.agent.forkCalls[0].WorkspacePath != wantWorktree {
+		t.Fatalf("fork WorkspacePath = %q, want %q", h.agent.forkCalls[0].WorkspacePath, wantWorktree)
+	}
+	if h.agent.forkCalls[0].Prompt != "Start implementation." {
+		t.Fatalf("fork Prompt = %q, want Start implementation.", h.agent.forkCalls[0].Prompt)
+	}
+	if !strings.Contains(h.agent.forkCalls[0].SystemPrompt, wantWorktree) {
+		t.Fatalf("fork SystemPrompt missing worktree %q", wantWorktree)
+	}
+	if len(h.provider.createCalls) != 1 {
+		t.Fatalf("provider createCalls = %d, want 1", len(h.provider.createCalls))
+	}
+	if !equalStrings(h.provider.createCalls[0].LaunchCmd, h.agent.forkCmd) {
+		t.Fatalf("LaunchCmd = %#v, want %#v", h.provider.createCalls[0].LaunchCmd, h.agent.forkCmd)
+	}
+	if h.provider.createCalls[0].Cwd != wantWorktree {
+		t.Fatalf("Cwd = %q, want %q", h.provider.createCalls[0].Cwd, wantWorktree)
+	}
+
+	events := h.drainEvents(t, 1, 100*time.Millisecond)
+	if events[0].Type != "session.created" {
+		t.Fatalf("event type = %q, want session.created", events[0].Type)
+	}
+}
+
+func TestForkRollsBackWhenNativeForkUnavailable(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	ctx := context.Background()
+
+	source := store.Session{
+		ID:            "source-1",
+		ProjectPath:   "/tmp/proj",
+		ProjectName:   "proj",
+		AgentPlugin:   "fake",
+		WorkspacePath: "/tmp/proj",
+		ZellijSession: "source-1",
+		Metadata:      map[string]any{"kind": "worker"},
+	}
+	if err := h.repo.Insert(ctx, source); err != nil {
+		t.Fatalf("insert source: %v", err)
+	}
+
+	_, err := h.engine.Fork(ctx, session.ForkRequest{SourceSessionID: source.ID})
+	if !errors.Is(err, session.ErrForkUnsupported) {
+		t.Fatalf("Fork err = %v, want ErrForkUnsupported", err)
+	}
+	if len(h.worktree.createCalls) != 1 {
+		t.Fatalf("worktree createCalls = %d, want 1 before rollback", len(h.worktree.createCalls))
+	}
+	if len(h.worktree.removeCalls) != 1 {
+		t.Fatalf("worktree removeCalls = %d, want rollback", len(h.worktree.removeCalls))
+	}
+	if len(h.provider.createCalls) != 0 {
+		t.Fatalf("provider createCalls = %d, want 0", len(h.provider.createCalls))
+	}
+}
+
+func TestRestartRecreatesDurabilitySessionFromNativeTranscript(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	ctx := context.Background()
+	h.agent.restoreOK = true
+	h.agent.restoreCmd = []string{"fake", "resume", "native-1"}
+	h.provider.liveSessions = map[string]bool{"source-1": true}
+
+	source := store.Session{
+		ID:            "source-1",
+		ProjectPath:   "/tmp/proj",
+		ProjectName:   "proj",
+		AgentPlugin:   "fake",
+		WorkspacePath: "/tmp/proj",
+		ZellijSession: "source-1",
+		Metadata: map[string]any{
+			"agentSessionId":  "native-1",
+			"currentToolCall": "shell",
+			"kind":            "orchestrator",
+			"restartCount":    2,
+			"state":           string(session.StateWorking),
+			"title":           "Orchestrator",
+			"workspaceMode":   string(session.WorkerWorkspaceModeLocal),
+		},
+	}
+	if err := h.repo.Insert(ctx, source); err != nil {
+		t.Fatalf("insert source: %v", err)
+	}
+
+	restarted, err := h.engine.Restart(ctx, session.RestartRequest{SessionID: source.ID})
+	if err != nil {
+		t.Fatalf("Restart: %v", err)
+	}
+	if restarted.ID != source.ID {
+		t.Fatalf("restarted.ID = %q, want same id %q", restarted.ID, source.ID)
+	}
+	if restarted.WorkspacePath != source.WorkspacePath {
+		t.Fatalf("WorkspacePath = %q, want %q", restarted.WorkspacePath, source.WorkspacePath)
+	}
+	if restarted.Metadata["restartCount"] != float64(3) && restarted.Metadata["restartCount"] != 3 {
+		t.Fatalf("restartCount = %#v, want 3", restarted.Metadata["restartCount"])
+	}
+	if restarted.Metadata["state"] != string(session.StatePrompt) {
+		t.Fatalf("state = %#v, want prompt", restarted.Metadata["state"])
+	}
+	if restarted.Metadata["currentToolCall"] != "" {
+		t.Fatalf("currentToolCall = %#v, want cleared", restarted.Metadata["currentToolCall"])
+	}
+	if restarted.Metadata["restoredFromAgentSessionId"] != "native-1" {
+		t.Fatalf("restoredFromAgentSessionId = %#v, want native-1", restarted.Metadata["restoredFromAgentSessionId"])
+	}
+
+	if len(h.agent.restoreCalls) != 1 {
+		t.Fatalf("restoreCalls = %d, want 1", len(h.agent.restoreCalls))
+	}
+	if h.agent.restoreCalls[0].Session.Metadata["agentSessionId"] != "native-1" {
+		t.Fatalf("restore metadata = %#v, want native id", h.agent.restoreCalls[0].Session.Metadata)
+	}
+	if len(h.provider.killCalls) != 1 || h.provider.killCalls[0] != "source-1" {
+		t.Fatalf("killCalls = %#v, want source zellij", h.provider.killCalls)
+	}
+	if len(h.provider.createCalls) != 1 {
+		t.Fatalf("provider createCalls = %d, want 1", len(h.provider.createCalls))
+	}
+	create := h.provider.createCalls[0]
+	if create.Name != source.ZellijSession {
+		t.Fatalf("create.Name = %q, want %q", create.Name, source.ZellijSession)
+	}
+	if !equalStrings(create.LaunchCmd, h.agent.restoreCmd) {
+		t.Fatalf("LaunchCmd = %#v, want %#v", create.LaunchCmd, h.agent.restoreCmd)
+	}
+	if create.Cwd != source.WorkspacePath {
+		t.Fatalf("Cwd = %q, want %q", create.Cwd, source.WorkspacePath)
+	}
+	if create.Env["YYORK_SESSION_ID"] != source.ID || create.Env["YYORK_SESSION_KIND"] != string(session.KindOrchestrator) {
+		t.Fatalf("Env = %#v, want session id and orchestrator kind", create.Env)
+	}
+	if len(h.worktree.removeCalls) != 0 {
+		t.Fatalf("removeCalls = %d, want no worktree deletion", len(h.worktree.removeCalls))
+	}
+
+	events := h.drainEvents(t, 1, 100*time.Millisecond)
+	if events[0].Type != "session.updated" {
+		t.Fatalf("event type = %q, want session.updated", events[0].Type)
+	}
+}
+
+func TestRestartUnsupportedWhenNativeSessionUnavailable(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	ctx := context.Background()
+
+	source := store.Session{
+		ID:            "source-1",
+		ProjectPath:   "/tmp/proj",
+		ProjectName:   "proj",
+		AgentPlugin:   "fake",
+		WorkspacePath: "/tmp/proj",
+		ZellijSession: "source-1",
+		Metadata:      map[string]any{"kind": "worker"},
+	}
+	if err := h.repo.Insert(ctx, source); err != nil {
+		t.Fatalf("insert source: %v", err)
+	}
+
+	_, err := h.engine.Restart(ctx, session.RestartRequest{SessionID: source.ID})
+	if !errors.Is(err, session.ErrRestartUnsupported) {
+		t.Fatalf("Restart err = %v, want ErrRestartUnsupported", err)
+	}
+	if len(h.provider.killCalls) != 0 {
+		t.Fatalf("killCalls = %d, want 0", len(h.provider.killCalls))
+	}
+	if len(h.provider.createCalls) != 0 {
+		t.Fatalf("createCalls = %d, want 0", len(h.provider.createCalls))
 	}
 }
 

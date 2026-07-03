@@ -46,6 +46,10 @@ func TestDefaultPromptsRenderContext(t *testing.T) {
 			t.Errorf("worker prompt missing %q", want)
 		}
 	}
+	if !strings.Contains(worker, "choose `new worktree`") ||
+		!strings.Contains(worker, "session\n  workspace menu") {
+		t.Errorf("worker prompt missing fork handoff instruction: %q", worker)
+	}
 
 	orchestrator, err := session.DefaultOrchestratorSystemPrompt(pc)
 	if err != nil {
@@ -53,6 +57,9 @@ func TestDefaultPromptsRenderContext(t *testing.T) {
 	}
 	if !strings.Contains(orchestrator, `yyork spawn --json --type worker --prompt "<task>"`) {
 		t.Errorf("orchestrator prompt missing plain spawn example: %q", orchestrator)
+	}
+	if !strings.Contains(orchestrator, "Start implementation.") {
+		t.Errorf("orchestrator prompt missing fork implementation prompt: %q", orchestrator)
 	}
 	if strings.Contains(orchestrator, "--workspace") {
 		t.Errorf("orchestrator prompt should not expose --workspace: %q", orchestrator)

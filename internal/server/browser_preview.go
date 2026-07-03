@@ -61,6 +61,10 @@ func (s *Server) handleBrowserPreviewTarget(w http.ResponseWriter, r *http.Reque
 
 	targetOrigin := browserPreviewOrigin(targetURL)
 	previewHost := browserPreviewHostForTarget(r, payload.PreviewName, targetOrigin)
+	if err := s.registerBrowserPreviewRoute(r.Context(), previewHost); err != nil {
+		http.Error(w, fmt.Sprintf("register preview route: %v", err), http.StatusInternalServerError)
+		return
+	}
 	s.setBrowserPreviewTarget(previewHost, targetOrigin)
 
 	writeJSON(w, http.StatusOK, browserPreviewTargetResponse{
@@ -215,6 +219,13 @@ func (s *Server) setBrowserPreviewTarget(previewHost string, targetOrigin *url.U
 	s.previewTargets[previewHost] = targetOrigin
 }
 
+func (s *Server) registerBrowserPreviewRoute(ctx context.Context, previewHost string) error {
+	if s.browserPreviewRouteRegistrar == nil {
+		return nil
+	}
+	return s.browserPreviewRouteRegistrar(ctx, previewHost)
+}
+
 func (s *Server) browserPreviewTarget(previewHost string) (*url.URL, bool) {
 	s.previewTargetsMu.RLock()
 	defer s.previewTargetsMu.RUnlock()
@@ -346,7 +357,6 @@ func isBrowserPreviewHost(host string) bool {
 }
 
 func isBrowserPreviewSelfTarget(r *http.Request, targetOrigin *url.URL) bool {
-	requestHost := normalizedRequestHostname(externalRequestHost(r))
 	requestPort := requestPortForScheme(externalRequestScheme(r), externalRequestHost(r))
 	targetPort := requestPortForScheme(targetOrigin.Scheme, targetOrigin.Host)
 	if requestPort == "" || requestPort != targetPort {
@@ -355,9 +365,7 @@ func isBrowserPreviewSelfTarget(r *http.Request, targetOrigin *url.URL) bool {
 
 	targetHostname := normalizedRequestHostname(targetOrigin.Host)
 	return isLoopbackBrowserPreviewHostname(targetHostname) ||
-		targetHostname == "yyork.localhost" ||
-		(strings.HasSuffix(requestHost, browserPreviewHostSuffix) &&
-			strings.HasSuffix(targetHostname, ".yyork.localhost"))
+		targetHostname == "yyork.localhost"
 }
 
 func normalizedRequestHostname(host string) string {

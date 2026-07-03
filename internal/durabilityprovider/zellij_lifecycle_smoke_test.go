@@ -6,7 +6,7 @@
 //
 // The test cleans up the session it creates even if any sub-assertion
 // fails, but if the test process itself is killed mid-run, the zellij
-// session may persist; run `zellij kill-session yyork-smoke-...` to
+// session may persist; run `zellij delete-session --force yyork-smoke-...` to
 // clean up.
 package durabilityprovider_test
 

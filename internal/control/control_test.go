@@ -1,6 +1,7 @@
 package control
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -44,6 +45,19 @@ func TestWriteReadRemoveRoundTrip(t *testing.T) {
 	}
 	if perm := info.Mode().Perm(); perm != 0o600 {
 		t.Fatalf("expected runfile perm 0600, got %o", perm)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read raw runfile: %v", err)
+	}
+	var wire struct {
+		Note string `json:"note"`
+	}
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		t.Fatalf("decode raw runfile: %v", err)
+	}
+	if wire.Note != runfileNote {
+		t.Fatalf("runfile note: got %q want %q", wire.Note, runfileNote)
 	}
 
 	if err := Remove(); err != nil {
@@ -188,4 +202,55 @@ func TestForwardingPublisherPostsToAdvertisedServer(t *testing.T) {
 func TestForwardingPublisherNoRunfileIsNoop(t *testing.T) {
 	isolateHome(t)
 	NewForwardingPublisher().Publish(events.NewSessionCreated("sess-1"))
+}
+
+func TestRequestShutdownNoRunfileIsNoop(t *testing.T) {
+	isolateHome(t)
+
+	result, err := RequestShutdown(t.Context())
+	if err != nil {
+		t.Fatalf("request shutdown without runfile: %v", err)
+	}
+	if result.ServerAdvertised || result.ShutdownRequested || result.Addr != "" || result.PID != 0 {
+		t.Fatalf("unexpected result without runfile: %#v", result)
+	}
+}
+
+func TestRequestShutdownPostsAuthenticatedRequest(t *testing.T) {
+	isolateHome(t)
+
+	got := make(chan string, 1)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/control/shutdown" {
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		got <- r.Header.Get(TokenHeader)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer ts.Close()
+
+	if err := Write(Info{
+		Addr:  strings.TrimPrefix(ts.URL, "http://"),
+		PID:   4242,
+		Token: "secret",
+	}); err != nil {
+		t.Fatalf("write runfile: %v", err)
+	}
+
+	result, err := RequestShutdown(t.Context())
+	if err != nil {
+		t.Fatalf("request shutdown: %v", err)
+	}
+	if !result.ServerAdvertised || !result.ShutdownRequested || result.PID != 4242 {
+		t.Fatalf("unexpected shutdown result: %#v", result)
+	}
+
+	select {
+	case token := <-got:
+		if token != "secret" {
+			t.Fatalf("token header: got %q want secret", token)
+		}
+	default:
+		t.Fatal("expected shutdown request")
+	}
 }

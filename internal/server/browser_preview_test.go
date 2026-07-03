@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -69,6 +70,37 @@ func TestBrowserPreviewTargetRegistrationUsesPreviewName(t *testing.T) {
 	}
 }
 
+func TestBrowserPreviewTargetRegistrationRegistersGeneratedPreviewHost(t *testing.T) {
+	got := make(chan string, 1)
+	server := New(Config{
+		BrowserPreviewRouteRegistrar: func(_ context.Context, previewHost string) error {
+			got <- previewHost
+			return nil
+		},
+	})
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"http://127.0.0.1:4217/api/browser-preview/targets",
+		strings.NewReader(`{"url":"http://localhost:3000/app","previewName":"session:kfg2sy"}`),
+	)
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("register preview target failed with %d: %s", response.Code, response.Body.String())
+	}
+
+	select {
+	case previewHost := <-got:
+		if previewHost != "session-kfg2sy-preview.yyork.localhost" {
+			t.Fatalf("preview host = %q, want session-kfg2sy-preview.yyork.localhost", previewHost)
+		}
+	default:
+		t.Fatal("expected preview host registration")
+	}
+}
+
 func TestBrowserPreviewTargetRegistrationUsesYyorkSelfPreviewName(t *testing.T) {
 	server := New(Config{})
 	request := httptest.NewRequest(
@@ -91,6 +123,19 @@ func TestBrowserPreviewTargetRegistrationUsesYyorkSelfPreviewName(t *testing.T) 
 	}
 	if payload.PreviewURL != "https://yyork-preview.yyork.localhost/board/demo" {
 		t.Fatalf("expected yyork self-preview URL, got %q", payload.PreviewURL)
+	}
+}
+
+func TestBrowserPreviewSelfTargetDoesNotCaptureSiblingPortlessAliases(t *testing.T) {
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"https://https-hf-yyork-localhost-preview.yyork.localhost/terminal/vzka9e",
+		nil,
+	)
+	targetOrigin := &url.URL{Scheme: "https", Host: "hf.yyork.localhost"}
+
+	if isBrowserPreviewSelfTarget(request, targetOrigin) {
+		t.Fatal("expected hf.yyork.localhost not to be treated as yyork dashboard self-preview")
 	}
 }
 
@@ -295,6 +340,19 @@ func TestBrowserPreviewProxyDevSelfTargetServesDashboardDevOrigin(t *testing.T) 
 	}
 	if upstreamHost != upstreamURL.Host {
 		t.Fatalf("expected upstream Host %q (Vite's own address), got %q", upstreamURL.Host, upstreamHost)
+	}
+}
+
+func TestBrowserPreviewSelfTargetExcludesNamedYyorkSubdomains(t *testing.T) {
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"https://yyork-preview.yyork.localhost/terminal/vzka9e",
+		nil,
+	)
+	targetOrigin := &url.URL{Scheme: "https", Host: "hf.yyork.localhost"}
+
+	if isBrowserPreviewSelfTarget(request, targetOrigin) {
+		t.Fatal("expected hf.yyork.localhost to stay on its registered preview target")
 	}
 }
 

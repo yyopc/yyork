@@ -14,6 +14,7 @@ import (
 
 	"github.com/yyopc/yyork/internal/events"
 	"github.com/yyopc/yyork/internal/server"
+	"github.com/yyopc/yyork/internal/session"
 	"github.com/yyopc/yyork/internal/store"
 )
 
@@ -223,6 +224,34 @@ func (f *fakeStopper) Stop(_ context.Context, id string) error {
 	return nil
 }
 
+type fakeForker struct {
+	err   error
+	reqs  []session.ForkRequest
+	reply store.Session
+}
+
+func (f *fakeForker) Fork(_ context.Context, req session.ForkRequest) (store.Session, error) {
+	f.reqs = append(f.reqs, req)
+	if f.err != nil {
+		return store.Session{}, f.err
+	}
+	return f.reply, nil
+}
+
+type fakeRestarter struct {
+	err   error
+	reqs  []session.RestartRequest
+	reply store.Session
+}
+
+func (f *fakeRestarter) Restart(_ context.Context, req session.RestartRequest) (store.Session, error) {
+	f.reqs = append(f.reqs, req)
+	if f.err != nil {
+		return store.Session{}, f.err
+	}
+	return f.reply, nil
+}
+
 func TestStopSessionCallsStopper(t *testing.T) {
 	t.Parallel()
 	s := openTestStore(t)
@@ -249,6 +278,121 @@ func TestStopSessionCallsStopper(t *testing.T) {
 	}
 	if len(stopper.stopped) != 1 || stopper.stopped[0] != "abc123" {
 		t.Fatalf("stopper.stopped = %v, want [abc123]", stopper.stopped)
+	}
+}
+
+func TestForkSessionCallsForker(t *testing.T) {
+	t.Parallel()
+	forker := &fakeForker{
+		reply: store.Session{
+			ID:            "fork-1",
+			ProjectPath:   "/tmp/a",
+			ProjectName:   "a",
+			AgentPlugin:   "codex",
+			WorkspacePath: "/tmp/worktrees/fork-1",
+			ZellijSession: "fork-1",
+			Metadata:      map[string]any{"kind": "worker", "workspaceMode": "new-worktree"},
+		},
+	}
+	srv := server.New(server.Config{
+		Forker:   forker,
+		Sessions: openTestStore(t).Sessions(),
+		EventBus: events.NewBus(),
+	})
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	resp := forkSession(t, ts.URL, "source-1", `{"prompt":"Start implementation."}`)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("status = %d, want 201", resp.StatusCode)
+	}
+	if len(forker.reqs) != 1 {
+		t.Fatalf("fork reqs = %d, want 1", len(forker.reqs))
+	}
+	if forker.reqs[0].SourceSessionID != "source-1" || forker.reqs[0].Prompt != "Start implementation." {
+		t.Fatalf("fork req = %#v, want source/prompt", forker.reqs[0])
+	}
+
+	var dto map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&dto); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if dto["id"] != "fork-1" || dto["workspacePath"] != "/tmp/worktrees/fork-1" {
+		t.Fatalf("dto = %#v, want fork session", dto)
+	}
+}
+
+func TestForkSessionReturnsConflictWhenUnsupported(t *testing.T) {
+	t.Parallel()
+	srv := server.New(server.Config{
+		Forker:   &fakeForker{err: session.ErrForkUnsupported},
+		Sessions: openTestStore(t).Sessions(),
+		EventBus: events.NewBus(),
+	})
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	resp := forkSession(t, ts.URL, "source-1", `{"prompt":"Start implementation."}`)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("status = %d, want 409", resp.StatusCode)
+	}
+}
+
+func TestRestartSessionCallsRestarter(t *testing.T) {
+	t.Parallel()
+	restarter := &fakeRestarter{
+		reply: store.Session{
+			ID:            "sess-1",
+			ProjectPath:   "/tmp/a",
+			ProjectName:   "a",
+			AgentPlugin:   "codex",
+			WorkspacePath: "/tmp/a",
+			ZellijSession: "sess-1",
+			Metadata:      map[string]any{"kind": "orchestrator", "restartCount": 1},
+		},
+	}
+	srv := server.New(server.Config{
+		Restarter: restarter,
+		Sessions:  openTestStore(t).Sessions(),
+		EventBus:  events.NewBus(),
+	})
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	resp := restartSession(t, ts.URL, "sess-1")
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	if len(restarter.reqs) != 1 || restarter.reqs[0].SessionID != "sess-1" {
+		t.Fatalf("restart reqs = %#v, want sess-1", restarter.reqs)
+	}
+
+	var dto map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&dto); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if dto["id"] != "sess-1" || dto["workspacePath"] != "/tmp/a" {
+		t.Fatalf("dto = %#v, want restarted session", dto)
+	}
+}
+
+func TestRestartSessionReturnsConflictWhenUnsupported(t *testing.T) {
+	t.Parallel()
+	srv := server.New(server.Config{
+		Restarter: &fakeRestarter{err: session.ErrRestartUnsupported},
+		Sessions:  openTestStore(t).Sessions(),
+		EventBus:  events.NewBus(),
+	})
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	resp := restartSession(t, ts.URL, "sess-1")
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("status = %d, want 409", resp.StatusCode)
 	}
 }
 
@@ -440,6 +584,33 @@ func patchSession(t *testing.T, baseURL, id, body string) *http.Response {
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("PATCH /api/sessions/%s: %v", id, err)
+	}
+	return resp
+}
+
+func forkSession(t *testing.T, baseURL, id, body string) *http.Response {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPost, baseURL+"/api/sessions/"+id+"/fork", strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("NewRequest: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /api/sessions/%s/fork: %v", id, err)
+	}
+	return resp
+}
+
+func restartSession(t *testing.T, baseURL, id string) *http.Response {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPost, baseURL+"/api/sessions/"+id+"/restart", nil)
+	if err != nil {
+		t.Fatalf("NewRequest: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /api/sessions/%s/restart: %v", id, err)
 	}
 	return resp
 }

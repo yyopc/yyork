@@ -47,6 +47,19 @@ type OrchestratorEnsurer interface {
 	EnsureOrchestrator(ctx context.Context, req session.SpawnRequest) (store.Session, bool, error)
 }
 
+// SessionForker forks an existing worker session into a new yyork-managed
+// worktree-backed session. The session.Engine satisfies this interface.
+type SessionForker interface {
+	Fork(ctx context.Context, req session.ForkRequest) (store.Session, error)
+}
+
+// SessionRestarter restarts an existing session from its native transcript while
+// preserving the yyork session row and workspace. The session.Engine satisfies
+// this interface.
+type SessionRestarter interface {
+	Restart(ctx context.Context, req session.RestartRequest) (store.Session, error)
+}
+
 type Config struct {
 	IDEOpener       IDEOpener
 	Registry        *plugin.Registry
@@ -96,6 +109,14 @@ type Config struct {
 	// nil, the endpoint returns 501.
 	Orchestrators OrchestratorEnsurer
 
+	// Forker forks a worker session into a new worktree-backed session.
+	// Optional — if nil, the endpoint returns 501.
+	Forker SessionForker
+
+	// Restarter restarts a session from its native Codex/Claude transcript.
+	// Optional — if nil, the endpoint returns 501.
+	Restarter SessionRestarter
+
 	// DirectoryChooser opens the native folder picker behind POST
 	// /api/projects/choose-directory. Optional — defaults to the host OS's
 	// native picker (macOS `osascript`).
@@ -109,31 +130,45 @@ type Config struct {
 
 	// ControlToken is the shared secret required on POST /api/events, the
 	// ingress that lets out-of-process CLI commands relay lifecycle events
-	// onto EventBus. Optional — if empty, the ingress rejects every request
-	// (no cross-process forwarding).
+	// onto EventBus, and on POST /api/control/shutdown. Optional — if empty,
+	// both control routes reject every request.
 	ControlToken string
+
+	// Shutdown requests a graceful server shutdown after the authenticated
+	// control route has sent its response. Optional — if nil, the shutdown
+	// route returns 503.
+	Shutdown func()
+
+	// BrowserPreviewRouteRegistrar makes a generated preview hostname routable
+	// before the browser loads the iframe. Dev mode uses this to register
+	// session-scoped preview hosts with portless; production can leave it nil.
+	BrowserPreviewRouteRegistrar BrowserPreviewRouteRegistrar
 }
 
 type Server struct {
-	ideOpener           IDEOpener
-	registry            *plugin.Registry
-	terminalManager     *terminal.Manager
-	webDir              string
-	webFS               fs.FS
-	dashboardDevOrigin  *url.URL
-	workspace           session.Workspace
-	workspaceSource     WorkspaceSource
-	durabilityProviders *durabilityprovider.Registry
-	sessions            store.SessionRepo
-	projectSettings     store.ProjectSettingsRepo
-	stopper             SessionStopper
-	projectRemover      ProjectRemover
-	orchestrators       OrchestratorEnsurer
-	directoryChooser    DirectoryChooser
-	eventBus            *events.Bus
-	controlToken        string
-	previewTargets      map[string]*url.URL
-	previewTargetsMu    sync.RWMutex
+	ideOpener                    IDEOpener
+	registry                     *plugin.Registry
+	terminalManager              *terminal.Manager
+	webDir                       string
+	webFS                        fs.FS
+	dashboardDevOrigin           *url.URL
+	workspace                    session.Workspace
+	workspaceSource              WorkspaceSource
+	durabilityProviders          *durabilityprovider.Registry
+	sessions                     store.SessionRepo
+	projectSettings              store.ProjectSettingsRepo
+	stopper                      SessionStopper
+	projectRemover               ProjectRemover
+	orchestrators                OrchestratorEnsurer
+	forker                       SessionForker
+	restarter                    SessionRestarter
+	directoryChooser             DirectoryChooser
+	eventBus                     *events.Bus
+	controlToken                 string
+	shutdown                     func()
+	browserPreviewRouteRegistrar BrowserPreviewRouteRegistrar
+	previewTargets               map[string]*url.URL
+	previewTargetsMu             sync.RWMutex
 }
 
 type WorkspaceSource interface {
@@ -152,6 +187,8 @@ type IDEOpener interface {
 type DirectoryChooser interface {
 	Choose(ctx context.Context) (path string, ok bool, err error)
 }
+
+type BrowserPreviewRouteRegistrar func(ctx context.Context, previewHost string) error
 
 func New(cfg Config) *Server {
 	registry := cfg.Registry
@@ -188,24 +225,28 @@ func New(cfg Config) *Server {
 	}
 
 	return &Server{
-		ideOpener:           ideOpener,
-		registry:            registry,
-		terminalManager:     terminalManager,
-		webDir:              cfg.WebDir,
-		webFS:               cfg.WebFS,
-		dashboardDevOrigin:  dashboardDevOrigin,
-		workspace:           workspace,
-		workspaceSource:     cfg.WorkspaceSource,
-		durabilityProviders: durabilityProviders,
-		sessions:            cfg.Sessions,
-		projectSettings:     cfg.ProjectSettings,
-		stopper:             cfg.Stopper,
-		projectRemover:      cfg.ProjectRemover,
-		orchestrators:       cfg.Orchestrators,
-		directoryChooser:    directoryChooser,
-		eventBus:            cfg.EventBus,
-		controlToken:        cfg.ControlToken,
-		previewTargets:      map[string]*url.URL{},
+		ideOpener:                    ideOpener,
+		registry:                     registry,
+		terminalManager:              terminalManager,
+		webDir:                       cfg.WebDir,
+		webFS:                        cfg.WebFS,
+		dashboardDevOrigin:           dashboardDevOrigin,
+		workspace:                    workspace,
+		workspaceSource:              cfg.WorkspaceSource,
+		durabilityProviders:          durabilityProviders,
+		sessions:                     cfg.Sessions,
+		projectSettings:              cfg.ProjectSettings,
+		stopper:                      cfg.Stopper,
+		projectRemover:               cfg.ProjectRemover,
+		orchestrators:                cfg.Orchestrators,
+		forker:                       cfg.Forker,
+		restarter:                    cfg.Restarter,
+		directoryChooser:             directoryChooser,
+		eventBus:                     cfg.EventBus,
+		controlToken:                 cfg.ControlToken,
+		shutdown:                     cfg.Shutdown,
+		browserPreviewRouteRegistrar: cfg.BrowserPreviewRouteRegistrar,
+		previewTargets:               map[string]*url.URL{},
 	}
 }
 
@@ -224,6 +265,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/sessions/{sessionID}/files/content", s.handleSessionFileContent)
 	mux.HandleFunc("GET /api/sessions/{sessionID}/canvas/diff", s.handleSessionCanvasDiff)
 	mux.HandleFunc("GET /api/sessions/{sessionID}/terminal", s.handleSessionTerminal)
+	mux.HandleFunc("POST /api/sessions/{sessionID}/fork", s.handleForkSession)
+	mux.HandleFunc("POST /api/sessions/{sessionID}/restart", s.handleRestartSession)
 	mux.HandleFunc("POST /api/annotations/{sessionID}", s.handleAnnotations)
 	mux.HandleFunc("POST /api/browser-preview/targets", s.handleBrowserPreviewTarget)
 	mux.HandleFunc("GET /api/sessions", s.handleListSessions)
@@ -231,6 +274,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/sessions/{sessionID}", s.handleStopSession)
 	mux.HandleFunc("GET /api/events", s.handleEventsStream)
 	mux.HandleFunc("POST /api/events", s.handlePublishEvent)
+	mux.HandleFunc("POST /api/control/shutdown", s.handleControlShutdown)
 	mux.HandleFunc("/", s.handleDashboard)
 	return mux
 }

@@ -25,6 +25,17 @@ func postEvent(t *testing.T, srv *Server, token string, body string) *httptest.R
 	return response
 }
 
+func postShutdown(t *testing.T, srv *Server, token string) *httptest.ResponseRecorder {
+	t.Helper()
+	request := httptest.NewRequest(http.MethodPost, "/api/control/shutdown", nil)
+	if token != "" {
+		request.Header.Set(control.TokenHeader, token)
+	}
+	response := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(response, request)
+	return response
+}
+
 func TestPublishEventRejectsMissingToken(t *testing.T) {
 	bus := events.NewBus()
 	ch, unsubscribe := bus.Subscribe()
@@ -115,11 +126,75 @@ func TestPublishEventWithoutBusReturnsServiceUnavailable(t *testing.T) {
 	}
 }
 
+func TestControlShutdownRejectsMissingToken(t *testing.T) {
+	called := make(chan struct{}, 1)
+	srv := New(Config{
+		ControlToken: testControlToken,
+		Shutdown: func() {
+			called <- struct{}{}
+		},
+	})
+
+	response := postShutdown(t, srv, "")
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for missing token, got %d", response.Code)
+	}
+	assertNoShutdown(t, called)
+}
+
+func TestControlShutdownRejectsWrongToken(t *testing.T) {
+	called := make(chan struct{}, 1)
+	srv := New(Config{
+		ControlToken: testControlToken,
+		Shutdown: func() {
+			called <- struct{}{}
+		},
+	})
+
+	response := postShutdown(t, srv, "nope")
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for wrong token, got %d", response.Code)
+	}
+	assertNoShutdown(t, called)
+}
+
+func TestControlShutdownAcceptsValidToken(t *testing.T) {
+	called := make(chan struct{}, 1)
+	srv := New(Config{
+		ControlToken: testControlToken,
+		Shutdown: func() {
+			called <- struct{}{}
+		},
+	})
+
+	response := postShutdown(t, srv, testControlToken)
+
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("expected 204 for valid token, got %d", response.Code)
+	}
+	select {
+	case <-called:
+	case <-time.After(time.Second):
+		t.Fatal("expected shutdown callback")
+	}
+}
+
 func assertNoEvent(t *testing.T, ch <-chan events.Event) {
 	t.Helper()
 	select {
 	case ev := <-ch:
 		t.Fatalf("expected no event, got %q", ev.Type)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func assertNoShutdown(t *testing.T, ch <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-ch:
+		t.Fatal("expected shutdown callback not to be called")
 	case <-time.After(50 * time.Millisecond):
 	}
 }
