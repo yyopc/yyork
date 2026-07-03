@@ -487,22 +487,57 @@ func newStopCmd() *cobra.Command {
 	var jsonOutput bool
 
 	cmd := &cobra.Command{
-		Use:     "stop <sessionID>",
+		Use:     "stop [sessionID]",
 		GroupID: groupCore,
-		Short:   "Terminate a running session.",
-		Long: "Cleanly terminate a yyork session by killing its Zellij session, " +
-			"removing its worktree, and deleting its store row.\n\n" +
+		Short:   "Stop the yyork server or a session.",
+		Long: "With no arguments, gracefully stop the running yyork app/server on this computer. " +
+			"This uses the local authenticated control runfile and does not stop, delete, or mark done any sessions. " +
+			"If no yyork server is running, this is a successful no-op.\n\n" +
+			"With a session id, cleanly terminate that yyork session by killing its Zellij session, " +
+			"removing its worktree, and deleting its store row. " +
 			"Stopping a session id that is not in yyork's store is a no-op (exit 0).",
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runStop(cmd, args[0], jsonOutput)
+			if len(args) == 0 {
+				return runStopServer(cmd, jsonOutput)
+			}
+			return runStopSession(cmd, args[0], jsonOutput)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "write machine-readable JSON to stdout")
 	return cmd
 }
 
-func runStop(cmd *cobra.Command, id string, jsonOutput bool) error {
+func runStopServer(cmd *cobra.Command, jsonOutput bool) error {
+	result, err := control.RequestShutdown(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("stop server: %w", err)
+	}
+
+	if jsonOutput {
+		return writeJSON(cmd, cliServerStopOutput{
+			Target:            "server",
+			ServerRunning:     result.ShutdownRequested,
+			ShutdownRequested: result.ShutdownRequested,
+			Addr:              result.Addr,
+			PID:               result.PID,
+		})
+	}
+
+	if result.ShutdownRequested {
+		if result.Addr != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "Requested graceful shutdown of yyork server at %s.\n", result.Addr)
+		} else {
+			fmt.Fprintln(cmd.OutOrStdout(), "Requested graceful shutdown of yyork server.")
+		}
+		return nil
+	}
+
+	fmt.Fprintln(cmd.OutOrStdout(), "No running yyork server found; nothing to stop.")
+	return nil
+}
+
+func runStopSession(cmd *cobra.Command, id string, jsonOutput bool) error {
 	eng, closeFn, err := buildEngine(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("stop: %w", err)
@@ -609,6 +644,14 @@ type cliSessionListOutput struct {
 type cliStopOutput struct {
 	ID      string `json:"id"`
 	Stopped bool   `json:"stopped"`
+}
+
+type cliServerStopOutput struct {
+	Target            string `json:"target"`
+	ServerRunning     bool   `json:"serverRunning"`
+	ShutdownRequested bool   `json:"shutdownRequested"`
+	Addr              string `json:"addr,omitempty"`
+	PID               int    `json:"pid,omitempty"`
 }
 
 type cliSendOutput struct {
@@ -763,7 +806,7 @@ func cliStringMetadata(metadata map[string]any, key string) string {
 // (agent name, event) intact.
 func newHooksCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:                "hooks <codex|claude-code> <session-start|user-prompt-submit|pre-tool-use|post-tool-use|permission-request|stop|uninstall>",
+		Use:                "hooks <codex|claude-code> <session-start|user-prompt-submit|pre-tool-use|pre-tool-call|post-tool-use|post-tool-call|permission-request|stop|install|uninstall>",
 		Short:              "Internal agent lifecycle hook entrypoint.",
 		Hidden:             true,
 		DisableFlagParsing: true,

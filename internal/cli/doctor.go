@@ -3,9 +3,11 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os/exec"
-	"text/tabwriter"
+	"strings"
 
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/yyopc/yyork/internal/durabilityprovider"
@@ -46,6 +48,16 @@ type doctorCheckOutput struct {
 	Path     string `json:"path,omitempty"`
 	Source   string `json:"source,omitempty"`
 	Message  string `json:"message,omitempty"`
+}
+
+type doctorTextStyles struct {
+	titleOK       lipgloss.Style
+	titleError    lipgloss.Style
+	section       lipgloss.Style
+	statusOK      lipgloss.Style
+	statusWarning lipgloss.Style
+	statusError   lipgloss.Style
+	dim           lipgloss.Style
 }
 
 func newDoctorCmd() *cobra.Command {
@@ -195,24 +207,184 @@ func checkRuntimeDependencies(lookup executableLookup, zellijLookup zellijBinary
 }
 
 func writeDoctorText(cmd *cobra.Command, result doctorOutput) {
-	out := cmd.OutOrStdout()
+	writeDoctorTextOutput(cmd.OutOrStdout(), result, true)
+}
+
+func writeDoctorTextOutput(out io.Writer, result doctorOutput, styled bool) {
+	_, _ = lipgloss.Fprint(out, renderDoctorText(result, newDoctorTextStyles(styled)))
+}
+
+func renderDoctorText(result doctorOutput, styles doctorTextStyles) string {
+	var b strings.Builder
 	if result.OK {
-		fmt.Fprintln(out, "yyork doctor passed.")
+		b.WriteString(styles.titleOK.Render("yyork doctor passed"))
 	} else {
-		fmt.Fprintln(out, "yyork doctor found issues.")
+		b.WriteString(styles.titleError.Render("yyork doctor found issues"))
+	}
+	b.WriteByte('\n')
+
+	if failures := missingRequiredCheckIDs(result.Checks); len(failures) > 0 {
+		b.WriteString(styles.dim.Render("Required failures: " + strings.Join(failures, ", ")))
+		b.WriteByte('\n')
 	}
 
-	tw := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "CHECK\tSTATUS\tDETAIL")
-	for _, check := range result.Checks {
-		detail := check.Path
-		if detail != "" && check.Source != "" {
-			detail = fmt.Sprintf("%s (%s)", detail, check.Source)
+	runtimeChecks := checksByCategory(result.Checks, doctorCategoryRuntime)
+	agentChecks := checksByCategory(result.Checks, doctorCategoryAgent)
+
+	b.WriteByte('\n')
+	writeDoctorSection(&b, "Runtime requirements", runtimeChecks, styles)
+	b.WriteByte('\n')
+	writeDoctorSection(&b, "Agent CLI availability", agentChecks, styles)
+
+	if steps := doctorNextSteps(result.Checks); len(steps) > 0 {
+		b.WriteByte('\n')
+		b.WriteString(styles.section.Render("Next steps"))
+		b.WriteByte('\n')
+		for _, step := range steps {
+			b.WriteString("  - ")
+			b.WriteString(step)
+			b.WriteByte('\n')
 		}
-		if detail == "" {
-			detail = check.Message
-		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\n", check.ID, check.Status, detail)
 	}
-	_ = tw.Flush()
+
+	return b.String()
+}
+
+func newDoctorTextStyles(styled bool) doctorTextStyles {
+	base := lipgloss.NewStyle()
+	if !styled {
+		return doctorTextStyles{
+			titleOK:       base,
+			titleError:    base,
+			section:       base,
+			statusOK:      base,
+			statusWarning: base,
+			statusError:   base,
+			dim:           base,
+		}
+	}
+
+	pink := lipgloss.Color("212")
+	cyan := lipgloss.Color("86")
+	amber := lipgloss.Color("215")
+	dim := lipgloss.Color("241")
+
+	return doctorTextStyles{
+		titleOK:       base.Bold(true).Foreground(cyan),
+		titleError:    base.Bold(true).Foreground(pink),
+		section:       base.Bold(true),
+		statusOK:      base.Bold(true).Foreground(cyan),
+		statusWarning: base.Bold(true).Foreground(amber),
+		statusError:   base.Bold(true).Foreground(pink),
+		dim:           base.Foreground(dim),
+	}
+}
+
+func writeDoctorSection(b *strings.Builder, title string, checks []doctorCheckOutput, styles doctorTextStyles) {
+	b.WriteString(styles.section.Render(title))
+	b.WriteByte('\n')
+	if len(checks) == 0 {
+		b.WriteString("  ")
+		b.WriteString(styles.dim.Render("No checks reported."))
+		b.WriteByte('\n')
+		return
+	}
+
+	nameWidth := maxDoctorCheckIDWidth(checks)
+	for _, check := range checks {
+		fmt.Fprintf(
+			b,
+			"  %s  %-*s  %-8s  %s\n",
+			doctorStatusText(check, styles),
+			nameWidth,
+			check.ID,
+			doctorRequirementText(check),
+			doctorDetailText(check),
+		)
+	}
+}
+
+func doctorStatusText(check doctorCheckOutput, styles doctorTextStyles) string {
+	const statusWidth = 7
+
+	switch check.Status {
+	case doctorStatusOK:
+		return styles.statusOK.Render(fmt.Sprintf("%-*s", statusWidth, "OK"))
+	case doctorStatusMissing:
+		if check.Required {
+			return styles.statusError.Render(fmt.Sprintf("%-*s", statusWidth, "MISSING"))
+		}
+		return styles.statusWarning.Render(fmt.Sprintf("%-*s", statusWidth, "MISSING"))
+	default:
+		return fmt.Sprintf("%-*s", statusWidth, strings.ToUpper(check.Status))
+	}
+}
+
+func doctorRequirementText(check doctorCheckOutput) string {
+	if check.Required {
+		return "required"
+	}
+	return "optional"
+}
+
+func doctorDetailText(check doctorCheckOutput) string {
+	if check.Path != "" {
+		if check.Source != "" {
+			return fmt.Sprintf("%s (source: %s)", check.Path, check.Source)
+		}
+		return check.Path
+	}
+	return check.Message
+}
+
+func maxDoctorCheckIDWidth(checks []doctorCheckOutput) int {
+	width := 0
+	for _, check := range checks {
+		if len(check.ID) > width {
+			width = len(check.ID)
+		}
+	}
+	return width
+}
+
+func checksByCategory(checks []doctorCheckOutput, category string) []doctorCheckOutput {
+	matches := make([]doctorCheckOutput, 0, len(checks))
+	for _, check := range checks {
+		if check.Category == category {
+			matches = append(matches, check)
+		}
+	}
+	return matches
+}
+
+func missingRequiredCheckIDs(checks []doctorCheckOutput) []string {
+	var ids []string
+	for _, check := range checks {
+		if check.Required && check.Status == doctorStatusMissing {
+			ids = append(ids, check.ID)
+		}
+	}
+	return ids
+}
+
+func doctorNextSteps(checks []doctorCheckOutput) []string {
+	seen := make(map[string]bool)
+	var steps []string
+	for _, check := range checks {
+		if !check.Required || check.Status != doctorStatusMissing || seen[check.ID] {
+			continue
+		}
+		seen[check.ID] = true
+		switch check.ID {
+		case "git":
+			steps = append(steps, "Install Git and make sure `git` is on PATH.")
+		case "zellij":
+			steps = append(steps, "Install a yyork package with bundled zellij, set YYORK_ZELLIJ, or put zellij on PATH.")
+		case "agent-cli":
+			steps = append(steps, "Install Claude Code or Codex, then rerun `yyork doctor`.")
+		default:
+			steps = append(steps, check.Message)
+		}
+	}
+	return steps
 }

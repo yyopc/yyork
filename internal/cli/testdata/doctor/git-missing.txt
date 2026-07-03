@@ -1,0 +1,13 @@
+yyork doctor found issues
+Required failures: git
+
+Runtime requirements
+  OK       zellij  required  /usr/local/bin/zellij (source: path)
+  MISSING  git     required  git is required for repository detection, file status, and session worktrees.
+
+Agent CLI availability
+  OK       claude-code  optional  /Users/me/.local/bin/claude
+  MISSING  codex        optional  Codex sessions are unavailable until the codex CLI is on PATH.
+
+Next steps
+  - Install Git and make sure `git` is on PATH.

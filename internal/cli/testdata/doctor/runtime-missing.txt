@@ -1,0 +1,13 @@
+yyork doctor found issues
+Required failures: zellij
+
+Runtime requirements
+  MISSING  zellij  required  yyork could not find its bundled zellij runtime or a zellij binary on PATH.
+  OK       git     required  /usr/bin/git
+
+Agent CLI availability
+  OK       claude-code  optional  /Users/me/.local/bin/claude
+  MISSING  codex        optional  Codex sessions are unavailable until the codex CLI is on PATH.
+
+Next steps
+  - Install a yyork package with bundled zellij, set YYORK_ZELLIJ, or put zellij on PATH.

@@ -1,0 +1,9 @@
+yyork doctor passed
+
+Runtime requirements
+  OK       zellij  required  /opt/yyork/bin/zellij (source: bundled)
+  OK       git     required  /usr/bin/git
+
+Agent CLI availability
+  MISSING  claude-code  optional  Claude Code is the default agent; install it or spawn with another available agent.
+  OK       codex        optional  /Users/me/.local/bin/codex

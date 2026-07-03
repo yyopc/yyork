@@ -1,0 +1,14 @@
+yyork doctor found issues
+Required failures: agent-cli
+
+Runtime requirements
+  OK       zellij  required  /opt/yyork/bin/zellij (source: bundled)
+  OK       git     required  /usr/bin/git
+
+Agent CLI availability
+  MISSING  claude-code  optional  Claude Code is the default agent; install it or spawn with another available agent.
+  MISSING  codex        optional  Codex sessions are unavailable until the codex CLI is on PATH.
+  MISSING  agent-cli    required  Install at least one supported agent CLI, such as Claude Code or Codex, before spawning sessions.
+
+Next steps
+  - Install Claude Code or Codex, then rerun `yyork doctor`.

@@ -471,15 +471,62 @@ func TestSpawnRejectsInvalidTypeBeforeStartingServer(t *testing.T) {
 	}
 }
 
-func TestStopRequiresSessionID(t *testing.T) {
-	runApp, _ := noopApp()
+func TestStopNoArgsNoServerIsHumanNoop(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	runApp, called := noopApp()
 
-	_, err := execCLI(t, runApp, "stop")
-	if err == nil {
-		t.Fatal("expected an error when <sessionID> is missing")
-	}
-	if !strings.Contains(err.Error(), "arg") {
+	out, err := execCLI(t, runApp, "stop")
+	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if *called {
+		t.Fatal("stop should not start the server")
+	}
+	if !strings.Contains(out, "No running yyork server found") {
+		t.Fatalf("unexpected stop output:\n%s", out)
+	}
+}
+
+func TestStopNoArgsNoServerIsJSONNoop(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	runApp, called := noopApp()
+
+	out, err := execCLI(t, runApp, "stop", "--json")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if *called {
+		t.Fatal("stop should not start the server")
+	}
+
+	var got cliServerStopOutput
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("stop --json produced invalid JSON: %v\n%s", err, out)
+	}
+	if got.Target != "server" || got.ServerRunning || got.ShutdownRequested {
+		t.Fatalf("unexpected stop JSON: %#v", got)
+	}
+}
+
+func TestStopHelpDocumentsServerAndSessionForms(t *testing.T) {
+	runApp, called := noopApp()
+
+	out, err := execCLI(t, runApp, "stop", "--help")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if *called {
+		t.Fatal("stop help should not start the server")
+	}
+	for _, want := range []string{
+		"yyork stop [sessionID]",
+		"gracefully stop the running yyork app/server",
+		"does not stop, delete, or mark done any sessions",
+		"With a session id",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("stop help missing %q:\n%s", want, out)
+		}
 	}
 }
 
