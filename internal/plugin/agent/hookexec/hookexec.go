@@ -23,29 +23,77 @@ var (
 )
 
 // Executable returns the shell command prefix that should call back into yyork
-// from an agent's native hook config. It prefers the running yyork binary, then
-// a source-checkout fallback, then a yyork binary found on PATH.
+// from an agent's native hook config. It prefers a yyork command on PATH so the
+// hook config matches the user's install. In a source checkout, the repo-local
+// .go/bin/yyork or the flake GOBIN go-bin/yyork is the devshell's intended
+// CLI, so hooks should call plain `yyork` instead of baking a source-root
+// `go run .` command into config. Non-source PATH binaries are path-scoped
+// because agents run hook strings through the user's shell, whose startup
+// files may rewrite PATH before executing yyork. It then falls back to the
+// running yyork binary or a source-checkout command.
 func Executable() string {
 	if command := strings.TrimSpace(os.Getenv(CommandEnv)); command != "" {
 		return command
 	}
 
+	sourceRoot, hasSourceRoot := SourceRoot()
+	if path, err := lookPath("yyork"); err == nil && strings.TrimSpace(path) != "" {
+		if isSourceLocalYyorkPath(path) {
+			return "yyork"
+		}
+		return pathScopedYyork(path)
+	}
+
 	executable, err := currentExecutable()
-	if err == nil && filepath.Base(executable) == "yyork" && !isGoBuildCacheExecutable(executable) {
+	if err == nil && filepath.Base(executable) == "yyork" && !isGoBuildExecutable(executable) {
 		return shellQuote(executable)
 	}
 
-	if sourceRoot, ok := SourceRoot(); ok {
+	if hasSourceRoot {
 		if goPath, err := lookPath("go"); err == nil {
 			return sourceGoRunExecutable(sourceRoot, goPath)
 		}
 	}
 
-	if path, err := lookPath("yyork"); err == nil && strings.TrimSpace(path) != "" {
-		return shellQuote(path)
-	}
-
 	return "yyork"
+}
+
+func pathScopedYyork(path string) string {
+	dir := filepath.Dir(strings.TrimSpace(path))
+	if dir == "." || strings.TrimSpace(dir) == "" {
+		return "yyork"
+	}
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
+	return "PATH=" + shellQuote(dir) + `:"$PATH" yyork`
+}
+
+func isSourceLocalYyorkPath(path string) bool {
+	trimmedPath := strings.TrimSpace(path)
+	if trimmedPath == "" {
+		return false
+	}
+	absPath, err := filepath.Abs(trimmedPath)
+	if err != nil {
+		return false
+	}
+	sourceRoot, ok := sourceRootFrom(filepath.Dir(absPath))
+	if !ok {
+		return false
+	}
+	root := filepath.Clean(sourceRoot)
+	cleanPath := filepath.Clean(absPath)
+	sourceLocalBins := []string{
+		filepath.Join(root, ".go", "bin", "yyork"),
+		filepath.Join(root, "go-bin", "yyork"),
+	}
+	for _, candidate := range sourceLocalBins {
+		if cleanPath == candidate {
+			return true
+		}
+	}
+	return false
 }
 
 // SourceRoot returns the nearest yyork source checkout root at or above the
@@ -99,6 +147,10 @@ func declaresYyorkModule(data []byte) bool {
 	return false
 }
 
+func isGoBuildExecutable(executable string) bool {
+	return isGoBuildCacheExecutable(executable) || isGoRunTempExecutable(executable)
+}
+
 func isGoBuildCacheExecutable(executable string) bool {
 	cache := strings.TrimSpace(os.Getenv("GOCACHE"))
 	if cache == "" {
@@ -121,6 +173,19 @@ func isGoBuildCacheExecutable(executable string) bool {
 		return false
 	}
 	return !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+func isGoRunTempExecutable(executable string) bool {
+	for dir := filepath.Clean(executable); dir != "." && dir != string(filepath.Separator); dir = filepath.Dir(dir) {
+		if strings.HasPrefix(filepath.Base(dir), "go-build") {
+			return true
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+	}
+	return false
 }
 
 func sourceGoRunExecutable(sourceRoot string, goPath string) string {

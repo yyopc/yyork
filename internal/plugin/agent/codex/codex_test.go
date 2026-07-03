@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/yyopc/yyork/internal/plugin/agent"
+	"github.com/yyopc/yyork/internal/plugin/agent/hookexec"
 )
 
 func TestGetLaunchCommandBuildsCrossPlatformArgv(t *testing.T) {
@@ -29,6 +30,7 @@ func TestGetLaunchCommandBuildsCrossPlatformArgv(t *testing.T) {
 		"codex",
 		"-c", "check_for_update_on_startup=false",
 		"--no-alt-screen",
+		"--dangerously-bypass-hook-trust",
 		"--dangerously-bypass-approvals-and-sandbox",
 		"-c", "model_instructions_file=" + filepath.Join("tmp", "prompt with spaces.md"),
 		"--", "-fix this",
@@ -86,6 +88,9 @@ func TestGetLaunchCommandMapsApprovalModes(t *testing.T) {
 			}
 			if !contains(cmd, "--no-alt-screen") {
 				t.Fatalf("command %#v missing --no-alt-screen", cmd)
+			}
+			if !contains(cmd, "--dangerously-bypass-hook-trust") {
+				t.Fatalf("command %#v missing --dangerously-bypass-hook-trust", cmd)
 			}
 			if tt.notExpected != "" && contains(cmd, tt.notExpected) {
 				t.Fatalf("command %#v contains %q", cmd, tt.notExpected)
@@ -252,7 +257,7 @@ func TestGetAgentHooksInstallsCodexHooks(t *testing.T) {
 	}
 	for _, spec := range codexManagedHooks {
 		entries := config.Hooks[spec.Event]
-		if count := countCodexHookCommand(entries, spec.Command); count != 1 {
+		if count := countCodexHookCommand(entries, spec.command()); count != 1 {
 			t.Fatalf("%s command count = %d, want 1 in %#v", spec.Event, count, entries)
 		}
 	}
@@ -270,6 +275,48 @@ func TestGetAgentHooksInstallsCodexHooks(t *testing.T) {
 	}
 }
 
+func TestGetAgentHooksResolvesCodexHookCommandAtInstallTime(t *testing.T) {
+	plugin := &Plugin{resolvedBinary: "codex"}
+	workspace := t.TempDir()
+	cfg := agent.WorkspaceHookConfig{
+		DataDir:       t.TempDir(),
+		SessionID:     "sess-1",
+		WorkspacePath: workspace,
+	}
+
+	t.Setenv(hookexec.CommandEnv, "first-yyork")
+	if err := plugin.GetAgentHooks(context.Background(), cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv(hookexec.CommandEnv, "second-yyork")
+	if err := plugin.GetAgentHooks(context.Background(), cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(workspace, ".codex", "hooks.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "first-yyork hooks codex") {
+		t.Fatalf("install preserved stale hook command: %s", data)
+	}
+
+	var config codexHookFile
+	if err := json.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	for _, spec := range codexManagedHooks {
+		command := spec.command()
+		if !strings.HasPrefix(command, "second-yyork hooks codex ") {
+			t.Fatalf("resolved command = %q, want second resolver", command)
+		}
+		if count := countCodexHookCommand(config.Hooks[spec.Event], command); count != 1 {
+			t.Fatalf("%s command count = %d, want 1 in %#v", spec.Event, count, config.Hooks[spec.Event])
+		}
+	}
+}
+
 func TestGetAgentHooksReplacesStaleManagedCodexHooks(t *testing.T) {
 	plugin := &Plugin{resolvedBinary: "codex"}
 	workspace := t.TempDir()
@@ -277,7 +324,7 @@ func TestGetAgentHooksReplacesStaleManagedCodexHooks(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(hooksPath), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	existing := `{"hooks":{"SessionStart":[{"matcher":null,"hooks":[{"type":"command","command":"entire hooks codex session-start","timeout":30}]}],"Stop":[{"matcher":null,"hooks":[{"type":"command","command":"entire hooks codex stop","timeout":30},{"type":"command","command":"custom stop hook","timeout":3}]}],"UserPromptSubmit":[{"matcher":null,"hooks":[{"type":"command","command":"entire hooks codex user-prompt-submit","timeout":30}]}]}}`
+	existing := `{"hooks":{"SessionStart":[{"matcher":null,"hooks":[{"type":"command","command":"entire hooks codex session-start","timeout":30}]}],"PreToolCall":[{"matcher":"","hooks":[{"type":"command","command":"entire hooks codex pre-tool-use","timeout":30}]}],"PostToolCall":[{"matcher":"","hooks":[{"type":"command","command":"entire hooks codex post-tool-use","timeout":30}]}],"Stop":[{"matcher":null,"hooks":[{"type":"command","command":"entire hooks codex stop","timeout":30},{"type":"command","command":"custom stop hook","timeout":3}]}],"UserPromptSubmit":[{"matcher":null,"hooks":[{"type":"command","command":"entire hooks codex user-prompt-submit","timeout":30}]}]}}`
 	if err := os.WriteFile(hooksPath, []byte(existing), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -308,8 +355,13 @@ func TestGetAgentHooksReplacesStaleManagedCodexHooks(t *testing.T) {
 	}
 	for _, spec := range codexManagedHooks {
 		entries := config.Hooks[spec.Event]
-		if count := countCodexHookCommand(entries, spec.Command); count != 1 {
+		if count := countCodexHookCommand(entries, spec.command()); count != 1 {
 			t.Fatalf("%s command count = %d, want 1 in %#v", spec.Event, count, entries)
+		}
+	}
+	for _, event := range codexStaleManagedEvents {
+		if entries := config.Hooks[event]; len(entries) != 0 {
+			t.Fatalf("stale %s entries were preserved: %#v", event, entries)
 		}
 	}
 	if countCodexHookCommand(config.Hooks["Stop"], "custom stop hook") != 1 {
@@ -357,8 +409,9 @@ func TestUninstallHooksRemovesCodexHooks(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, spec := range codexManagedHooks {
-		if got := countCodexHookCommand(config.Hooks[spec.Event], spec.Command); got != 0 {
-			t.Fatalf("%s command %q count = %d after uninstall, want 0", spec.Event, spec.Command, got)
+		command := spec.command()
+		if got := countCodexHookCommand(config.Hooks[spec.Event], command); got != 0 {
+			t.Fatalf("%s command %q count = %d after uninstall, want 0", spec.Event, command, got)
 		}
 	}
 	if countCodexHookCommand(config.Hooks["Stop"], "custom stop hook") != 1 {
@@ -398,6 +451,7 @@ func TestGetRestoreCommandReadsAgentSessionID(t *testing.T) {
 		"--ask-for-approval", "on-request",
 		"-c", `approvals_reviewer="auto_review"`,
 		"--no-alt-screen",
+		"--dangerously-bypass-hook-trust",
 		"thread-123",
 	}
 	if !reflect.DeepEqual(cmd, want) {
@@ -433,6 +487,41 @@ func TestGetRestoreCommandFalseWithoutAgentSessionID(t *testing.T) {
 				t.Fatalf("cmd = %#v, want nil", cmd)
 			}
 		})
+	}
+}
+
+func TestGetForkCommandReadsAgentSessionID(t *testing.T) {
+	plugin := &Plugin{resolvedBinary: "codex"}
+
+	cmd, ok, err := plugin.GetForkCommand(context.Background(), agent.ForkConfig{
+		Permissions:   agent.PermissionModeBypassPermissions,
+		Prompt:        "Start implementation.",
+		SystemPrompt:  "Use the forked worktree.",
+		WorkspacePath: "/tmp/worktree",
+		Session: agent.SessionRef{
+			Metadata: map[string]string{codexAgentSessionIDMetadataKey: "thread-123"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("err = %v, want nil", err)
+	}
+	if !ok {
+		t.Fatal("ok = false, want true")
+	}
+	want := []string{
+		"codex",
+		"fork",
+		"-c", "check_for_update_on_startup=false",
+		"--dangerously-bypass-approvals-and-sandbox",
+		"--no-alt-screen",
+		"--dangerously-bypass-hook-trust",
+		"-c", "developer_instructions=Use the forked worktree.",
+		"-C", "/tmp/worktree",
+		"thread-123",
+		"Start implementation.",
+	}
+	if !reflect.DeepEqual(cmd, want) {
+		t.Fatalf("fork cmd\nwant: %#v\n got: %#v", want, cmd)
 	}
 }
 

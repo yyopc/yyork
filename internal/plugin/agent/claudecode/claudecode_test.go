@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/yyopc/yyork/internal/plugin/agent"
+	"github.com/yyopc/yyork/internal/plugin/agent/hookexec"
 )
 
 func TestGetLaunchCommandBypassWithPrompt(t *testing.T) {
@@ -255,8 +256,9 @@ func TestGetAgentHooksInstallsClaudeHooks(t *testing.T) {
 
 	// Every managed command is installed exactly once under its event.
 	for _, spec := range claudeManagedHooks {
-		if got := countClaudeHookCommand(config.Hooks[spec.Event], spec.Command); got != 1 {
-			t.Fatalf("%s command %q count = %d, want 1", spec.Event, spec.Command, got)
+		command := spec.command()
+		if got := countClaudeHookCommand(config.Hooks[spec.Event], command); got != 1 {
+			t.Fatalf("%s command %q count = %d, want 1", spec.Event, command, got)
 		}
 	}
 	// Existing user hook preserved.
@@ -273,6 +275,46 @@ func TestGetAgentHooksInstallsClaudeHooks(t *testing.T) {
 	}
 	if m := matcherForCommand(config.Hooks["UserPromptSubmit"], claudeHookCommand("user-prompt-submit")); m != nil {
 		t.Fatalf("UserPromptSubmit matcher = %v, want none", m)
+	}
+}
+
+func TestGetAgentHooksResolvesClaudeHookCommandAtInstallTime(t *testing.T) {
+	p := &Plugin{resolvedBinary: "claude"}
+	workspace := t.TempDir()
+	cfg := agent.WorkspaceHookConfig{DataDir: t.TempDir(), SessionID: "sess-1", WorkspacePath: workspace}
+
+	t.Setenv(hookexec.CommandEnv, "first-yyork")
+	if err := p.GetAgentHooks(context.Background(), cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv(hookexec.CommandEnv, "second-yyork")
+	if err := p.GetAgentHooks(context.Background(), cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(workspace, ".claude", "settings.local.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "first-yyork hooks claude-code") {
+		t.Fatalf("install preserved stale hook command: %s", data)
+	}
+
+	var config struct {
+		Hooks map[string][]claudeMatcherGroup `json:"hooks"`
+	}
+	if err := json.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	for _, spec := range claudeManagedHooks {
+		command := spec.command()
+		if !strings.HasPrefix(command, "second-yyork hooks claude-code ") {
+			t.Fatalf("resolved command = %q, want second resolver", command)
+		}
+		if got := countClaudeHookCommand(config.Hooks[spec.Event], command); got != 1 {
+			t.Fatalf("%s command %q count = %d, want 1", spec.Event, command, got)
+		}
 	}
 }
 
@@ -309,8 +351,9 @@ func TestGetAgentHooksReplacesStaleManagedClaudeHooks(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, spec := range claudeManagedHooks {
-		if got := countClaudeHookCommand(config.Hooks[spec.Event], spec.Command); got != 1 {
-			t.Fatalf("%s command %q count = %d, want 1", spec.Event, spec.Command, got)
+		command := spec.command()
+		if got := countClaudeHookCommand(config.Hooks[spec.Event], command); got != 1 {
+			t.Fatalf("%s command %q count = %d, want 1", spec.Event, command, got)
 		}
 	}
 	if countClaudeHookCommand(config.Hooks["Stop"], "my own stop hook") != 1 {
@@ -366,8 +409,9 @@ func TestUninstallHooksRemovesClaudeHooks(t *testing.T) {
 	// No managed command survives; the SessionStart/UserPromptSubmit events,
 	// which held only yyork hooks, are removed entirely.
 	for _, spec := range claudeManagedHooks {
-		if got := countClaudeHookCommand(config.Hooks[spec.Event], spec.Command); got != 0 {
-			t.Fatalf("%s command %q count = %d after uninstall, want 0", spec.Event, spec.Command, got)
+		command := spec.command()
+		if got := countClaudeHookCommand(config.Hooks[spec.Event], command); got != 0 {
+			t.Fatalf("%s command %q count = %d after uninstall, want 0", spec.Event, command, got)
 		}
 	}
 	// The user's own Stop hook and unrelated settings are preserved.
@@ -473,6 +517,46 @@ func TestGetRestoreCommandFalseWithoutSessionID(t *testing.T) {
 				t.Fatalf("restore = (%#v, %v, %v), want (nil,false,nil)", cmd, ok, err)
 			}
 		})
+	}
+}
+
+func TestGetForkCommandReadsAgentSessionID(t *testing.T) {
+	cmd, ok, err := (&Plugin{resolvedBinary: "claude"}).GetForkCommand(context.Background(), agent.ForkConfig{
+		Permissions:  agent.PermissionModeBypassPermissions,
+		Prompt:       "Start implementation.",
+		SystemPrompt: "Use the forked worktree.",
+		Session: agent.SessionRef{
+			ID:       "sess-r",
+			Metadata: map[string]string{claudeAgentSessionIDMetadataKey: "claude-native-1"},
+		},
+	})
+	if err != nil || !ok {
+		t.Fatalf("fork = (ok=%v, err=%v), want ok", ok, err)
+	}
+	want := []string{
+		"claude",
+		"--permission-mode", "bypassPermissions",
+		"--append-system-prompt", "Use the forked worktree.",
+		"--resume", "claude-native-1",
+		"--fork-session",
+		"--", "Start implementation.",
+	}
+	if !reflect.DeepEqual(cmd, want) {
+		t.Fatalf("fork cmd\nwant: %#v\n got: %#v", want, cmd)
+	}
+}
+
+func TestGetForkCommandFallsBackToDerivedUUID(t *testing.T) {
+	cmd, ok, err := (&Plugin{resolvedBinary: "claude"}).GetForkCommand(context.Background(), agent.ForkConfig{
+		Permissions: agent.PermissionModeBypassPermissions,
+		Session:     agent.SessionRef{ID: "sess-r"},
+	})
+	if err != nil || !ok {
+		t.Fatalf("fork = (ok=%v, err=%v), want ok", ok, err)
+	}
+	want := []string{"claude", "--permission-mode", "bypassPermissions", "--resume", claudeSessionUUID("sess-r"), "--fork-session"}
+	if !reflect.DeepEqual(cmd, want) {
+		t.Fatalf("fork cmd\nwant: %#v\n got: %#v", want, cmd)
 	}
 }
 

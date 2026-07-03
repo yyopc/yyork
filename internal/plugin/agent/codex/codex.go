@@ -22,6 +22,7 @@ import (
 const (
 	codexAgentSessionIDMetadataKey = "agentSessionId"
 	codexNoAltScreenFlag           = "--no-alt-screen"
+	codexBypassHookTrustFlag       = "--dangerously-bypass-hook-trust"
 )
 
 type Plugin struct {
@@ -35,6 +36,7 @@ func New() *Plugin {
 
 var _ plugin.Plugin = (*Plugin)(nil)
 var _ agent.Agent = (*Plugin)(nil)
+var _ agent.Forker = (*Plugin)(nil)
 
 func (p *Plugin) Manifest() plugin.Manifest {
 	return plugin.Manifest{
@@ -64,6 +66,7 @@ func (p *Plugin) GetLaunchCommand(ctx context.Context, cfg agent.LaunchConfig) (
 	cmd = []string{binary}
 	appendNoUpdateCheckFlag(&cmd)
 	cmd = append(cmd, codexNoAltScreenFlag)
+	cmd = append(cmd, codexBypassHookTrustFlag)
 	appendApprovalFlags(&cmd, cfg.Permissions)
 
 	if cfg.SystemPromptFile != "" {
@@ -138,7 +141,45 @@ func (p *Plugin) GetRestoreCommand(ctx context.Context, cfg agent.RestoreConfig)
 	appendNoUpdateCheckFlag(&cmd)
 	appendApprovalFlags(&cmd, cfg.Permissions)
 	cmd = append(cmd, codexNoAltScreenFlag)
+	cmd = append(cmd, codexBypassHookTrustFlag)
 	cmd = append(cmd, agentSessionID)
+	return cmd, true, nil
+}
+
+// GetForkCommand rebuilds argv for a native Codex conversation fork in a
+// yyork-created worktree: `codex fork -C <worktree> <agentSessionId>`.
+func (p *Plugin) GetForkCommand(ctx context.Context, cfg agent.ForkConfig) (cmd []string, ok bool, err error) {
+	if err := ctx.Err(); err != nil {
+		return nil, false, err
+	}
+	agentSessionID := strings.TrimSpace(cfg.Session.Metadata[codexAgentSessionIDMetadataKey])
+	if agentSessionID == "" {
+		return nil, false, nil
+	}
+	workspacePath := strings.TrimSpace(cfg.WorkspacePath)
+	if workspacePath == "" {
+		return nil, false, nil
+	}
+
+	binary, err := p.codexBinary(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+
+	cmd = []string{binary, "fork"}
+	appendNoUpdateCheckFlag(&cmd)
+	appendApprovalFlags(&cmd, cfg.Permissions)
+	cmd = append(cmd, codexNoAltScreenFlag)
+	cmd = append(cmd, codexBypassHookTrustFlag)
+	if cfg.SystemPromptFile != "" {
+		cmd = append(cmd, "-c", "model_instructions_file="+cfg.SystemPromptFile)
+	} else if cfg.SystemPrompt != "" {
+		cmd = append(cmd, "-c", "developer_instructions="+cfg.SystemPrompt)
+	}
+	cmd = append(cmd, "-C", workspacePath, agentSessionID)
+	if prompt := strings.TrimSpace(cfg.Prompt); prompt != "" {
+		cmd = append(cmd, prompt)
+	}
 	return cmd, true, nil
 }
 

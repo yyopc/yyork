@@ -136,6 +136,44 @@ func TestRunCodexHookPersistsKanbanActivityMetadata(t *testing.T) {
 	}
 }
 
+func TestRunCodexHookAcceptsToolCallEventAliases(t *testing.T) {
+	ctx := context.Background()
+	sessionID := "ao-session-tool-call-alias"
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("YYORK_SESSION_ID", sessionID)
+	insertHookTestSession(t, ctx, sessionID)
+
+	runHook := func(event string, payload string) {
+		t.Helper()
+		var stdout, stderr bytes.Buffer
+		code := runCodexHook(ctx, event, strings.NewReader(payload), &stdout, &stderr)
+		if code != 0 {
+			t.Fatalf("%s exit = %d, stderr: %s", event, code, stderr.String())
+		}
+		if stdout.String() != "{}\n" {
+			t.Fatalf("%s stdout = %q, want hook response", event, stdout.String())
+		}
+		if stderr.Len() != 0 {
+			t.Fatalf("%s stderr = %s", event, stderr.String())
+		}
+	}
+
+	runHook("pre-tool-call", `{"hook_event_name":"PreToolCall","tool_name":"Bash","tool_input":{"command":"echo yyork-hook-smoke"}}`)
+	row := readHookTestSession(t, ctx, sessionID)
+	if got := row.Metadata[hookMetadataCurrentTool]; got != "Running shell command: echo yyork-hook-smoke" {
+		t.Fatalf("pre-tool-call currentToolCall = %#v", got)
+	}
+
+	runHook("post-tool-call", `{"hook_event_name":"PostToolCall","tool_name":"Bash","tool_input":{"command":"echo yyork-hook-smoke"}}`)
+	row = readHookTestSession(t, ctx, sessionID)
+	if got := row.Metadata[hookMetadataCurrentTool]; got != "" {
+		t.Fatalf("post-tool-call currentToolCall = %#v, want cleared", got)
+	}
+	if got := metadataStrings(row.Metadata[hookMetadataToolBulletins]); len(got) != 2 || got[0] != "Finished shell command: echo yyork-hook-smoke" {
+		t.Fatalf("toolCallBulletins after post-tool-call = %#v", got)
+	}
+}
+
 func TestRunCodexToolHooksTolerateNonObjectToolInput(t *testing.T) {
 	ctx := context.Background()
 	sessionID := "ao-session-raw-tool-input"
@@ -351,6 +389,115 @@ func TestYyorkHooksCommandPersistsDashboardMetadataForAgents(t *testing.T) {
 			t.Fatalf("%s prompt metadata = %#v, want preserved launch prompt", tc.sessionID, metadata["prompt"])
 		}
 	}
+}
+
+func TestRunHooksInstallCreatesCodexHooks(t *testing.T) {
+	dir := t.TempDir()
+	hooksPath := filepath.Join(dir, ".codex", "hooks.json")
+	if err := os.MkdirAll(filepath.Dir(hooksPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	existing := `{"hooks":{"Stop":[{"matcher":null,"hooks":[{"type":"command","command":"my own stop hook","timeout":3}]}]}}`
+	if err := os.WriteFile(hooksPath, []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(dir)
+
+	var stdout, stderr bytes.Buffer
+	if code := runHooks(context.Background(), []string{"codex", "install"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit = %d, stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Installed yyork codex hooks") {
+		t.Fatalf("stdout = %q, want install message", stdout.String())
+	}
+
+	// A second install must replace managed entries without duplicating them.
+	stdout.Reset()
+	stderr.Reset()
+	if code := runHooks(context.Background(), []string{"codex", "install"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("second install exit = %d, stderr: %s", code, stderr.String())
+	}
+
+	data, err := os.ReadFile(hooksPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config testCodexHookFile
+	if err := json.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	for _, event := range []string{"SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PermissionRequest", "Stop"} {
+		if got := countHookCommands(config.Hooks[event], " hooks codex "); got != 1 {
+			t.Fatalf("%s yyork hook count = %d, want 1 in %#v", event, got, config.Hooks[event])
+		}
+	}
+	if got := countHookCommands(config.Hooks["Stop"], "my own stop hook"); got != 1 {
+		t.Fatalf("user Stop hook count = %d, want 1 in %#v", got, config.Hooks["Stop"])
+	}
+
+	configData, err := os.ReadFile(filepath.Join(dir, ".codex", "config.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(configData), "hooks = true") {
+		t.Fatalf("config.toml missing hooks feature flag: %s", configData)
+	}
+}
+
+func TestRunHooksInstallCreatesClaudeHooks(t *testing.T) {
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, ".claude", "settings.local.json")
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	existing := `{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"my own stop hook"}]}]}}`
+	if err := os.WriteFile(settingsPath, []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(dir)
+
+	var stdout, stderr bytes.Buffer
+	if code := runHooks(context.Background(), []string{"claude-code", "install"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit = %d, stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Installed yyork claude-code hooks") {
+		t.Fatalf("stdout = %q, want install message", stdout.String())
+	}
+
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Count(string(data), " hooks claude-code "); got != 6 {
+		t.Fatalf("yyork Claude hook count = %d, want 6 in %s", got, data)
+	}
+	if !strings.Contains(string(data), "my own stop hook") {
+		t.Fatalf("user hook not preserved: %s", data)
+	}
+}
+
+type testCodexHookFile struct {
+	Hooks map[string][]testCodexHookGroup `json:"hooks"`
+}
+
+type testCodexHookGroup struct {
+	Hooks []testCodexHookEntry `json:"hooks"`
+}
+
+type testCodexHookEntry struct {
+	Command string `json:"command"`
+}
+
+func countHookCommands(groups []testCodexHookGroup, needle string) int {
+	count := 0
+	for _, group := range groups {
+		for _, hook := range group.Hooks {
+			if strings.Contains(hook.Command, needle) {
+				count++
+			}
+		}
+	}
+	return count
 }
 
 func TestRunHooksUninstallRemovesClaudeHooks(t *testing.T) {

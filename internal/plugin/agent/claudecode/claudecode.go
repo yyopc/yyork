@@ -60,6 +60,7 @@ func New() *Plugin {
 
 var _ plugin.Plugin = (*Plugin)(nil)
 var _ agent.Agent = (*Plugin)(nil)
+var _ agent.Forker = (*Plugin)(nil)
 
 func (p *Plugin) Manifest() plugin.Manifest {
 	return plugin.Manifest{
@@ -218,6 +219,45 @@ func (p *Plugin) GetRestoreCommand(ctx context.Context, cfg agent.RestoreConfig)
 	return cmd, true, nil
 }
 
+// GetForkCommand rebuilds argv for a native Claude Code conversation fork.
+// yyork creates and owns the target worktree, then launches this command with
+// the process cwd set to that worktree.
+func (p *Plugin) GetForkCommand(ctx context.Context, cfg agent.ForkConfig) (cmd []string, ok bool, err error) {
+	if err := ctx.Err(); err != nil {
+		return nil, false, err
+	}
+
+	sessionID := strings.TrimSpace(cfg.Session.Metadata[claudeAgentSessionIDMetadataKey])
+	if sessionID == "" && cfg.Session.ID != "" {
+		sessionID = claudeSessionUUID(cfg.Session.ID)
+	}
+	if sessionID == "" {
+		return nil, false, nil
+	}
+
+	binary, err := p.claudeBinary(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+
+	cmd = []string{binary}
+	appendPermissionFlags(&cmd, cfg.Permissions)
+
+	systemPrompt, err := resolveForkSystemPrompt(cfg)
+	if err != nil {
+		return nil, false, err
+	}
+	if systemPrompt != "" {
+		cmd = append(cmd, "--append-system-prompt", systemPrompt)
+	}
+
+	cmd = append(cmd, "--resume", sessionID, "--fork-session")
+	if prompt := strings.TrimSpace(cfg.Prompt); prompt != "" {
+		cmd = append(cmd, "--", prompt)
+	}
+	return cmd, true, nil
+}
+
 // claudeSessionUUID maps a yyork session id onto a stable Claude Code
 // session UUID via UUIDv5 over a fixed namespace, so the same yyork session
 // always resolves to the same Claude session.
@@ -228,6 +268,17 @@ func claudeSessionUUID(yyorkSessionID string) string {
 // resolveSystemPrompt returns the system prompt text to append, preferring
 // SystemPromptFile (read from disk) over an inline SystemPrompt.
 func resolveSystemPrompt(cfg agent.LaunchConfig) (string, error) {
+	if cfg.SystemPromptFile != "" {
+		data, err := os.ReadFile(cfg.SystemPromptFile)
+		if err != nil {
+			return "", fmt.Errorf("claude-code: read system prompt file: %w", err)
+		}
+		return strings.TrimRight(string(data), "\n"), nil
+	}
+	return cfg.SystemPrompt, nil
+}
+
+func resolveForkSystemPrompt(cfg agent.ForkConfig) (string, error) {
 	if cfg.SystemPromptFile != "" {
 		data, err := os.ReadFile(cfg.SystemPromptFile)
 		if err != nil {

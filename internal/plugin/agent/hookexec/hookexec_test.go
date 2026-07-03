@@ -2,6 +2,7 @@ package hookexec
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -56,7 +57,7 @@ func TestGoRunCommandChdirsIntoRoot(t *testing.T) {
 	}
 }
 
-func TestExecutableSourceFallbackIgnoresDirenvOnPath(t *testing.T) {
+func TestExecutableSourceFallbackIgnoresDirenvOnPathWhenYyorkMissing(t *testing.T) {
 	root, ok := SourceRoot()
 	if !ok {
 		t.Fatal("SourceRoot did not find yyork checkout")
@@ -95,10 +96,6 @@ func TestExecutableSourceFallbackIgnoresDirenvOnPath(t *testing.T) {
 func TestExecutableSkipsGoRunBuildCacheBinary(t *testing.T) {
 	cache := t.TempDir()
 	t.Setenv("GOCACHE", cache)
-	root, ok := SourceRoot()
-	if !ok {
-		t.Fatal("SourceRoot did not find yyork checkout")
-	}
 
 	oldExecutable := currentExecutable
 	oldLookPath := lookPath
@@ -124,9 +121,71 @@ func TestExecutableSkipsGoRunBuildCacheBinary(t *testing.T) {
 	if strings.Contains(got, cache) {
 		t.Fatalf("Executable() persisted Go build-cache binary: %q", got)
 	}
-	if strings.Contains(got, "/usr/local/bin/yyork") {
-		t.Fatalf("Executable() should prefer source fallback over PATH when running from go build cache: %q", got)
+	want := `PATH='/usr/local/bin':"$PATH" yyork`
+	if got != want {
+		t.Fatalf("Executable() = %q, want PATH-scoped yyork after skipping Go build-cache binary", got)
 	}
+}
+
+func TestExecutableSkipsGoRunTempExecutable(t *testing.T) {
+	t.Setenv("GOCACHE", t.TempDir())
+	root, ok := SourceRoot()
+	if !ok {
+		t.Fatal("SourceRoot did not find yyork checkout")
+	}
+
+	oldExecutable := currentExecutable
+	oldLookPath := lookPath
+	t.Cleanup(func() {
+		currentExecutable = oldExecutable
+		lookPath = oldLookPath
+	})
+	currentExecutable = func() (string, error) {
+		return "/var/folders/example/T/go-build123456/b001/exe/yyork", nil
+	}
+	lookPath = func(name string) (string, error) {
+		switch name {
+		case "go":
+			return "/usr/bin/go", nil
+		default:
+			return "", os.ErrNotExist
+		}
+	}
+
+	got := Executable()
+	want := "cd " + shellQuote(root) + " && '/usr/bin/go' run ."
+	if got != want {
+		t.Fatalf("Executable() = %q, want source fallback instead of go run temp executable", got)
+	}
+}
+
+func TestExecutableUsesSourceFallbackWhenNoYyorkOnPath(t *testing.T) {
+	cache := t.TempDir()
+	t.Setenv("GOCACHE", cache)
+	root, ok := SourceRoot()
+	if !ok {
+		t.Fatal("SourceRoot did not find yyork checkout")
+	}
+
+	oldExecutable := currentExecutable
+	oldLookPath := lookPath
+	t.Cleanup(func() {
+		currentExecutable = oldExecutable
+		lookPath = oldLookPath
+	})
+	currentExecutable = func() (string, error) {
+		return filepath.Join(cache, "2d", "hash-d", "yyork"), nil
+	}
+	lookPath = func(name string) (string, error) {
+		switch name {
+		case "go":
+			return "/usr/bin/go", nil
+		default:
+			return "", os.ErrNotExist
+		}
+	}
+
+	got := Executable()
 	wantPrefix := "cd " + shellQuote(root) + " && "
 	if !strings.HasPrefix(got, wantPrefix) {
 		t.Fatalf("Executable() = %q, want source checkout fallback prefix %q", got, wantPrefix)
@@ -136,19 +195,189 @@ func TestExecutableSkipsGoRunBuildCacheBinary(t *testing.T) {
 	}
 }
 
+func TestExecutableUsesSourceLocalYyorkOnPath(t *testing.T) {
+	t.Setenv("GOCACHE", t.TempDir())
+	root, ok := SourceRoot()
+	if !ok {
+		t.Fatal("SourceRoot did not find yyork checkout")
+	}
+
+	oldExecutable := currentExecutable
+	oldLookPath := lookPath
+	t.Cleanup(func() {
+		currentExecutable = oldExecutable
+		lookPath = oldLookPath
+	})
+	currentExecutable = func() (string, error) {
+		return "/tmp/not-yyork", nil
+	}
+	lookPath = func(name string) (string, error) {
+		switch name {
+		case "go":
+			return "/usr/bin/go", nil
+		case "yyork":
+			return filepath.Join(root, ".go", "bin", "yyork"), nil
+		default:
+			return "", os.ErrNotExist
+		}
+	}
+
+	got := Executable()
+	want := "yyork"
+	if got != want {
+		t.Fatalf("Executable() = %q, want source-local .go/bin/yyork as plain yyork", got)
+	}
+}
+
+func TestExecutableUsesFlakeGoBinYyorkOnPath(t *testing.T) {
+	t.Setenv("GOCACHE", t.TempDir())
+	root, ok := SourceRoot()
+	if !ok {
+		t.Fatal("SourceRoot did not find yyork checkout")
+	}
+
+	oldExecutable := currentExecutable
+	oldLookPath := lookPath
+	t.Cleanup(func() {
+		currentExecutable = oldExecutable
+		lookPath = oldLookPath
+	})
+	currentExecutable = func() (string, error) {
+		return "/tmp/not-yyork", nil
+	}
+	lookPath = func(name string) (string, error) {
+		switch name {
+		case "go":
+			return "/usr/bin/go", nil
+		case "yyork":
+			return filepath.Join(root, "go-bin", "yyork"), nil
+		default:
+			return "", os.ErrNotExist
+		}
+	}
+
+	got := Executable()
+	want := "yyork"
+	if got != want {
+		t.Fatalf("Executable() = %q, want flake go-bin/yyork as plain yyork", got)
+	}
+}
+
+func TestExecutableUsesSourceLocalYyorkWhenInstallingFromAnotherWorkspace(t *testing.T) {
+	t.Setenv("GOCACHE", t.TempDir())
+	root, ok := SourceRoot()
+	if !ok {
+		t.Fatal("SourceRoot did not find yyork checkout")
+	}
+	t.Chdir(t.TempDir())
+
+	oldExecutable := currentExecutable
+	oldLookPath := lookPath
+	t.Cleanup(func() {
+		currentExecutable = oldExecutable
+		lookPath = oldLookPath
+	})
+	currentExecutable = func() (string, error) {
+		return "/tmp/not-yyork", nil
+	}
+	lookPath = func(name string) (string, error) {
+		if name == "yyork" {
+			return filepath.Join(root, "go-bin", "yyork"), nil
+		}
+		return "", os.ErrNotExist
+	}
+
+	got := Executable()
+	want := "yyork"
+	if got != want {
+		t.Fatalf("Executable() = %q, want source-local yyork as plain yyork outside source cwd", got)
+	}
+}
+
 func TestExecutableUsesStableYyorkBinary(t *testing.T) {
 	t.Setenv("GOCACHE", t.TempDir())
 
 	oldExecutable := currentExecutable
+	oldLookPath := lookPath
 	t.Cleanup(func() {
 		currentExecutable = oldExecutable
+		lookPath = oldLookPath
 	})
 	currentExecutable = func() (string, error) {
 		return "/opt/yyork/bin/yyork", nil
 	}
+	lookPath = func(string) (string, error) {
+		return "", os.ErrNotExist
+	}
 
 	if got := Executable(); got != "'/opt/yyork/bin/yyork'" {
 		t.Fatalf("Executable() = %q, want stable yyork binary", got)
+	}
+}
+
+func TestExecutableScopesYyorkPathWhenOnPath(t *testing.T) {
+	t.Setenv("GOCACHE", t.TempDir())
+
+	oldExecutable := currentExecutable
+	oldLookPath := lookPath
+	t.Cleanup(func() {
+		currentExecutable = oldExecutable
+		lookPath = oldLookPath
+	})
+	currentExecutable = func() (string, error) {
+		return "/opt/yyork/bin/yyork", nil
+	}
+	lookPath = func(name string) (string, error) {
+		if name == "yyork" {
+			return "/usr/local/bin/yyork", nil
+		}
+		return "", os.ErrNotExist
+	}
+
+	want := `PATH='/usr/local/bin':"$PATH" yyork`
+	if got := Executable(); got != want {
+		t.Fatalf("Executable() = %q, want PATH-scoped yyork", got)
+	}
+}
+
+func TestExecutablePathScopedYyorkSurvivesShellPathReset(t *testing.T) {
+	shell, err := exec.LookPath("zsh")
+	if err != nil {
+		shell, err = exec.LookPath("sh")
+		if err != nil {
+			t.Skip("no shell available")
+		}
+	}
+
+	binDir := t.TempDir()
+	fakeYyork := filepath.Join(binDir, "yyork")
+	if err := os.WriteFile(fakeYyork, []byte("#!/bin/sh\necho fake-yyork \"$@\"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	oldExecutable := currentExecutable
+	oldLookPath := lookPath
+	t.Cleanup(func() {
+		currentExecutable = oldExecutable
+		lookPath = oldLookPath
+	})
+	currentExecutable = func() (string, error) {
+		return "/tmp/not-yyork", nil
+	}
+	lookPath = func(name string) (string, error) {
+		if name == "yyork" {
+			return fakeYyork, nil
+		}
+		return "", os.ErrNotExist
+	}
+
+	command := "PATH=/usr/bin:/bin; " + Executable() + " hooks codex pre-tool-use"
+	out, err := exec.Command(shell, "-c", command).CombinedOutput()
+	if err != nil {
+		t.Fatalf("run %s -c %q: %v\n%s", shell, command, err, out)
+	}
+	if got, want := strings.TrimSpace(string(out)), "fake-yyork hooks codex pre-tool-use"; got != want {
+		t.Fatalf("shell output = %q, want %q", got, want)
 	}
 }
 

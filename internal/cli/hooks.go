@@ -51,10 +51,13 @@ var runHookRecapCommand = runMetadataCommand
 
 func runHooks(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer) int {
 	if len(args) != 2 {
-		fmt.Fprintln(stderr, "hooks: expected `yyork hooks <codex|claude-code> <session-start|user-prompt-submit|pre-tool-use|post-tool-use|permission-request|stop|uninstall>`")
+		fmt.Fprintln(stderr, "hooks: expected `yyork hooks <codex|claude-code> <session-start|user-prompt-submit|pre-tool-use|pre-tool-call|post-tool-use|post-tool-call|permission-request|stop|install|uninstall>`")
 		return 1
 	}
 	agentName, sub := args[0], args[1]
+	if sub == "install" {
+		return runInstallHooks(ctx, agentName, stdout, stderr)
+	}
 	if sub == "uninstall" {
 		return runUninstallHooks(ctx, agentName, stdout, stderr)
 	}
@@ -73,20 +76,40 @@ func runHooks(ctx context.Context, args []string, stdout io.Writer, stderr io.Wr
 // is defined at the consumer (mirroring the engine's preLauncher capability)
 // rather than on the frozen agent.Agent interface.
 type hookManager interface {
+	GetAgentHooks(ctx context.Context, cfg agent.WorkspaceHookConfig) error
 	UninstallHooks(ctx context.Context, workspacePath string) error
 	AreHooksInstalled(ctx context.Context, workspacePath string) (bool, error)
+}
+
+// runInstallHooks installs the selected agent's yyork hooks into the current
+// working directory's workspace-local hook config.
+func runInstallHooks(ctx context.Context, agentName string, stdout io.Writer, stderr io.Writer) int {
+	manager, ok := hooksManager(agentName)
+	if !ok {
+		fmt.Fprintf(stderr, "hooks: unknown agent %q (want codex|claude-code)\n", agentName)
+		return 1
+	}
+
+	workspace, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(stderr, "hooks %s install: resolve workspace: %v\n", agentName, err)
+		return 1
+	}
+
+	if err := manager.GetAgentHooks(ctx, agent.WorkspaceHookConfig{WorkspacePath: workspace}); err != nil {
+		fmt.Fprintf(stderr, "hooks %s install: %v\n", agentName, err)
+		return 1
+	}
+
+	fmt.Fprintf(stdout, "Installed yyork %s hooks in %s\n", agentName, workspace)
+	return 0
 }
 
 // runUninstallHooks removes the selected agent's yyork hooks from the
 // current working directory's workspace-local hook config.
 func runUninstallHooks(ctx context.Context, agentName string, stdout io.Writer, stderr io.Writer) int {
-	var manager hookManager
-	switch agentName {
-	case "codex":
-		manager = codex.New()
-	case "claude-code":
-		manager = claudecode.New()
-	default:
+	manager, ok := hooksManager(agentName)
+	if !ok {
 		fmt.Fprintf(stderr, "hooks: unknown agent %q (want codex|claude-code)\n", agentName)
 		return 1
 	}
@@ -113,6 +136,17 @@ func runUninstallHooks(ctx context.Context, agentName string, stdout io.Writer, 
 		fmt.Fprintf(stdout, "No yyork %s hooks found in %s\n", agentName, workspace)
 	}
 	return 0
+}
+
+func hooksManager(agentName string) (hookManager, bool) {
+	switch agentName {
+	case "codex":
+		return codex.New(), true
+	case "claude-code":
+		return claudecode.New(), true
+	default:
+		return nil, false
+	}
 }
 
 func runCodexHook(ctx context.Context, event string, stdin io.Reader, stdout io.Writer, stderr io.Writer) int {
@@ -234,7 +268,7 @@ func hookFields(ctx context.Context, repo store.SessionRepo, agentName, aoSessio
 	}
 
 	fields := hookActivityFields(hookStateWorking)
-	switch event {
+	switch normalizedHookEvent(event) {
 	case "session-start":
 		if sessionID := strings.TrimSpace(payload.SessionID); sessionID != "" {
 			fields[hookMetadataAgentSessionID] = sessionID
@@ -275,6 +309,17 @@ func hookFields(ctx context.Context, repo store.SessionRepo, agentName, aoSessio
 		return nil, fmt.Errorf("unknown hook event %q", event)
 	}
 	return fields, nil
+}
+
+func normalizedHookEvent(event string) string {
+	switch event {
+	case "pre-tool-call":
+		return "pre-tool-use"
+	case "post-tool-call":
+		return "post-tool-use"
+	default:
+		return event
+	}
 }
 
 func hookActivityFields(state string) map[string]any {

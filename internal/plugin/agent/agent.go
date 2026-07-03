@@ -36,6 +36,14 @@ type Agent interface {
 	GetRestoreCommand(ctx context.Context, cfg RestoreConfig) (cmd []string, ok bool, err error)
 }
 
+// Forker is the optional capability for agents that can fork an existing
+// native conversation into a new native session. yyork still owns the
+// filesystem worktree and durability session; the agent owns only the native
+// conversation fork.
+type Forker interface {
+	GetForkCommand(ctx context.Context, cfg ForkConfig) (cmd []string, ok bool, err error)
+}
+
 // Config contains values loaded from the selected agent's section in
 // ~/.yyork/config.yaml. Agent plugins own validation for their custom keys.
 type Config = config.AgentConfig
@@ -110,6 +118,17 @@ type RestoreConfig struct {
 	Config      Config
 	Permissions PermissionMode
 	Session     SessionRef
+}
+
+// ForkConfig carries inputs needed to fork an existing native agent session.
+type ForkConfig struct {
+	Config           Config
+	Permissions      PermissionMode
+	Prompt           string
+	Session          SessionRef
+	SystemPrompt     string
+	SystemPromptFile string
+	WorkspacePath    string
 }
 
 // SessionRef identifies a yyork session whose native runtime may be restored.

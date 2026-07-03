@@ -49,9 +49,9 @@ type codexHookEntry struct {
 // codexHookSpec describes one hook yyork installs, defined in code rather
 // than read from an embedded hooks file.
 type codexHookSpec struct {
-	Event   string
-	Matcher *string
-	Command string
+	Event     string
+	Matcher   *string
+	HookEvent string
 }
 
 // codexManagedHooks is the source of truth for the hooks yyork installs.
@@ -59,13 +59,15 @@ type codexHookSpec struct {
 var codexToolMatcher = ""
 
 var codexManagedHooks = []codexHookSpec{
-	{Event: "SessionStart", Command: codexHookCommand("session-start")},
-	{Event: "UserPromptSubmit", Command: codexHookCommand("user-prompt-submit")},
-	{Event: "PreToolUse", Matcher: &codexToolMatcher, Command: codexHookCommand("pre-tool-use")},
-	{Event: "PostToolUse", Matcher: &codexToolMatcher, Command: codexHookCommand("post-tool-use")},
-	{Event: "PermissionRequest", Matcher: &codexToolMatcher, Command: codexHookCommand("permission-request")},
-	{Event: "Stop", Command: codexHookCommand("stop")},
+	{Event: "SessionStart", HookEvent: "session-start"},
+	{Event: "UserPromptSubmit", HookEvent: "user-prompt-submit"},
+	{Event: "PreToolUse", Matcher: &codexToolMatcher, HookEvent: "pre-tool-use"},
+	{Event: "PostToolUse", Matcher: &codexToolMatcher, HookEvent: "post-tool-use"},
+	{Event: "PermissionRequest", Matcher: &codexToolMatcher, HookEvent: "permission-request"},
+	{Event: "Stop", HookEvent: "stop"},
 }
+
+var codexStaleManagedEvents = []string{"PreToolCall", "PostToolCall"}
 
 // GetAgentHooks installs yyork's Codex hooks into the worktree-local
 // .codex/hooks.json file. Existing hook entries are preserved and duplicate
@@ -91,9 +93,19 @@ func (p *Plugin) GetAgentHooks(ctx context.Context, cfg agent.WorkspaceHookConfi
 		}
 		existingGroups = removeCodexManagedHooks(existingGroups)
 		for _, spec := range specs {
-			entry := codexHookEntry{Type: "command", Command: spec.Command, Timeout: codexHookTimeout}
+			entry := codexHookEntry{Type: "command", Command: spec.command(), Timeout: codexHookTimeout}
 			existingGroups = addCodexHook(existingGroups, entry, spec.Matcher)
 		}
+		if err := marshalCodexHookType(rawHooks, event, existingGroups); err != nil {
+			return fmt.Errorf("codex.GetAgentHooks: %w", err)
+		}
+	}
+	for _, event := range codexStaleManagedEvents {
+		var existingGroups []codexMatcherGroup
+		if err := parseCodexHookType(rawHooks, event, &existingGroups); err != nil {
+			return fmt.Errorf("codex.GetAgentHooks: %w", err)
+		}
+		existingGroups = removeCodexManagedHooks(existingGroups)
 		if err := marshalCodexHookType(rawHooks, event, existingGroups); err != nil {
 			return fmt.Errorf("codex.GetAgentHooks: %w", err)
 		}
@@ -130,7 +142,7 @@ func (p *Plugin) UninstallHooks(ctx context.Context, workspacePath string) error
 		return fmt.Errorf("codex.UninstallHooks: %w", err)
 	}
 
-	for _, event := range codexManagedEvents() {
+	for _, event := range codexManagedRemovalEvents() {
 		var groups []codexMatcherGroup
 		if err := parseCodexHookType(rawHooks, event, &groups); err != nil {
 			return fmt.Errorf("codex.UninstallHooks: %w", err)
@@ -166,7 +178,7 @@ func (p *Plugin) AreHooksInstalled(ctx context.Context, workspacePath string) (b
 		return false, fmt.Errorf("codex.AreHooksInstalled: %w", err)
 	}
 
-	for _, event := range codexManagedEvents() {
+	for _, event := range codexManagedRemovalEvents() {
 		var groups []codexMatcherGroup
 		if err := parseCodexHookType(rawHooks, event, &groups); err != nil {
 			return false, fmt.Errorf("codex.AreHooksInstalled: %w", err)
@@ -251,6 +263,10 @@ func groupCodexHooksByEvent() map[string][]codexHookSpec {
 	return byEvent
 }
 
+func (spec codexHookSpec) command() string {
+	return codexHookCommand(spec.HookEvent)
+}
+
 // codexManagedEvents returns the distinct Codex events yyork manages, in the
 // order they first appear in codexManagedHooks.
 func codexManagedEvents() []string {
@@ -260,6 +276,22 @@ func codexManagedEvents() []string {
 		if !seen[spec.Event] {
 			seen[spec.Event] = true
 			events = append(events, spec.Event)
+		}
+	}
+	return events
+}
+
+func codexManagedRemovalEvents() []string {
+	seen := map[string]bool{}
+	events := make([]string, 0, len(codexManagedHooks)+len(codexStaleManagedEvents))
+	for _, event := range codexManagedEvents() {
+		seen[event] = true
+		events = append(events, event)
+	}
+	for _, event := range codexStaleManagedEvents {
+		if !seen[event] {
+			seen[event] = true
+			events = append(events, event)
 		}
 	}
 	return events

@@ -43,9 +43,9 @@ type claudeHookEntry struct {
 // claudeHookSpec describes one hook yyork installs, defined in code rather
 // than read from an embedded settings file.
 type claudeHookSpec struct {
-	Event   string
-	Matcher *string
-	Command string
+	Event     string
+	Matcher   *string
+	HookEvent string
 }
 
 // claudeStartupMatcher is referenced by pointer so SessionStart serializes with
@@ -58,12 +58,12 @@ var claudeToolMatcher = ""
 // and tool/permission events. Each reports normalized session metadata back
 // into yyork's store.
 var claudeManagedHooks = []claudeHookSpec{
-	{Event: "SessionStart", Matcher: &claudeStartupMatcher, Command: claudeHookCommand("session-start")},
-	{Event: "UserPromptSubmit", Command: claudeHookCommand("user-prompt-submit")},
-	{Event: "PreToolUse", Matcher: &claudeToolMatcher, Command: claudeHookCommand("pre-tool-use")},
-	{Event: "PostToolUse", Matcher: &claudeToolMatcher, Command: claudeHookCommand("post-tool-use")},
-	{Event: "PermissionRequest", Matcher: &claudeToolMatcher, Command: claudeHookCommand("permission-request")},
-	{Event: "Stop", Command: claudeHookCommand("stop")},
+	{Event: "SessionStart", Matcher: &claudeStartupMatcher, HookEvent: "session-start"},
+	{Event: "UserPromptSubmit", HookEvent: "user-prompt-submit"},
+	{Event: "PreToolUse", Matcher: &claudeToolMatcher, HookEvent: "pre-tool-use"},
+	{Event: "PostToolUse", Matcher: &claudeToolMatcher, HookEvent: "post-tool-use"},
+	{Event: "PermissionRequest", Matcher: &claudeToolMatcher, HookEvent: "permission-request"},
+	{Event: "Stop", HookEvent: "stop"},
 }
 
 // GetAgentHooks installs yyork's Claude Code hooks into the worktree-local
@@ -93,8 +93,9 @@ func (p *Plugin) GetAgentHooks(ctx context.Context, cfg agent.WorkspaceHookConfi
 		}
 		existingGroups = removeClaudeManagedHooks(existingGroups)
 		for _, spec := range specs {
-			if !claudeHookCommandExists(existingGroups, spec.Command) {
-				entry := claudeHookEntry{Type: "command", Command: spec.Command, Timeout: claudeHookTimeout}
+			command := spec.command()
+			if !claudeHookCommandExists(existingGroups, command) {
+				entry := claudeHookEntry{Type: "command", Command: command, Timeout: claudeHookTimeout}
 				existingGroups = addClaudeHook(existingGroups, entry, spec.Matcher)
 			}
 		}
@@ -248,6 +249,10 @@ func groupClaudeHooksByEvent() map[string][]claudeHookSpec {
 		byEvent[spec.Event] = append(byEvent[spec.Event], spec)
 	}
 	return byEvent
+}
+
+func (spec claudeHookSpec) command() string {
+	return claudeHookCommand(spec.HookEvent)
 }
 
 // claudeManagedEvents returns the distinct Claude events yyork manages, in
