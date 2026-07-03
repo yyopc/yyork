@@ -1,0 +1,440 @@
+{
+  "target": "https://yyork.localhost",
+  "startedAt": "2026-06-25T11:21:14.195Z",
+  "registrations": [
+    {
+      "status": 200,
+      "url": "https://yyork.localhost/api/browser-preview/targets",
+      "body": {
+        "previewUrl": "https://yyork-preview.yyork.localhost/",
+        "targetUrl": "https://yyork.localhost/"
+      }
+    },
+    {
+      "status": 200,
+      "url": "https://yyork.localhost/api/browser-preview/targets",
+      "body": {
+        "previewUrl": "https://yyork-preview.yyork.localhost/terminal/vzka9e#after-fix-live",
+        "targetUrl": "https://yyork.localhost/terminal/vzka9e#after-fix-live"
+      }
+    },
+    {
+      "status": 200,
+      "url": "https://yyork.localhost/api/browser-preview/targets",
+      "body": {
+        "previewUrl": "https://yyork-preview.yyork.localhost/terminal/vzka9e#after-fix-live",
+        "targetUrl": "https://yyork.localhost/terminal/vzka9e#after-fix-live"
+      }
+    },
+    {
+      "status": 200,
+      "url": "https://yyork.localhost/api/browser-preview/targets",
+      "body": {
+        "previewUrl": "https://yyork-preview.yyork.localhost/terminal/vzka9e#after-fix-live",
+        "targetUrl": "https://yyork.localhost/terminal/vzka9e#after-fix-live"
+      }
+    },
+    {
+      "status": 200,
+      "url": "https://yyork.localhost/api/browser-preview/targets",
+      "body": {
+        "previewUrl": "https://yyork-preview.yyork.localhost/terminal/vzka9e#after-fix-live",
+        "targetUrl": "https://yyork.localhost/terminal/vzka9e#after-fix-live"
+      }
+    }
+  ],
+  "failedRequests": [
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/api/events",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/api/events",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/api/events",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/api/events",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork.localhost/api/events",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "consoleMessages": [
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "location": {
+        "url": "https://yyork.localhost/@vite/client",
+        "lineNumber": 732,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "location": {
+        "url": "https://yyork.localhost/@vite/client",
+        "lineNumber": 826,
+        "columnNumber": 11
+      }
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "location": {
+        "url": "https://yyork.localhost/node_modules/.vite/deps/react-dom_client.js?v=9735eab1",
+        "lineNumber": 21865,
+        "columnNumber": 53
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x11c001a7400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "location": {
+        "url": "https://yyork.localhost/terminal/vzka9e",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x11c001a7400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "location": {
+        "url": "https://yyork.localhost/terminal/vzka9e",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x11c001a7400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "location": {
+        "url": "https://yyork.localhost/terminal/vzka9e",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x11c001a7400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)",
+      "location": {
+        "url": "https://yyork.localhost/terminal/vzka9e",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 732,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 826,
+        "columnNumber": 11
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 732,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 826,
+        "columnNumber": 11
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 732,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 826,
+        "columnNumber": 11
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 732,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 826,
+        "columnNumber": 11
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "location": {
+        "url": "https://yyork.localhost/@vite/client",
+        "lineNumber": 732,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "location": {
+        "url": "https://yyork.localhost/@vite/client",
+        "lineNumber": 826,
+        "columnNumber": 11
+      }
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "location": {
+        "url": "https://yyork.localhost/node_modules/.vite/deps/react-dom_client.js?v=9735eab1",
+        "lineNumber": 21865,
+        "columnNumber": 53
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 732,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 826,
+        "columnNumber": 11
+      }
+    }
+  ],
+  "annotationRequests": [
+    {
+      "method": "POST",
+      "url": "https://yyork.localhost/api/annotations/vzka9e?project=p_qvdwcieaqaw6v5l4r73obhrlkm",
+      "postData": {
+        "annotations": [
+          {
+            "comment": "after fix intercepted send",
+            "element": "main",
+            "elementPath": "body > main",
+            "id": "after-fix-ann-send",
+            "url": "https://yyork-preview.yyork.localhost/terminal/vzka9e#after-fix-live"
+          }
+        ]
+      }
+    }
+  ],
+  "checks": {
+    "selfPreview": {
+      "screenshot": "output/playwright/16-after-fix-self-preview-live.png",
+      "iframe": {
+        "src": "https://yyork-preview.yyork.localhost/",
+        "sandbox": "allow-downloads allow-forms allow-modals allow-pointer-lock allow-popups allow-same-origin allow-scripts"
+      },
+      "frameUrl": "https://yyork-preview.yyork.localhost/terminal/vzka9e",
+      "bodyTextStart": "yyork\nalpha\nwork locally\nFiles\nReview\nBrowser\nOpen IDE\nOpen file\n\nSelect a file from the workspace tree.\n\nCommand Palette\n\nSearch for a command to run...\n\nv3.0.2\n\nOutput Detail\nStandard\nReact Components\nHide Until Restart\nMarker Color\nClear on copy/send\nBlock page interactions\nManage MCP & Webhooks\nManage MCP & Webhooks\nMCP Connection\n\nMCP connection allows agents to receive and act on annotations. Learn more\n\nWebhooks\nAuto-Send\n\nThe webhook URL will receive live annotation changes and annotation data.",
+      "messages": {
+        "yyork:preview-ready": 1,
+        "yyork:location-changed": 3,
+        "yyork:agentation-ready": 1
+      }
+    },
+    "bridgeEvents": {
+      "newMessages": [
+        {
+          "source": "yyork-preview-bridge",
+          "version": 1,
+          "type": "yyork:dom-event",
+          "timestamp": "2026-06-25T11:21:29.382Z",
+          "url": "https://yyork.localhost/terminal/vzka9e",
+          "eventType": "focusin",
+          "selector": "#yyork-live-preview-probe",
+          "value": "",
+          "x": 8,
+          "y": 793,
+          "element": "input"
+        },
+        {
+          "source": "yyork-preview-bridge",
+          "version": 1,
+          "type": "yyork:dom-event",
+          "timestamp": "2026-06-25T11:21:29.383Z",
+          "url": "https://yyork.localhost/terminal/vzka9e",
+          "eventType": "input",
+          "selector": "#yyork-live-preview-probe",
+          "value": "bridge input",
+          "x": 8,
+          "y": 793,
+          "element": "input"
+        },
+        {
+          "source": "yyork-preview-bridge",
+          "version": 1,
+          "type": "yyork:location-changed",
+          "timestamp": "2026-06-25T11:21:29.385Z",
+          "url": "https://yyork.localhost/terminal/vzka9e#after-fix-live"
+        }
+      ],
+      "addressAfterHash": "https://yyork.localhost/terminal/vzka9e#after-fix-live"
+    },
+    "afterDomScreenshot": "output/playwright/17-after-fix-dom-events.png",
+    "storageBeforeHardReload": {
+      "localStorage": "1",
+      "sessionStorage": "1",
+      "cookie": "yyork_live_cookie=1",
+      "cacheKeys": ["yyork-live-cache-check"]
+    },
+    "hardReload": {
+      "before": 1,
+      "after": 2,
+      "delta": 1,
+      "storageMessages": [
+        {
+          "source": "yyork-preview-bridge",
+          "version": 1,
+          "type": "yyork:storage-cleared",
+          "timestamp": "2026-06-25T11:21:29.711Z",
+          "url": "https://yyork.localhost/terminal/vzka9e#after-fix-live",
+          "scope": "all"
+        }
+      ],
+      "afterStorage": {
+        "localStorage": null,
+        "sessionStorage": null,
+        "cookie": "",
+        "cacheHasProbe": false
+      },
+      "toastCount": 0
+    },
+    "clearCookies": {
+      "before": 2,
+      "after": 3,
+      "delta": 1,
+      "storageMessages": [
+        {
+          "source": "yyork-preview-bridge",
+          "version": 1,
+          "type": "yyork:storage-cleared",
+          "timestamp": "2026-06-25T11:21:30.976Z",
+          "url": "https://yyork.localhost/terminal/vzka9e#after-fix-live",
+          "scope": "cookies"
+        }
+      ],
+      "afterStorage": {
+        "localStorage": "1",
+        "sessionStorage": "1",
+        "cookie": "",
+        "cacheHasProbe": true
+      }
+    },
+    "clearCache": {
+      "before": 3,
+      "after": 4,
+      "delta": 1,
+      "storageMessages": [
+        {
+          "source": "yyork-preview-bridge",
+          "version": 1,
+          "type": "yyork:storage-cleared",
+          "timestamp": "2026-06-25T11:21:32.313Z",
+          "url": "https://yyork.localhost/terminal/vzka9e#after-fix-live",
+          "scope": "cache"
+        }
+      ],
+      "afterStorage": {
+        "localStorage": null,
+        "sessionStorage": null,
+        "cookie": "yyork_live_cookie=1",
+        "cacheHasProbe": false
+      }
+    },
+    "afterStorageScreenshot": "output/playwright/18-after-fix-storage-controls.png",
+    "annotationScreenshot": "output/playwright/19-after-fix-annotation-staged.png",
+    "annotationFlow": {
+      "intercepted": true,
+      "requestShape": "https://yyork.localhost/api/annotations/{sessionID}?project={projectID}"
+    },
+    "persistenceReload": {
+      "selectedBrowserTabs": 1,
+      "addressAfterReload": "https://yyork.localhost/terminal/vzka9e#after-fix-live",
+      "iframeCount": 1,
+      "prefsBeforeReload": "{\"sidebarOpen\":false,\"canvasOpen\":true,\"canvasPreviewUrls\":{\"session:p_qvdwcieaqaw6v5l4r73obhrlkm:vzka9e\":\"https://yyork.localhost/terminal/vzka9e#after-fix-live\"},\"canvasTab\":\"browser\",\"version\":1}",
+      "prefsAfterReload": "{\"sidebarOpen\":false,\"canvasOpen\":true,\"canvasPreviewUrls\":{\"session:p_qvdwcieaqaw6v5l4r73obhrlkm:vzka9e\":\"https://yyork.localhost/terminal/vzka9e#after-fix-live\"},\"canvasTab\":\"browser\",\"version\":1}"
+    },
+    "persistenceScreenshot": "output/playwright/20-after-fix-persistence.png",
+    "finalMessages": {
+      "yyork:preview-ready": 1,
+      "yyork:location-changed": 2,
+      "yyork:agentation-ready": 1
+    },
+    "finalConsoleErrors": [],
+    "failedPreviewRequests": [
+      {
+        "method": "GET",
+        "url": "https://yyork-preview.yyork.localhost/api/events",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "method": "GET",
+        "url": "https://yyork-preview.yyork.localhost/api/events",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "method": "GET",
+        "url": "https://yyork-preview.yyork.localhost/api/events",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "method": "GET",
+        "url": "https://yyork-preview.yyork.localhost/api/events",
+        "failure": "net::ERR_ABORTED"
+      }
+    ]
+  },
+  "finishedAt": "2026-06-25T11:21:46.130Z"
+}

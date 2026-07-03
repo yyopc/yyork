@@ -1,0 +1,334 @@
+{
+  "console": [
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "location": {
+        "url": "https://yyork.localhost/@vite/client",
+        "lineNumber": 732,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "location": {
+        "url": "https://yyork.localhost/@vite/client",
+        "lineNumber": 826,
+        "columnNumber": 11
+      }
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "location": {
+        "url": "https://yyork.localhost/node_modules/.vite/deps/react-dom_client.js?v=9735eab1",
+        "lineNumber": 21865,
+        "columnNumber": 53
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x11c001a5000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "location": {
+        "url": "https://yyork.localhost/terminal/vzka9e",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x11c001a5000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "location": {
+        "url": "https://yyork.localhost/terminal/vzka9e",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x11c001a5000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "location": {
+        "url": "https://yyork.localhost/terminal/vzka9e",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x11c001a5000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)",
+      "location": {
+        "url": "https://yyork.localhost/terminal/vzka9e",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@vite/client' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@react-refresh' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/src/main.tsx' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 732,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 826,
+        "columnNumber": 11
+      }
+    }
+  ],
+  "failed": [
+    {
+      "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "url": "https://yyork-preview.yyork.localhost/@vite/client",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+      "failure": "net::ERR_FAILED"
+    }
+  ],
+  "messages": [
+    {
+      "data": {
+        "source": "yyork-preview-agentation",
+        "version": 1,
+        "type": "yyork:agentation-ready",
+        "timestamp": "2026-06-25T00:13:59.232Z",
+        "url": "https://yyork.localhost/"
+      },
+      "origin": "null",
+      "at": "2026-06-25T00:13:59.233Z"
+    },
+    {
+      "data": {
+        "source": "yyork-preview-bridge",
+        "version": 1,
+        "type": "yyork:preview-ready",
+        "timestamp": "2026-06-25T00:14:00.889Z",
+        "url": "https://yyork.localhost/"
+      },
+      "origin": "https://yyork-preview.yyork.localhost",
+      "at": "2026-06-25T00:14:00.907Z"
+    },
+    {
+      "data": {
+        "source": "yyork-preview-bridge",
+        "version": 1,
+        "type": "yyork:location-changed",
+        "timestamp": "2026-06-25T00:14:00.890Z",
+        "url": "https://yyork.localhost/"
+      },
+      "origin": "https://yyork-preview.yyork.localhost",
+      "at": "2026-06-25T00:14:00.907Z"
+    },
+    {
+      "data": {
+        "source": "yyork-preview-agentation",
+        "version": 1,
+        "type": "yyork:agentation-ready",
+        "timestamp": "2026-06-25T00:14:00.890Z",
+        "url": "https://yyork.localhost/"
+      },
+      "origin": "https://yyork-preview.yyork.localhost",
+      "at": "2026-06-25T00:14:00.907Z"
+    },
+    {
+      "data": {
+        "source": "yyork-preview-bridge",
+        "version": 1,
+        "type": "yyork:location-changed",
+        "timestamp": "2026-06-25T00:14:00.892Z",
+        "url": "https://yyork.localhost/"
+      },
+      "origin": "https://yyork-preview.yyork.localhost",
+      "at": "2026-06-25T00:14:00.914Z"
+    },
+    {
+      "data": {
+        "source": "yyork-preview-bridge",
+        "version": 1,
+        "type": "yyork:location-changed",
+        "timestamp": "2026-06-25T00:14:01.074Z",
+        "url": "https://yyork.localhost/terminal/vzka9e"
+      },
+      "origin": "https://yyork-preview.yyork.localhost",
+      "at": "2026-06-25T00:14:01.085Z"
+    }
+  ],
+  "beforePatch": {
+    "messages": [
+      {
+        "data": {
+          "source": "yyork-preview-agentation",
+          "version": 1,
+          "type": "yyork:agentation-ready",
+          "timestamp": "2026-06-25T00:13:59.232Z",
+          "url": "https://yyork.localhost/"
+        },
+        "origin": "null",
+        "at": "2026-06-25T00:13:59.233Z"
+      }
+    ],
+    "bodyText": "",
+    "sandbox": "allow-downloads allow-forms allow-modals allow-pointer-lock allow-popups allow-scripts"
+  },
+  "afterPatch": {
+    "messages": [
+      {
+        "data": {
+          "source": "yyork-preview-agentation",
+          "version": 1,
+          "type": "yyork:agentation-ready",
+          "timestamp": "2026-06-25T00:13:59.232Z",
+          "url": "https://yyork.localhost/"
+        },
+        "origin": "null",
+        "at": "2026-06-25T00:13:59.233Z"
+      },
+      {
+        "data": {
+          "source": "yyork-preview-bridge",
+          "version": 1,
+          "type": "yyork:preview-ready",
+          "timestamp": "2026-06-25T00:14:00.889Z",
+          "url": "https://yyork.localhost/"
+        },
+        "origin": "https://yyork-preview.yyork.localhost",
+        "at": "2026-06-25T00:14:00.907Z"
+      },
+      {
+        "data": {
+          "source": "yyork-preview-bridge",
+          "version": 1,
+          "type": "yyork:location-changed",
+          "timestamp": "2026-06-25T00:14:00.890Z",
+          "url": "https://yyork.localhost/"
+        },
+        "origin": "https://yyork-preview.yyork.localhost",
+        "at": "2026-06-25T00:14:00.907Z"
+      },
+      {
+        "data": {
+          "source": "yyork-preview-agentation",
+          "version": 1,
+          "type": "yyork:agentation-ready",
+          "timestamp": "2026-06-25T00:14:00.890Z",
+          "url": "https://yyork.localhost/"
+        },
+        "origin": "https://yyork-preview.yyork.localhost",
+        "at": "2026-06-25T00:14:00.907Z"
+      },
+      {
+        "data": {
+          "source": "yyork-preview-bridge",
+          "version": 1,
+          "type": "yyork:location-changed",
+          "timestamp": "2026-06-25T00:14:00.892Z",
+          "url": "https://yyork.localhost/"
+        },
+        "origin": "https://yyork-preview.yyork.localhost",
+        "at": "2026-06-25T00:14:00.914Z"
+      },
+      {
+        "data": {
+          "source": "yyork-preview-bridge",
+          "version": 1,
+          "type": "yyork:location-changed",
+          "timestamp": "2026-06-25T00:14:01.074Z",
+          "url": "https://yyork.localhost/terminal/vzka9e"
+        },
+        "origin": "https://yyork-preview.yyork.localhost",
+        "at": "2026-06-25T00:14:01.085Z"
+      }
+    ],
+    "bodyText": "yyork\nalpha\nwork locally\nFiles\nReview\nBrowser\nOpen IDE\nOpen file\n\nSelect a file from the workspace tree.\n\nCommand Palette\n\nSearch for a command to run...\n\nv3.0.2\n\nOutput Detail\nStandard\nReact Components\nHide Until Restart\nMarker Color\nClear on copy/send\nBlock page interactions\nManage MCP & Webhooks\nManage MCP & Webhooks\nMCP Connection\n\nMCP connection allows agents to receive and act on annotations. Learn more\n\nWebhooks\nAuto-Send\n\nThe webhook URL will receive live annotation changes and annotation data.",
+    "sandbox": "allow-downloads allow-forms allow-modals allow-pointer-lock allow-popups allow-scripts allow-same-origin",
+    "frameUrl": "https://yyork-preview.yyork.localhost/terminal/vzka9e",
+    "title": "yyork"
+  }
+}

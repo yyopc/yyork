@@ -1,0 +1,190 @@
+{
+  "state": {
+    "messages": [
+      {
+        "data": {
+          "source": "yyork-preview-agentation",
+          "version": 1,
+          "type": "yyork:agentation-ready",
+          "timestamp": "2026-06-25T00:11:12.892Z",
+          "url": "https://yyork.localhost/"
+        },
+        "origin": "null",
+        "at": "2026-06-25T00:11:12.893Z"
+      }
+    ],
+    "iframe": [
+      {
+        "src": "https://yyork-preview.yyork.localhost/",
+        "title": "Browser preview",
+        "sandbox": "allow-downloads allow-forms allow-modals allow-pointer-lock allow-popups allow-scripts"
+      }
+    ],
+    "bodyText": "Toggle Sidebar\nPinned\nNo pinned sessions\nProjects\nyyork\nOrchestrator\nWorking\n1\nTest yyork Browser Preview\nnow\nPrompt\n1\nDebug Codex Hook Failures\n15m\nShortcuts\nToggle sidebar\n⌘\n+\nB\nToggle canvas\n⌘\n+\n⇧\n+\nB\nView shortcuts\n⇧\n+\n/\nSettings\nyyork\nalpha\nwork locally\nFiles\nReview\nBrowser\nOpen IDE\nCommand Palette\n\nSearch for a command to run..."
+  },
+  "frameSummaries": [
+    {
+      "url": "https://yyork.localhost/terminal/vzka9e",
+      "name": ""
+    },
+    {
+      "url": "https://yyork-preview.yyork.localhost/",
+      "name": ""
+    }
+  ],
+  "console": [
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "location": {
+        "url": "https://yyork.localhost/@vite/client",
+        "lineNumber": 732,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "location": {
+        "url": "https://yyork.localhost/@vite/client",
+        "lineNumber": 826,
+        "columnNumber": 11
+      }
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "location": {
+        "url": "https://yyork.localhost/node_modules/.vite/deps/react-dom_client.js?v=9735eab1",
+        "lineNumber": 21865,
+        "columnNumber": 53
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x10c001a5000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "location": {
+        "url": "https://yyork.localhost/terminal/vzka9e",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x10c001a5000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "location": {
+        "url": "https://yyork.localhost/terminal/vzka9e",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x10c001a5000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "location": {
+        "url": "https://yyork.localhost/terminal/vzka9e",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x10c001a5000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)",
+      "location": {
+        "url": "https://yyork.localhost/terminal/vzka9e",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@vite/client' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@react-refresh' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/src/main.tsx' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    }
+  ],
+  "failed": [
+    {
+      "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "url": "https://yyork-preview.yyork.localhost/@vite/client",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+      "failure": "net::ERR_FAILED"
+    }
+  ]
+}

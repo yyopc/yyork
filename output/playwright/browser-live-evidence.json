@@ -1,0 +1,1297 @@
+{
+  "startedAt": "2026-06-25T00:12:26.204Z",
+  "target": "https://yyork.localhost",
+  "steps": [
+    {
+      "name": "Browser tab reachable",
+      "at": "2026-06-25T00:12:39.187Z"
+    },
+    {
+      "name": "Loaded self-preview iframe",
+      "at": "2026-06-25T00:12:42.455Z",
+      "src": "https://yyork-preview.yyork.localhost/",
+      "sandbox": "allow-downloads allow-forms allow-modals allow-pointer-lock allow-popups allow-scripts"
+    },
+    {
+      "name": "Normal reload clicked",
+      "at": "2026-06-25T00:12:43.018Z",
+      "before": 1,
+      "after": 2,
+      "delta": 1
+    },
+    {
+      "name": "Storage controls clicked",
+      "at": "2026-06-25T00:12:51.167Z",
+      "hardReload": {
+        "before": 2,
+        "after": 3,
+        "delta": 1,
+        "toast": [
+          "Preview storage was not cleared: The preview did not confirm storage clearing."
+        ]
+      },
+      "clearCookies": {
+        "before": 3,
+        "after": 4,
+        "delta": 1,
+        "toast": [
+          "Preview storage was not cleared: The preview did not confirm storage clearing.",
+          "Preview storage was not cleared: The preview did not confirm storage clearing."
+        ]
+      },
+      "clearCache": {
+        "before": 4,
+        "after": 5,
+        "delta": 1,
+        "toast": [
+          "Preview storage was not cleared: The preview did not confirm storage clearing.",
+          "Preview storage was not cleared: The preview did not confirm storage clearing."
+        ]
+      }
+    },
+    {
+      "name": "History controls clicked",
+      "at": "2026-06-25T00:12:53.934Z",
+      "valueAfterMock": "https://mock.yyork.localhost/",
+      "valueAfterBack": "https://yyork.localhost/",
+      "valueAfterForward": "https://mock.yyork.localhost/",
+      "back": {
+        "before": 6,
+        "after": 7,
+        "delta": 1
+      },
+      "forward": {
+        "before": 7,
+        "after": 8,
+        "delta": 1
+      }
+    },
+    {
+      "name": "External URL rejected",
+      "at": "2026-06-25T00:12:53.975Z",
+      "toastVisible": true,
+      "addressAfterReject": "https://mock.yyork.localhost/",
+      "registrationDelta": 0
+    },
+    {
+      "name": "Open external clicked",
+      "at": "2026-06-25T00:12:54.271Z",
+      "popupUrl": "https://yyork-preview.yyork.localhost/"
+    },
+    {
+      "name": "Annotation flow checked",
+      "at": "2026-06-25T00:12:58.450Z",
+      "staged": true,
+      "removeWorked": true,
+      "sendIntercepted": true,
+      "interceptedRequest": {
+        "method": "POST",
+        "url": "https://yyork.localhost/api/annotations/vzka9e?project=p_qvdwcieaqaw6v5l4r73obhrlkm",
+        "postData": {
+          "annotations": [
+            {
+              "comment": "intercepted send check",
+              "element": "main",
+              "elementPath": "body > main",
+              "id": "live-annotation-send-check",
+              "url": "https://yyork-preview.yyork.localhost/"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Reload persistence checked",
+      "at": "2026-06-25T00:13:10.682Z",
+      "selectedBrowserTabs": 1,
+      "addressAfterReload": "https://mock.yyork.localhost/",
+      "iframeCount": 1,
+      "prefsBeforeReload": "{\"sidebarOpen\":false,\"canvasOpen\":true,\"canvasPreviewUrls\":{\"session:p_qvdwcieaqaw6v5l4r73obhrlkm:vzka9e\":\"https://mock.yyork.localhost/\"},\"canvasTab\":\"browser\",\"version\":1}",
+      "prefsAfterReload": "{\"sidebarOpen\":false,\"canvasOpen\":true,\"canvasPreviewUrls\":{\"session:p_qvdwcieaqaw6v5l4r73obhrlkm:vzka9e\":\"https://mock.yyork.localhost/\"},\"canvasTab\":\"browser\",\"version\":1}"
+    },
+    {
+      "name": "Close/reopen persistence checked",
+      "at": "2026-06-25T00:13:11.256Z",
+      "selectedBrowserTabs": 1,
+      "addressAfterReopen": "https://mock.yyork.localhost/",
+      "iframeCount": 1
+    }
+  ],
+  "checks": {
+    "selfPreviewScreenshot": "output/playwright/09-self-preview-blank-cors.png",
+    "selfPreview": {
+      "iframe": {
+        "src": "https://yyork-preview.yyork.localhost/",
+        "sandbox": "allow-downloads allow-forms allow-modals allow-pointer-lock allow-popups allow-scripts"
+      },
+      "frameUrl": "https://yyork-preview.yyork.localhost/",
+      "messages": [
+        {
+          "data": {
+            "source": "yyork-preview-agentation",
+            "version": 1,
+            "type": "yyork:agentation-ready",
+            "timestamp": "2026-06-25T00:12:39.442Z",
+            "url": "https://yyork.localhost/"
+          },
+          "origin": "null",
+          "at": "2026-06-25T00:12:39.490Z"
+        }
+      ],
+      "frameInfo": {
+        "title": "yyork",
+        "bodyText": "",
+        "hasPreviewConfig": true,
+        "hasAgentationRoot": true,
+        "scripts": [
+          "https://yyork-preview.yyork.localhost/@vite/client",
+          "https://yyork-preview.yyork.localhost/src/main.tsx",
+          "__yyork-preview-config",
+          "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+          "https://yyork-preview.yyork.localhost/__yyork_browser/agentation.js"
+        ]
+      }
+    },
+    "normalReload": {
+      "before": 1,
+      "after": 2,
+      "delta": 1
+    },
+    "hardReload": {
+      "before": 2,
+      "after": 3,
+      "delta": 1,
+      "toast": [
+        "Preview storage was not cleared: The preview did not confirm storage clearing."
+      ]
+    },
+    "clearCookies": {
+      "before": 3,
+      "after": 4,
+      "delta": 1,
+      "toast": [
+        "Preview storage was not cleared: The preview did not confirm storage clearing.",
+        "Preview storage was not cleared: The preview did not confirm storage clearing."
+      ]
+    },
+    "clearCache": {
+      "before": 4,
+      "after": 5,
+      "delta": 1,
+      "toast": [
+        "Preview storage was not cleared: The preview did not confirm storage clearing.",
+        "Preview storage was not cleared: The preview did not confirm storage clearing."
+      ]
+    },
+    "afterStorageScreenshot": "output/playwright/10-after-storage-failures.png",
+    "navigateMock": {
+      "before": 5,
+      "after": 6,
+      "delta": 1
+    },
+    "historyBack": {
+      "before": 6,
+      "after": 7,
+      "delta": 1
+    },
+    "historyForward": {
+      "before": 7,
+      "after": 8,
+      "delta": 1
+    },
+    "historyToolbar": {
+      "valueAfterMock": "https://mock.yyork.localhost/",
+      "valueAfterBack": "https://yyork.localhost/",
+      "valueAfterForward": "https://mock.yyork.localhost/",
+      "back": {
+        "before": 6,
+        "after": 7,
+        "delta": 1
+      },
+      "forward": {
+        "before": 7,
+        "after": 8,
+        "delta": 1
+      }
+    },
+    "externalReject": {
+      "toastVisible": true,
+      "addressAfterReject": "https://mock.yyork.localhost/",
+      "registrationDelta": 0
+    },
+    "openExternal": {
+      "popupUrl": "https://yyork-preview.yyork.localhost/"
+    },
+    "annotationStagedScreenshot": "output/playwright/11-annotation-staged-synthetic.png",
+    "annotationFlow": {
+      "staged": true,
+      "removeWorked": true,
+      "sendIntercepted": true,
+      "interceptedRequest": {
+        "method": "POST",
+        "url": "https://yyork.localhost/api/annotations/vzka9e?project=p_qvdwcieaqaw6v5l4r73obhrlkm",
+        "postData": {
+          "annotations": [
+            {
+              "comment": "intercepted send check",
+              "element": "main",
+              "elementPath": "body > main",
+              "id": "live-annotation-send-check",
+              "url": "https://yyork-preview.yyork.localhost/"
+            }
+          ]
+        }
+      }
+    },
+    "persistenceReload": {
+      "selectedBrowserTabs": 1,
+      "addressAfterReload": "https://mock.yyork.localhost/",
+      "iframeCount": 1,
+      "prefsBeforeReload": "{\"sidebarOpen\":false,\"canvasOpen\":true,\"canvasPreviewUrls\":{\"session:p_qvdwcieaqaw6v5l4r73obhrlkm:vzka9e\":\"https://mock.yyork.localhost/\"},\"canvasTab\":\"browser\",\"version\":1}",
+      "prefsAfterReload": "{\"sidebarOpen\":false,\"canvasOpen\":true,\"canvasPreviewUrls\":{\"session:p_qvdwcieaqaw6v5l4r73obhrlkm:vzka9e\":\"https://mock.yyork.localhost/\"},\"canvasTab\":\"browser\",\"version\":1}"
+    },
+    "persistenceReloadScreenshot": "output/playwright/12-after-reload-persistence.png",
+    "persistenceCloseReopen": {
+      "selectedBrowserTabs": 1,
+      "addressAfterReopen": "https://mock.yyork.localhost/",
+      "iframeCount": 1
+    },
+    "persistenceCloseReopenScreenshot": "output/playwright/13-after-canvas-reopen-persistence.png",
+    "finalMessages": [
+      {
+        "data": {
+          "source": "yyork-preview-agentation",
+          "version": 1,
+          "type": "yyork:agentation-ready",
+          "timestamp": "2026-06-25T00:12:59.329Z",
+          "url": "https://mock.yyork.localhost/"
+        },
+        "origin": "null",
+        "at": "2026-06-25T00:12:59.366Z"
+      }
+    ],
+    "finalMessageCounts": {
+      "yyork:agentation-ready": 1
+    },
+    "finalScreenshot": "output/playwright/14-final-browser-state.png"
+  },
+  "registrations": [
+    {
+      "status": 200,
+      "url": "https://yyork.localhost/api/browser-preview/targets",
+      "body": {
+        "previewUrl": "https://yyork-preview.yyork.localhost/",
+        "targetUrl": "https://yyork.localhost/"
+      }
+    },
+    {
+      "status": 200,
+      "url": "https://yyork.localhost/api/browser-preview/targets",
+      "body": {
+        "previewUrl": "https://yyork-preview.yyork.localhost/",
+        "targetUrl": "https://yyork.localhost/"
+      }
+    },
+    {
+      "status": 200,
+      "url": "https://yyork.localhost/api/browser-preview/targets",
+      "body": {
+        "previewUrl": "https://yyork-preview.yyork.localhost/",
+        "targetUrl": "https://yyork.localhost/"
+      }
+    },
+    {
+      "status": 200,
+      "url": "https://yyork.localhost/api/browser-preview/targets",
+      "body": {
+        "previewUrl": "https://yyork-preview.yyork.localhost/",
+        "targetUrl": "https://yyork.localhost/"
+      }
+    },
+    {
+      "status": 200,
+      "url": "https://yyork.localhost/api/browser-preview/targets",
+      "body": {
+        "previewUrl": "https://yyork-preview.yyork.localhost/",
+        "targetUrl": "https://yyork.localhost/"
+      }
+    },
+    {
+      "status": 200,
+      "url": "https://yyork.localhost/api/browser-preview/targets",
+      "body": {
+        "previewUrl": "https://yyork-preview.yyork.localhost/",
+        "targetUrl": "https://mock.yyork.localhost/"
+      }
+    },
+    {
+      "status": 200,
+      "url": "https://yyork.localhost/api/browser-preview/targets",
+      "body": {
+        "previewUrl": "https://yyork-preview.yyork.localhost/",
+        "targetUrl": "https://yyork.localhost/"
+      }
+    },
+    {
+      "status": 200,
+      "url": "https://yyork.localhost/api/browser-preview/targets",
+      "body": {
+        "previewUrl": "https://yyork-preview.yyork.localhost/",
+        "targetUrl": "https://mock.yyork.localhost/"
+      }
+    },
+    {
+      "status": 200,
+      "url": "https://yyork.localhost/api/browser-preview/targets",
+      "body": {
+        "previewUrl": "https://yyork-preview.yyork.localhost/",
+        "targetUrl": "https://mock.yyork.localhost/"
+      }
+    }
+  ],
+  "annotationRequests": [
+    {
+      "method": "POST",
+      "url": "https://yyork.localhost/api/annotations/vzka9e?project=p_qvdwcieaqaw6v5l4r73obhrlkm",
+      "postData": {
+        "annotations": [
+          {
+            "comment": "intercepted send check",
+            "element": "main",
+            "elementPath": "body > main",
+            "id": "live-annotation-send-check",
+            "url": "https://yyork-preview.yyork.localhost/"
+          }
+        ]
+      }
+    }
+  ],
+  "consoleMessages": [
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "location": {
+        "url": "https://yyork.localhost/@vite/client",
+        "lineNumber": 732,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "location": {
+        "url": "https://yyork.localhost/@vite/client",
+        "lineNumber": 826,
+        "columnNumber": 11
+      }
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "location": {
+        "url": "https://yyork.localhost/node_modules/.vite/deps/react-dom_client.js?v=9735eab1",
+        "lineNumber": 21865,
+        "columnNumber": 53
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x134001a5600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "location": {
+        "url": "https://yyork.localhost/terminal/vzka9e",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x134001a5600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "location": {
+        "url": "https://yyork.localhost/terminal/vzka9e",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x134001a5600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "location": {
+        "url": "https://yyork.localhost/terminal/vzka9e",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x134001a5600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)",
+      "location": {
+        "url": "https://yyork.localhost/terminal/vzka9e",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@vite/client' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/src/main.tsx' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@react-refresh' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@vite/client' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/src/main.tsx' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@react-refresh' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@vite/client' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/src/main.tsx' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@react-refresh' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@vite/client' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/src/main.tsx' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@react-refresh' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@vite/client' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/src/main.tsx' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@react-refresh' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@vite/client' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/src/main.tsx' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@react-refresh' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@vite/client' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/src/main.tsx' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@react-refresh' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@vite/client' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/src/main.tsx' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@react-refresh' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "location": {
+        "url": "https://yyork.localhost/@vite/client",
+        "lineNumber": 732,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "location": {
+        "url": "https://yyork.localhost/@vite/client",
+        "lineNumber": 826,
+        "columnNumber": 11
+      }
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "location": {
+        "url": "https://yyork.localhost/node_modules/.vite/deps/react-dom_client.js?v=9735eab1",
+        "lineNumber": 21865,
+        "columnNumber": 53
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@vite/client' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@vite/client",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/src/main.tsx' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Access to script at 'https://yyork-preview.yyork.localhost/@react-refresh' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "location": {
+        "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    }
+  ],
+  "failedRequests": [
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/@vite/client",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/@vite/client",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/@vite/client",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/@vite/client",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/@vite/client",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/@vite/client",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/@vite/client",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/@vite/client",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork.localhost/api/events",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/__yyork_browser/preview-bridge.js",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/@vite/client",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/src/main.tsx",
+      "failure": "net::ERR_FAILED"
+    },
+    {
+      "method": "GET",
+      "url": "https://yyork-preview.yyork.localhost/@react-refresh",
+      "failure": "net::ERR_FAILED"
+    }
+  ],
+  "finishedAt": "2026-06-25T00:13:11.537Z"
+}

@@ -1,0 +1,316 @@
+{
+  "baseURL": "https://yyork.localhost",
+  "failed": 0,
+  "generatedAt": "2026-06-23T00:55:17.157Z",
+  "passed": 29,
+  "results": [
+    {
+      "details": {
+        "status": "ok"
+      },
+      "featureIds": ["YY-F002"],
+      "name": "dashboard API health endpoint",
+      "startedAt": "2026-06-23T00:54:48.071Z",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "missing": "{\"error\":\"not found\"}\n",
+        "root": {
+          "service": "yyork api",
+          "status": "ok"
+        }
+      },
+      "featureIds": ["YY-F002"],
+      "name": "API host returns JSON service and JSON 404",
+      "startedAt": "2026-06-23T00:54:48.110Z",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "activeProjectId": "p_qvdwcieaqaw6v5l4r73obhrlkm",
+        "orchestratorId": "n3xqgb",
+        "projectId": "p_qvdwcieaqaw6v5l4r73obhrlkm",
+        "projectName": "yyork",
+        "projects": 11
+      },
+      "featureIds": ["YY-F003", "YY-F037"],
+      "name": "workspace contract loads and contains arrays",
+      "startedAt": "2026-06-23T00:54:48.118Z",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "emptyText": "path is required\n",
+        "outsideText": "\"/tmp/yyork-live-story-smoke-not-a-repo\" is not inside a git repository\n"
+      },
+      "featureIds": ["YY-F006"],
+      "name": "invalid project payloads are actionable",
+      "startedAt": "2026-06-23T00:54:48.121Z",
+      "status": "pass"
+    },
+    {
+      "details": "workerWorkspaceMode must be new-worktree or local",
+      "featureIds": ["YY-F012"],
+      "name": "invalid worker workspace mode is rejected without mutation",
+      "startedAt": "2026-06-23T00:54:48.162Z",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "all": 11,
+        "filtered": 1
+      },
+      "featureIds": ["YY-F038"],
+      "name": "legacy sessions API lists and filters sessions",
+      "startedAt": "2026-06-23T00:54:48.165Z",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "type": "array"
+      },
+      "featureIds": ["YY-F039"],
+      "name": "plugins endpoint returns JSON",
+      "startedAt": "2026-06-23T00:54:48.170Z",
+      "status": "pass"
+    },
+    {
+      "details": "forbidden",
+      "featureIds": ["YY-F037"],
+      "name": "events publish endpoint rejects unauthenticated browser calls",
+      "startedAt": "2026-06-23T00:54:48.172Z",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "external": "yyork Browser only supports localhost, loopback, wildcard bind, and *.localhost preview URLs",
+        "local": {
+          "previewUrl": "https://yyork-preview.yyork.localhost/",
+          "targetUrl": "https://yyork.localhost"
+        }
+      },
+      "featureIds": ["YY-F034"],
+      "name": "browser preview target validation accepts local and rejects external hosts",
+      "startedAt": "2026-06-23T00:54:48.174Z",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "traversal": "invalid file path",
+        "treeKeys": ["gitStatus", "paths", "truncated", "workspacePath"]
+      },
+      "featureIds": ["YY-F029", "YY-F030"],
+      "name": "session files API lists workspace and blocks traversal",
+      "startedAt": "2026-06-23T00:54:48.177Z",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "files": 443
+      },
+      "featureIds": ["YY-F031"],
+      "name": "session diff API returns review payload",
+      "startedAt": "2026-06-23T00:54:48.703Z",
+      "status": "pass"
+    },
+    {
+      "details": "no annotations to send",
+      "featureIds": ["YY-F035"],
+      "name": "empty annotation payload is rejected safely",
+      "startedAt": "2026-06-23T00:54:48.995Z",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "pinnedProjectIds": [],
+        "apiMutations": [
+          {
+            "method": "DELETE",
+            "url": "https://yyork.localhost/api/projects/project-alpha"
+          }
+        ]
+      },
+      "featureIds": ["YY-F008"],
+      "name": "project removal calls backend and clears local sidebar state",
+      "startedAt": "2026-06-23T00:54:49.248Z",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "override": "Renamed Alpha"
+      },
+      "featureIds": ["YY-F009"],
+      "name": "project rename stores a trimmed local display override",
+      "startedAt": "2026-06-23T00:54:51.931Z",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "hiddenTerminalSessionKeys": ["project-alpha:worker-alpha"],
+        "pinnedTerminalSessionKeys": [],
+        "apiMutations": []
+      },
+      "featureIds": ["YY-F025"],
+      "name": "session hide removes sidebar row without stopping session",
+      "startedAt": "2026-06-23T00:54:53.998Z",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "route": "https://yyork.localhost/terminal/n3xqgb",
+        "preview": "Toggle Sidebar Pinned No pinned sessions Projects GStack ghui FireRedVAD creatives entire-cli spank smolvm emdash tandem opencode yyork Orchestrator Shortcuts Toggle sidebar ⌘ + B Toggle canvas ⌘ + ⇧ + B View shortcuts ⇧ + / Settings yyork alpha work locally Files Review Browser Open IDE Open file Select a file from the workspace tree. Command Palette Search for a command to run..."
+      },
+      "featureIds": [
+        "YY-F001",
+        "YY-F003",
+        "YY-F007",
+        "YY-F010",
+        "YY-F013",
+        "YY-F014",
+        "YY-F015",
+        "YY-F020",
+        "YY-F027",
+        "YY-F028"
+      ],
+      "name": "root route renders live app shell without app errors",
+      "startedAt": "2026-06-23T00:54:56.143Z",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "route": "https://yyork.localhost/board/p_qvdwcieaqaw6v5l4r73obhrlkm",
+        "preview": "Toggle Sidebar Pinned No pinned sessions Projects GStack ghui FireRedVAD creatives entire-cli spank smolvm emdash tandem opencode yyork Orchestrator Shortcuts Toggle sidebar ⌘ + B Toggle canvas ⌘ + ⇧ + B View shortcuts ⇧ + / Settings yyork alpha work locally Working 0 Prompt 0 Triage 0 Done 0 Command Palette Search for a command to run..."
+      },
+      "featureIds": ["YY-F017", "YY-F018", "YY-F019"],
+      "name": "board route shows columns and canonical project route",
+      "startedAt": "2026-06-23T00:54:57.959Z",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "route": "https://yyork.localhost/terminal/n3xqgb?project=p_qvdwcieaqaw6v5l4r73obhrlkm",
+        "preview": "Toggle Sidebar Pinned No pinned sessions Projects GStack ghui FireRedVAD creatives entire-cli spank smolvm emdash tandem opencode yyork Orchestrator Shortcuts Toggle sidebar ⌘ + B Toggle canvas ⌘ + ⇧ + B View shortcuts ⇧ + / Settings yyork alpha work locally Files Review Browser Open IDE Enter a local preview URL Command Palette Search for a command to run..."
+      },
+      "featureIds": [
+        "YY-F020",
+        "YY-F021",
+        "YY-F022",
+        "YY-F023",
+        "YY-F027",
+        "YY-F028",
+        "YY-F029",
+        "YY-F030",
+        "YY-F031",
+        "YY-F032"
+      ],
+      "name": "terminal route exposes terminal canvas controls",
+      "startedAt": "2026-06-23T00:54:59.746Z",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "stored": "dark"
+      },
+      "featureIds": ["YY-F013", "YY-F036"],
+      "name": "theme setting changes local preference and html class",
+      "startedAt": "2026-06-23T00:55:02.353Z",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "route": "https://yyork.localhost/board/p_qvdwcieaqaw6v5l4r73obhrlkm"
+      },
+      "featureIds": ["YY-F015", "YY-F016"],
+      "name": "command palette opens with keyboard shortcut and runs navigation action",
+      "startedAt": "2026-06-23T00:55:05.231Z",
+      "status": "pass"
+    },
+    {
+      "details": "mocked empty workspace rendered",
+      "featureIds": ["YY-F004", "YY-F005"],
+      "name": "empty workspace shows add-project guidance without live mutation",
+      "startedAt": "2026-06-23T00:55:07.195Z",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "defaults": {
+          "orchestratorHarnessId": "claude-code",
+          "workerHarnessId": "codex",
+          "version": 1
+        },
+        "projectPost": {
+          "body": {
+            "path": "/tmp/first-run-project",
+            "agentPlugin": "claude-code",
+            "workerAgentPlugin": "codex"
+          },
+          "method": "POST",
+          "url": "https://yyork.localhost/api/projects"
+        }
+      },
+      "featureIds": ["YY-F046", "YY-F047"],
+      "name": "first-run setup stages project and submits agent choices",
+      "startedAt": "2026-06-23T00:55:07.786Z",
+      "status": "pass"
+    },
+    {
+      "details": "mocked workspace error rendered",
+      "featureIds": ["YY-F003", "YY-F040"],
+      "name": "workspace load failure renders readable unavailable state",
+      "startedAt": "2026-06-23T00:55:09.488Z",
+      "status": "pass"
+    },
+    {
+      "details": "Not Found This page could not be found Back Home 404",
+      "featureIds": ["YY-F040"],
+      "name": "unknown route renders route-level 404 page",
+      "startedAt": "2026-06-23T00:55:10.011Z",
+      "status": "pass"
+    },
+    {
+      "details": "route rendered with glimmDevtool query",
+      "featureIds": ["YY-F041"],
+      "name": "dev-only Glimm tool can be requested explicitly",
+      "startedAt": "2026-06-23T00:55:11.765Z",
+      "status": "pass"
+    },
+    {
+      "details": "yyork alpha Projects Your first project appears here after setup. Settings Agents Prototype Configure the agent harness yyork uses for new project orchestrators. Running sessions keep their current runtime until they are explicitly restarted. Light Dark Preview state Guided walkthrough from the app to /settings before the first project starts. First run Global Project First run walkthrough Step 1 ",
+      "featureIds": ["YY-F042"],
+      "name": "settings prototype renders on mock query route",
+      "startedAt": "2026-06-23T00:55:13.757Z",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "faviconType": "image/svg+xml",
+        "manifestType": "application/manifest+json"
+      },
+      "featureIds": ["YY-F043"],
+      "name": "static app assets are available",
+      "startedAt": "2026-06-23T00:55:15.671Z",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "baseURL": "https://yyork.localhost"
+      },
+      "featureIds": ["YY-F044", "YY-F045"],
+      "name": "live dashboard runtime is healthy through portless URL",
+      "startedAt": "2026-06-23T00:55:15.675Z",
+      "status": "pass"
+    },
+    {
+      "details": {
+        "docsURL": "https://docs.yyork.localhost"
+      },
+      "featureIds": ["YY-F049"],
+      "name": "docs app renders design record and docs routes",
+      "startedAt": "2026-06-23T00:55:15.679Z",
+      "status": "pass"
+    }
+  ],
+  "total": 29
+}

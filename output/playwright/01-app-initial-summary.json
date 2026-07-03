@@ -1,0 +1,246 @@
+{
+  "summary": {
+    "url": "https://yyork.localhost/terminal/vzka9e",
+    "title": "yyork",
+    "headings": ["Command Palette"],
+    "buttons": [
+      {
+        "text": "Toggle Sidebar",
+        "aria": "Expand project sidebar",
+        "title": null
+      },
+      {
+        "text": "No pinned sessions",
+        "aria": "No pinned sessions",
+        "title": null
+      },
+      {
+        "text": "Add project",
+        "aria": "Add project",
+        "title": null
+      },
+      {
+        "text": "Collapse yyork workers",
+        "aria": "Collapse yyork workers",
+        "title": null
+      },
+      {
+        "text": "yyork",
+        "aria": "Open yyork board",
+        "title": null
+      },
+      {
+        "text": "yyork actions",
+        "aria": "yyork actions",
+        "title": null
+      },
+      {
+        "text": "Orchestrator",
+        "aria": "Open Orchestrator terminal",
+        "title": null
+      },
+      {
+        "text": "Pin Orchestrator",
+        "aria": "Pin Orchestrator",
+        "title": null
+      },
+      {
+        "text": "Stop Orchestrator",
+        "aria": "Stop Orchestrator",
+        "title": null
+      },
+      {
+        "text": "Working",
+        "aria": "Collapse Working sessions",
+        "title": null
+      },
+      {
+        "text": "Test yyork Browser Previewnow",
+        "aria": "Open Test yyork Browser Preview terminal",
+        "title": null
+      },
+      {
+        "text": "Pin Test yyork Browser Preview",
+        "aria": "Pin Test yyork Browser Preview",
+        "title": null
+      },
+      {
+        "text": "Stop Test yyork Browser Preview",
+        "aria": "Stop Test yyork Browser Preview",
+        "title": null
+      },
+      {
+        "text": "Prompt",
+        "aria": "Collapse Prompt sessions",
+        "title": null
+      },
+      {
+        "text": "Debug Codex Hook Failures10m",
+        "aria": "Open Debug Codex Hook Failures terminal",
+        "title": null
+      },
+      {
+        "text": "Pin Debug Codex Hook Failures",
+        "aria": "Pin Debug Codex Hook Failures",
+        "title": null
+      },
+      {
+        "text": "Stop Debug Codex Hook Failures",
+        "aria": "Stop Debug Codex Hook Failures",
+        "title": null
+      },
+      {
+        "text": "Settings",
+        "aria": "Settings",
+        "title": null
+      },
+      {
+        "text": "Toggle Sidebar",
+        "aria": "Toggle Sidebar",
+        "title": "Toggle Sidebar"
+      },
+      {
+        "text": "work locally▼",
+        "aria": "Worker workspace",
+        "title": null
+      },
+      {
+        "text": "Files",
+        "aria": null,
+        "title": null
+      },
+      {
+        "text": "Review",
+        "aria": null,
+        "title": null
+      },
+      {
+        "text": "Browser",
+        "aria": null,
+        "title": null
+      },
+      {
+        "text": "Open Canvas side panel",
+        "aria": "Open Canvas side panel",
+        "title": null
+      },
+      {
+        "text": "Open IDE",
+        "aria": null,
+        "title": null
+      },
+      {
+        "text": "Maximize terminal",
+        "aria": "Maximize terminal",
+        "title": null
+      },
+      {
+        "text": "Expand all folders",
+        "aria": "Expand all folders",
+        "title": null
+      },
+      {
+        "text": "Hide file tree",
+        "aria": "Hide file tree",
+        "title": null
+      }
+    ],
+    "tabs": [
+      {
+        "text": "Files",
+        "aria": null,
+        "selected": "true"
+      },
+      {
+        "text": "Review",
+        "aria": null,
+        "selected": "false"
+      },
+      {
+        "text": "Browser",
+        "aria": null,
+        "selected": "false"
+      }
+    ],
+    "inputs": [
+      {
+        "value": "local",
+        "placeholder": null,
+        "aria": null
+      },
+      {
+        "value": "",
+        "placeholder": null,
+        "aria": "Terminal input"
+      }
+    ],
+    "iframes": [],
+    "bodyText": "Toggle Sidebar\nPinned\nNo pinned sessions\nProjects\nyyork\nOrchestrator\nWorking\n1\nTest yyork Browser Preview\nnow\nPrompt\n1\nDebug Codex Hook Failures\n10m\nShortcuts\nToggle sidebar\n⌘\n+\nB\nToggle canvas\n⌘\n+\n⇧\n+\nB\nView shortcuts\n⇧\n+\n/\nSettings\nyyork\nalpha\nwork locally\nFiles\nReview\nBrowser\nOpen IDE\nOpen file\n\nSelect a file from the workspace tree.\n\nCommand Palette\n\nSearch for a command to run..."
+  },
+  "consoleMessages": [
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "location": {
+        "url": "https://yyork.localhost/@vite/client",
+        "lineNumber": 732,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "location": {
+        "url": "https://yyork.localhost/@vite/client",
+        "lineNumber": 826,
+        "columnNumber": 11
+      }
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "location": {
+        "url": "https://yyork.localhost/node_modules/.vite/deps/react-dom_client.js?v=9735eab1",
+        "lineNumber": 21865,
+        "columnNumber": 53
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x104001a5600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "location": {
+        "url": "https://yyork.localhost/terminal/vzka9e",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x104001a5600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "location": {
+        "url": "https://yyork.localhost/terminal/vzka9e",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x104001a5600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+      "location": {
+        "url": "https://yyork.localhost/terminal/vzka9e",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    },
+    {
+      "type": "warning",
+      "text": "[.WebGL-0x104001a5600]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)",
+      "location": {
+        "url": "https://yyork.localhost/terminal/vzka9e",
+        "lineNumber": 0,
+        "columnNumber": 0
+      }
+    }
+  ],
+  "failedRequests": []
+}
