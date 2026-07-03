@@ -1,6 +1,6 @@
 {
   "name": "@yyopc/yyork-windows-x64",
-  "version": "0.1.0-alpha.5",
+  "version": "0.1.0-alpha.7",
   "private": false,
   "description": "Prebuilt yyork app runtime for Windows x64.",
   "license": "SEE LICENSE IN LICENSE",
