@@ -9,8 +9,8 @@ import {
 } from '@/features/home/data/workspace-preferences';
 import { useWorkspaceContext } from '@/features/home/pages/workspace-context';
 
-const CANVAS_PANE_WIDTH_VAR = '--canvas-pane-width';
 const CANVAS_MIN_PX = '17.5rem';
+const CANVAS_PANE_WIDTH_VAR = '--canvas-pane-width';
 
 export function TerminalLayout(props: { children: ReactNode }) {
   const context = useWorkspaceContext();
@@ -20,28 +20,26 @@ export function TerminalLayout(props: { children: ReactNode }) {
   const canvasResizing = context.canvasResizing;
   const setCanvasResizing = context.onCanvasResizingChange;
   const canvasWidthPercent = context.canvasLayout?.canvas ?? 28;
+  const showCanvas = context.canvasOpen && !context.terminalDetached;
 
-  // Mirror the canvas pane's actual rendered pixel width into a CSS variable
-  // so the topbar's tab slot can anchor itself to the same width as the pane
-  // below — including continuously while the user drags the resize rail OR
-  // while the sidebar collapses/expands (both reflow the canvas pane via
-  // CSS at native frame rate, with no React render involved).
-  //
-  // We always keep the variable defined (0px when closed) so the topbar slot's
-  // `calc(var(--canvas-pane-width) - 60px)` has a stable baseline and reflows
-  // smoothly during the open/close transition driven by the pane's own width
-  // transition below.
   useEffect(() => {
+    if (!showCanvas) {
+      document.documentElement.style.removeProperty(CANVAS_PANE_WIDTH_VAR);
+      return;
+    }
+
     const el = canvasPaneRef.current;
     if (!el) {
       return;
     }
+
     const sync = (width: number) => {
       document.documentElement.style.setProperty(
         CANVAS_PANE_WIDTH_VAR,
         `${width}px`
       );
     };
+
     sync(el.getBoundingClientRect().width);
     const ro = new ResizeObserver((entries) => {
       const entry = entries[0];
@@ -50,11 +48,12 @@ export function TerminalLayout(props: { children: ReactNode }) {
       }
     });
     ro.observe(el);
+
     return () => {
       ro.disconnect();
       document.documentElement.style.removeProperty(CANVAS_PANE_WIDTH_VAR);
     };
-  }, []);
+  }, [showCanvas]);
 
   const handleResize = (percent: number) => {
     context.onCanvasLayoutChange({
@@ -63,15 +62,23 @@ export function TerminalLayout(props: { children: ReactNode }) {
     });
   };
 
+  if (context.terminalDetached) {
+    return (
+      <div className="relative flex h-full min-h-0 w-full flex-1">
+        <div className="flex min-h-0 min-w-0 flex-1">{props.children}</div>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={containerRef}
-      data-state={context.canvasOpen ? 'expanded' : 'collapsed'}
+      data-state={showCanvas ? 'expanded' : 'collapsed'}
       data-canvas-resizing={canvasResizing}
       className="group/canvas-layout relative flex h-full min-h-0 w-full flex-1"
     >
       <div className="flex min-h-0 min-w-0 flex-1">{props.children}</div>
-      {context.canvasOpen ? (
+      {showCanvas ? (
         <CanvasResizeRail
           containerRef={containerRef}
           onResizeStart={() => setCanvasResizing(true)}
@@ -81,20 +88,20 @@ export function TerminalLayout(props: { children: ReactNode }) {
       ) : null}
       <div
         ref={canvasPaneRef}
-        data-state={context.canvasOpen ? 'expanded' : 'collapsed'}
+        data-state={showCanvas ? 'expanded' : 'collapsed'}
         className={cn(
           'flex min-h-0 overflow-hidden transition-[width] duration-200 ease-linear',
           'group-data-[canvas-resizing=true]/canvas-layout:transition-none'
         )}
         style={{
-          width: context.canvasOpen ? `${canvasWidthPercent}%` : 0,
-          minWidth: context.canvasOpen ? CANVAS_MIN_PX : 0,
+          width: showCanvas ? `${canvasWidthPercent}%` : 0,
+          minWidth: showCanvas ? CANVAS_MIN_PX : 0,
         }}
-        aria-hidden={!context.canvasOpen}
-        inert={!context.canvasOpen}
+        aria-hidden={!showCanvas}
+        inert={!showCanvas}
       >
         <div
-          data-state={context.canvasOpen ? 'expanded' : 'collapsed'}
+          data-state={showCanvas ? 'expanded' : 'collapsed'}
           className={cn(
             'flex h-full w-full min-w-70 transition-[transform,opacity] duration-200 ease-linear',
             'data-[state=collapsed]:translate-x-full data-[state=collapsed]:opacity-0',

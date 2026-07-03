@@ -1,7 +1,8 @@
+import type { Terminal as XTerm } from '@xterm/xterm';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import type { WorkerSession } from '@/features/home/domain/session-workspace';
-import { render } from '@/tests/utils';
+import { page, render, setupUser } from '@/tests/utils';
 
 import { TerminalPanel } from './terminal-panel';
 
@@ -98,6 +99,29 @@ const makeSession = (id: string): WorkerSession => ({
   workerId: `worker-${id}`,
 });
 
+const exposedTerminal = () =>
+  (window as Window & { __yyorkTerminal?: XTerm }).__yyorkTerminal;
+
+const waitForTerminal = () =>
+  vi.waitFor(() => {
+    const term = exposedTerminal();
+    expect(term).toBeTruthy();
+    return term as XTerm;
+  }, 5_000);
+
+const terminalBufferText = (term: XTerm) =>
+  Array.from(
+    { length: term.buffer.active.length },
+    (_, index) =>
+      term.buffer.active.getLine(index)?.translateToString(true) ?? ''
+  ).join('\n');
+
+const terminalReplay = (prefix: string) =>
+  `${Array.from(
+    { length: 80 },
+    (_, index) => `${prefix}-line-${String(index + 1).padStart(2, '0')}`
+  ).join('\r\n')}\r\n${prefix}$ `;
+
 // Wait for xterm.js to parse the mouse-tracking DECSET (term.write is async)
 // and bind its protocol listeners — it flags activation on its root element.
 const waitForMouseTrackingScreen = () =>
@@ -130,6 +154,7 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.WebSocket = realWebSocket;
+  document.documentElement.classList.remove('light', 'dark');
 });
 
 // Regression: trackpad scroll froze after switching sessions in the sidebar.
@@ -157,6 +182,135 @@ test('reuses one terminal instance across session switches instead of rebuilding
 
   expect(document.querySelectorAll('.xterm')).toHaveLength(1);
   expect(document.querySelector('.xterm')).toBe(element);
+});
+
+test('pins the terminal viewport to the bottom after switching sessions and replaying output', async () => {
+  const sessionA = makeSession('a');
+  const sessionB = makeSession('b');
+
+  const { rerender } = await render(<TerminalPanel session={sessionA} />);
+  const term = await waitForTerminal();
+
+  const socketA = await vi.waitFor(() => {
+    const candidate = fakeSockets.at(-1);
+    expect(candidate?.url).toContain('/api/sessions/a/terminal');
+    return candidate as FakeWebSocket;
+  });
+  socketA.fireOpen();
+  socketA.fireMessage(terminalReplay('session-a'));
+
+  await vi.waitFor(() => {
+    expect(term.buffer.active.baseY).toBeGreaterThan(0);
+    expect(terminalBufferText(term)).toContain('session-a-line-80');
+  }, 5_000);
+
+  term.scrollToTop();
+  await vi.waitFor(() => {
+    expect(term.buffer.active.viewportY).toBe(0);
+    expect(term.buffer.active.viewportY).toBeLessThan(term.buffer.active.baseY);
+  }, 5_000);
+
+  await rerender(<TerminalPanel session={sessionB} />);
+  const socketB = await vi.waitFor(() => {
+    const candidate = fakeSockets.at(-1);
+    expect(candidate?.url).toContain('/api/sessions/b/terminal');
+    return candidate as FakeWebSocket;
+  });
+  socketB.fireOpen();
+  socketB.fireMessage(terminalReplay('session-b'));
+
+  await vi.waitFor(() => {
+    expect(term.buffer.active.baseY).toBeGreaterThan(0);
+    expect(terminalBufferText(term)).toContain('session-b-line-80');
+    expect(term.buffer.active.viewportY).toBe(term.buffer.active.baseY);
+  }, 5_000);
+});
+
+test('shows the detached-window control only for docked terminals', async () => {
+  const user = setupUser();
+  const session = makeSession('detached-control');
+  const onAttachDetached = vi.fn();
+  const onOpenDetached = vi.fn();
+
+  const { rerender } = await render(
+    <TerminalPanel session={session} onOpenDetached={onOpenDetached} />
+  );
+
+  const openDetachedButton = page.getByRole('button', {
+    name: 'Detach terminal',
+  });
+  await expect.element(openDetachedButton).toBeVisible();
+  await user.click(openDetachedButton);
+  expect(onOpenDetached).toHaveBeenCalledOnce();
+
+  await rerender(
+    <TerminalPanel
+      detached
+      session={session}
+      onAttachDetached={onAttachDetached}
+      onOpenDetached={onOpenDetached}
+    />
+  );
+
+  expect(
+    page.getByRole('button', { name: 'Detach terminal' }).query()
+  ).toBeNull();
+
+  const attachButton = page.getByRole('button', {
+    name: 'Attach terminal',
+  });
+  await expect.element(attachButton).toBeVisible();
+  await user.click(attachButton);
+  expect(onAttachDetached).toHaveBeenCalledOnce();
+});
+
+test('uses the terminal background for floating terminal controls', async () => {
+  const session = makeSession('terminal-background-controls');
+  const onOpenDetached = vi.fn();
+
+  await render(
+    <TerminalPanel session={session} onOpenDetached={onOpenDetached} />
+  );
+
+  const controls = await vi.waitFor(() => {
+    const elements = Array.from(
+      document.querySelectorAll<HTMLButtonElement>(
+        'section[aria-label$="terminal panel"] div.pointer-events-none button'
+      )
+    );
+    expect(elements).toHaveLength(3);
+    return elements;
+  }, 5_000);
+
+  const terminal = document.querySelector<HTMLElement>('.ao-terminal');
+  expect(terminal).toBeTruthy();
+
+  for (const themeClass of ['light', 'dark'] as const) {
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add(themeClass);
+
+    const probe = document.createElement('span');
+    probe.style.backgroundColor = 'var(--terminal-background)';
+    terminal!.appendChild(probe);
+    const terminalBackground = getComputedStyle(probe).backgroundColor;
+    terminal!.removeChild(probe);
+
+    for (const control of controls) {
+      const clone = control.cloneNode(false) as HTMLButtonElement;
+      clone.style.position = 'fixed';
+      clone.style.inset = '-100px auto auto -100px';
+      document.body.appendChild(clone);
+
+      const style = getComputedStyle(clone);
+      expect(style.backgroundColor).toBe(terminalBackground);
+      expect(style.borderTopLeftRadius).toBe('0px');
+      expect(style.borderTopRightRadius).toBe('0px');
+      expect(style.borderBottomLeftRadius).toBe('0px');
+      expect(style.borderBottomRightRadius).toBe('0px');
+
+      clone.remove();
+    }
+  }
 });
 
 // The persistent instance must forward input to whatever socket the panel is

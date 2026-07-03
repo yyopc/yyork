@@ -1,5 +1,6 @@
+import babel from '@rolldown/plugin-babel';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
-import viteReact from '@vitejs/plugin-react';
+import viteReact, { reactCompilerPreset } from '@vitejs/plugin-react';
 import { mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve as resolvePath } from 'node:path';
@@ -83,11 +84,9 @@ export default defineConfig(({ mode }) => {
         autoCodeSplitting: true,
       }),
       // react's vite plugin must come after the router plugin.
-      viteReact({
-        babel: {
-          plugins: ['babel-plugin-react-compiler'],
-        },
-      }),
+      viteReact(),
+      // @vitejs/plugin-react v6 delegates React Compiler transforms to Rolldown Babel.
+      babel({ presets: [reactCompilerPreset()] }),
       cleanBuildDirPreservingPlaceholder(),
     ],
   };

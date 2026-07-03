@@ -132,8 +132,10 @@ export function ProjectOrchestratorSidebar(props: {
   onTerminalSessionDelete?: (selectionKey: string, label: string) => void;
   onTerminalSessionHide?: (selectionKey: string, label: string) => void;
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
+  onTerminalSessionOpenDetached?: (selectionKey: string) => void;
   onTerminalSessionPinToggle?: (selectionKey: string) => void;
   onTerminalSessionRename?: (selectionKey: string, label: string) => void;
+  onTerminalSessionRestart?: (selectionKey: string, label: string) => void;
   onWorkerSessionGroupOpenChange: (
     groupId: WorkerSessionState,
     open: boolean
@@ -171,8 +173,10 @@ export function ProjectOrchestratorSidebar(props: {
           onTerminalSessionDelete={props.onTerminalSessionDelete}
           onTerminalSessionHide={props.onTerminalSessionHide}
           onTerminalSessionMarkDone={props.onTerminalSessionMarkDone}
+          onTerminalSessionOpenDetached={props.onTerminalSessionOpenDetached}
           onTerminalSessionPinToggle={props.onTerminalSessionPinToggle}
           onTerminalSessionRename={props.onTerminalSessionRename}
+          onTerminalSessionRestart={props.onTerminalSessionRestart}
           onWorkerSessionSelect={props.onWorkerSessionSelect}
           orchestrators={props.orchestrators}
           pinnedProjectIds={pinnedProjectIds}
@@ -218,7 +222,7 @@ export function ProjectOrchestratorSidebar(props: {
           </div>
           <SidebarGroupContent
             className={cn(
-              'min-h-0 flex-1 overflow-y-auto',
+              'min-h-0 flex-1 scroll-fade-y overflow-y-auto [--scroll-fade-reveal:calc(var(--spacing)*6)] scroll-fade-6',
               projectSidebarScrollContextClassName
             )}
           >
@@ -243,8 +247,12 @@ export function ProjectOrchestratorSidebar(props: {
                   onTerminalSessionDelete={props.onTerminalSessionDelete}
                   onTerminalSessionHide={props.onTerminalSessionHide}
                   onTerminalSessionMarkDone={props.onTerminalSessionMarkDone}
+                  onTerminalSessionOpenDetached={
+                    props.onTerminalSessionOpenDetached
+                  }
                   onTerminalSessionPinToggle={props.onTerminalSessionPinToggle}
                   onTerminalSessionRename={props.onTerminalSessionRename}
+                  onTerminalSessionRestart={props.onTerminalSessionRestart}
                   selectedTerminalSessionKey={props.selectedTerminalSessionKey}
                   orchestrators={props.orchestrators}
                   onOrchestratorSessionSelect={
@@ -296,8 +304,10 @@ function PinnedSidebarGroup(props: {
   onTerminalSessionDelete?: (selectionKey: string, label: string) => void;
   onTerminalSessionHide?: (selectionKey: string, label: string) => void;
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
+  onTerminalSessionOpenDetached?: (selectionKey: string) => void;
   onTerminalSessionPinToggle?: (selectionKey: string) => void;
   onTerminalSessionRename?: (selectionKey: string, label: string) => void;
+  onTerminalSessionRestart?: (selectionKey: string, label: string) => void;
   onWorkerSessionSelect: (selectionKey: string) => void;
   orchestrators: WorkerSession[];
   pinnedProjectIds: string[];
@@ -375,8 +385,12 @@ function PinnedSidebarGroup(props: {
               onTerminalSessionDelete={props.onTerminalSessionDelete}
               onTerminalSessionHide={props.onTerminalSessionHide}
               onTerminalSessionMarkDone={props.onTerminalSessionMarkDone}
+              onTerminalSessionOpenDetached={
+                props.onTerminalSessionOpenDetached
+              }
               onTerminalSessionPinToggle={props.onTerminalSessionPinToggle}
               onTerminalSessionRename={props.onTerminalSessionRename}
+              onTerminalSessionRestart={props.onTerminalSessionRestart}
               onWorkerSessionSelect={props.onWorkerSessionSelect}
               selectedTerminalSessionKey={props.selectedTerminalSessionKey}
               session={session}
@@ -394,8 +408,10 @@ function PinnedTerminalSessionNavItem(props: {
   onTerminalSessionDelete?: (selectionKey: string, label: string) => void;
   onTerminalSessionHide?: (selectionKey: string, label: string) => void;
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
+  onTerminalSessionOpenDetached?: (selectionKey: string) => void;
   onTerminalSessionPinToggle?: (selectionKey: string) => void;
   onTerminalSessionRename?: (selectionKey: string, label: string) => void;
+  onTerminalSessionRestart?: (selectionKey: string, label: string) => void;
   onWorkerSessionSelect: (selectionKey: string) => void;
   selectedTerminalSessionKey?: string;
   session: PinnedTerminalSessionItem;
@@ -421,6 +437,11 @@ function PinnedTerminalSessionNavItem(props: {
       <SessionContextMenu
         isPinned={session.isPinned}
         onOpen={openSession}
+        onOpenDetached={
+          props.onTerminalSessionOpenDetached
+            ? () => props.onTerminalSessionOpenDetached?.(session.selectionKey)
+            : undefined
+        }
         onPinToggle={
           props.onTerminalSessionPinToggle
             ? () => props.onTerminalSessionPinToggle?.(session.selectionKey)
@@ -464,6 +485,15 @@ function PinnedTerminalSessionNavItem(props: {
                 )
             : undefined
         }
+        onRestart={
+          props.onTerminalSessionRestart
+            ? () =>
+                props.onTerminalSessionRestart?.(
+                  session.selectionKey,
+                  session.label
+                )
+            : undefined
+        }
       >
         <ActionTooltip
           label={actionLabel}
@@ -473,7 +503,8 @@ function PinnedTerminalSessionNavItem(props: {
               isActive={
                 session.selectionKey === props.selectedTerminalSessionKey
               }
-              className="h-7 rounded-sm pe-3! text-sm leading-5 font-normal text-foreground hover:text-foreground active:text-foreground data-[active=true]:text-foreground [&>span:last-child]:pe-0!"
+              size="sm"
+              className="h-7 rounded-sm pe-3! font-normal text-muted-foreground hover:text-foreground active:text-foreground data-active:text-foreground [&>span:last-child]:pe-0!"
               onClick={openSession}
             />
           }
@@ -666,8 +697,10 @@ function ProjectNavItem(props: {
   onTerminalSessionDelete?: (selectionKey: string, label: string) => void;
   onTerminalSessionHide?: (selectionKey: string, label: string) => void;
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
+  onTerminalSessionOpenDetached?: (selectionKey: string) => void;
   onTerminalSessionPinToggle?: (selectionKey: string) => void;
   onTerminalSessionRename?: (selectionKey: string, label: string) => void;
+  onTerminalSessionRestart?: (selectionKey: string, label: string) => void;
   onWorkerSessionGroupOpenChange: (
     groupId: WorkerSessionState,
     open: boolean
@@ -761,8 +794,10 @@ function ProjectNavItem(props: {
             onTerminalSessionDelete={props.onTerminalSessionDelete}
             onTerminalSessionHide={props.onTerminalSessionHide}
             onTerminalSessionMarkDone={props.onTerminalSessionMarkDone}
+            onTerminalSessionOpenDetached={props.onTerminalSessionOpenDetached}
             onTerminalSessionPinToggle={props.onTerminalSessionPinToggle}
             onTerminalSessionRename={props.onTerminalSessionRename}
+            onTerminalSessionRestart={props.onTerminalSessionRestart}
             onWorkerSessionSelect={props.onWorkerSessionSelect}
             tooltipDevtoolActionsVisible={props.tooltipDevtoolActionsVisible}
           />
@@ -778,8 +813,10 @@ function ProjectWorkerSessionTree(props: {
   onTerminalSessionDelete?: (selectionKey: string, label: string) => void;
   onTerminalSessionHide?: (selectionKey: string, label: string) => void;
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
+  onTerminalSessionOpenDetached?: (selectionKey: string) => void;
   onTerminalSessionPinToggle?: (selectionKey: string) => void;
   onTerminalSessionRename?: (selectionKey: string, label: string) => void;
+  onTerminalSessionRestart?: (selectionKey: string, label: string) => void;
   onWorkerSessionGroupOpenChange: (
     groupId: WorkerSessionState,
     open: boolean
@@ -845,6 +882,11 @@ function ProjectWorkerSessionTree(props: {
             <SessionContextMenu
               isPinned={props.pinnedTerminalSessionKeys.includes(selectionKey)}
               onOpen={() => props.onOrchestratorSessionSelect(selectionKey)}
+              onOpenDetached={
+                props.onTerminalSessionOpenDetached
+                  ? () => props.onTerminalSessionOpenDetached?.(selectionKey)
+                  : undefined
+              }
               onPinToggle={
                 props.onTerminalSessionPinToggle
                   ? () => props.onTerminalSessionPinToggle?.(selectionKey)
@@ -877,6 +919,15 @@ function ProjectWorkerSessionTree(props: {
                       )
                   : undefined
               }
+              onRestart={
+                props.onTerminalSessionRestart
+                  ? () =>
+                      props.onTerminalSessionRestart?.(
+                        selectionKey,
+                        orchestratorLabel
+                      )
+                  : undefined
+              }
             >
               <ActionTooltip
                 label={`Open ${orchestratorLabel} terminal`}
@@ -890,7 +941,7 @@ function ProjectWorkerSessionTree(props: {
                     }
                     isActive={selectionKey === props.selectedTerminalSessionKey}
                     size="sm"
-                    className="h-7 w-full ps-10 pe-3! font-normal text-foreground hover:text-foreground active:text-foreground data-[active=true]:text-foreground [&>span:last-child]:pe-0!"
+                    className="h-7 w-full ps-10 pe-3! font-normal text-muted-foreground hover:text-foreground active:text-foreground data-active:text-foreground [&>span:last-child]:pe-0!"
                     onClick={() =>
                       props.onOrchestratorSessionSelect(selectionKey)
                     }
@@ -941,8 +992,10 @@ function ProjectWorkerSessionTree(props: {
           onTerminalSessionDelete={props.onTerminalSessionDelete}
           onTerminalSessionHide={props.onTerminalSessionHide}
           onTerminalSessionMarkDone={props.onTerminalSessionMarkDone}
+          onTerminalSessionOpenDetached={props.onTerminalSessionOpenDetached}
           onTerminalSessionPinToggle={props.onTerminalSessionPinToggle}
           onTerminalSessionRename={props.onTerminalSessionRename}
+          onTerminalSessionRestart={props.onTerminalSessionRestart}
           pinnedTerminalSessionKeys={props.pinnedTerminalSessionKeys}
           selectedTerminalSessionKey={props.selectedTerminalSessionKey}
           onWorkerSessionSelect={props.onWorkerSessionSelect}
@@ -959,8 +1012,10 @@ function ProjectWorkerSessionGroup(props: {
   onTerminalSessionDelete?: (selectionKey: string, label: string) => void;
   onTerminalSessionHide?: (selectionKey: string, label: string) => void;
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
+  onTerminalSessionOpenDetached?: (selectionKey: string) => void;
   onTerminalSessionPinToggle?: (selectionKey: string) => void;
   onTerminalSessionRename?: (selectionKey: string, label: string) => void;
+  onTerminalSessionRestart?: (selectionKey: string, label: string) => void;
   onWorkerSessionSelect: (selectionKey: string) => void;
   open: boolean;
   pinnedTerminalSessionKeys: string[];
@@ -1033,6 +1088,14 @@ function ProjectWorkerSessionGroup(props: {
                     onOpen={() =>
                       props.onWorkerSessionSelect(session.selectionKey)
                     }
+                    onOpenDetached={
+                      props.onTerminalSessionOpenDetached
+                        ? () =>
+                            props.onTerminalSessionOpenDetached?.(
+                              session.selectionKey
+                            )
+                        : undefined
+                    }
                     onPinToggle={
                       props.onTerminalSessionPinToggle
                         ? () =>
@@ -1078,6 +1141,15 @@ function ProjectWorkerSessionGroup(props: {
                             )
                         : undefined
                     }
+                    onRestart={
+                      props.onTerminalSessionRestart
+                        ? () =>
+                            props.onTerminalSessionRestart?.(
+                              session.selectionKey,
+                              sessionLabel
+                            )
+                        : undefined
+                    }
                   >
                     <ActionTooltip
                       label={sessionOpenTooltipLabel}
@@ -1094,7 +1166,7 @@ function ProjectWorkerSessionGroup(props: {
                             props.selectedTerminalSessionKey
                           }
                           size="sm"
-                          className="h-7 w-full ps-16 pe-3! font-normal text-foreground hover:text-foreground active:text-foreground data-[active=true]:text-foreground [&>span:last-child]:pe-0!"
+                          className="h-7 w-full ps-16 pe-3! font-normal text-muted-foreground hover:text-foreground active:text-foreground data-active:text-foreground [&>span:last-child]:pe-0!"
                           onClick={() =>
                             props.onWorkerSessionSelect(session.selectionKey)
                           }

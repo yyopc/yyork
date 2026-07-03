@@ -22,5 +22,3 @@ export * from 'vitest-browser-react';
 
 export { customRender as render };
 export const setupUser = () => userEvent.setup();
-
-export const FAILED_CLICK_TIMEOUT_MS = 200;

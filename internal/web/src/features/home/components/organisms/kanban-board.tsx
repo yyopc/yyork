@@ -21,8 +21,12 @@ export function KanbanBoard(
       )}
       aria-label="Kanban board"
     >
-      <ScrollArea className="h-full w-full" orientation="horizontal">
-        <div className="grid h-full min-w-[960px] grid-cols-4 bg-background xl:min-w-0">
+      <ScrollArea
+        className="h-full w-full min-w-0"
+        contentClassName="h-full"
+        orientation="horizontal"
+      >
+        <div className="grid h-full w-full min-w-[960px] grid-cols-4 bg-background">
           {props.columns.map((column, index) => (
             <KanbanColumn
               key={column.id}
@@ -32,8 +36,12 @@ export function KanbanBoard(
               onTerminalSessionDelete={props.onTerminalSessionDelete}
               onTerminalSessionHide={props.onTerminalSessionHide}
               onTerminalSessionMarkDone={props.onTerminalSessionMarkDone}
+              onTerminalSessionOpenDetached={
+                props.onTerminalSessionOpenDetached
+              }
               onTerminalSessionPinToggle={props.onTerminalSessionPinToggle}
               onTerminalSessionRename={props.onTerminalSessionRename}
+              onTerminalSessionRestart={props.onTerminalSessionRestart}
               pinnedTerminalSessionKeys={props.pinnedTerminalSessionKeys}
             />
           ))}

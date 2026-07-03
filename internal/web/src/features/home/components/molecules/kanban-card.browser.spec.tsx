@@ -9,6 +9,7 @@ test('opens the shared session context menu on right click', async () => {
   const user = setupUser();
   const card = sampleKanbanCards.codex;
   const onSelect = vi.fn();
+  const onOpenDetached = vi.fn();
   const onMarkDone = vi.fn();
   const onRename = vi.fn();
 
@@ -19,6 +20,7 @@ test('opens the shared session context menu on right click', async () => {
       onTerminalSessionDelete={() => {}}
       onTerminalSessionHide={() => {}}
       onTerminalSessionMarkDone={onMarkDone}
+      onTerminalSessionOpenDetached={onOpenDetached}
       onTerminalSessionPinToggle={() => {}}
       onTerminalSessionRename={onRename}
       pinnedTerminalSessionKeys={[card.selectionKey]}
@@ -33,7 +35,7 @@ test('opens the shared session context menu on right click', async () => {
   expect(onSelect).toHaveBeenCalledWith(card.selectionKey);
   onSelect.mockClear();
   await expect
-    .element(page.getByRole('img', { name: 'Response delivered' }))
+    .element(page.getByRole('button', { name: /Response delivered/ }))
     .toBeVisible();
 
   cardButton.element().dispatchEvent(
@@ -49,8 +51,26 @@ test('opens the shared session context menu on right click', async () => {
     .element(page.getByRole('menuitem', { name: 'Unpin' }))
     .toBeVisible();
   await expect
-    .element(page.getByRole('menuitem', { name: 'Open terminal' }))
+    .element(page.getByRole('menuitem', { exact: true, name: 'Open terminal' }))
     .toBeVisible();
+  await expect
+    .element(page.getByRole('menuitem', { name: 'Detach terminal' }))
+    .toBeVisible();
+  const compactMenuItemStyle = getComputedStyle(
+    page.getByRole('menuitem', { name: 'Detach terminal' }).element()
+  );
+  const compactMenuIconStyle = getComputedStyle(
+    page
+      .getByRole('menuitem', { name: 'Detach terminal' })
+      .element()
+      .querySelector('svg') as SVGElement
+  );
+  expect(compactMenuItemStyle.fontSize).toBe('14px');
+  expect(compactMenuItemStyle.lineHeight).toBe('20px');
+  expect(compactMenuItemStyle.paddingTop).toBe('4px');
+  expect(compactMenuItemStyle.columnGap).toBe('6px');
+  expect(compactMenuIconStyle.width).toBe('16px');
+  expect(compactMenuIconStyle.height).toBe('16px');
   await expect
     .element(page.getByRole('menuitem', { name: 'Mark done' }))
     .toBeVisible();
@@ -60,14 +80,43 @@ test('opens the shared session context menu on right click', async () => {
   await expect
     .element(page.getByRole('menuitem', { name: 'Hide from sidebar' }))
     .toBeVisible();
-  await expect
-    .element(page.getByRole('menuitem', { name: 'Stop session' }))
-    .toBeVisible();
+  const stopSessionItem = page.getByRole('menuitem', {
+    name: 'Stop session',
+  });
+  await expect.element(stopSessionItem).toBeVisible();
+  const menuSeparator = document.querySelector(
+    '[data-slot="context-menu-separator"]'
+  ) as HTMLElement;
+  expect(getComputedStyle(menuSeparator).marginBottom).toBe('4px');
+  expect(
+    Math.round(
+      stopSessionItem.element().getBoundingClientRect().top -
+        menuSeparator.getBoundingClientRect().bottom
+    )
+  ).toBe(4);
+  expect(stopSessionItem.element().className).toContain(
+    'data-[variant=destructive]:focus:bg-destructive/10'
+  );
+  expect(stopSessionItem.element().className).toContain(
+    'dark:data-[variant=destructive]:focus:bg-destructive/20'
+  );
 
   await user.click(page.getByRole('menuitem', { name: 'Rename' }));
 
   expect(onSelect).not.toHaveBeenCalled();
   expect(onRename).toHaveBeenCalledWith(card.selectionKey, card.task);
+
+  cardButton.element().dispatchEvent(
+    new MouseEvent('contextmenu', {
+      bubbles: true,
+      button: 2,
+      buttons: 2,
+      cancelable: true,
+    })
+  );
+  await user.click(page.getByRole('menuitem', { name: 'Detach terminal' }));
+  expect(onOpenDetached).toHaveBeenCalledWith(card.selectionKey);
+  expect(onSelect).not.toHaveBeenCalled();
 
   cardButton.element().dispatchEvent(
     new MouseEvent('contextmenu', {
@@ -107,7 +156,10 @@ test('hides mark done for non-prompt cards', async () => {
     );
 
   await expect
-    .element(page.getByRole('menuitem', { name: 'Open terminal' }))
+    .element(page.getByRole('menuitem', { exact: true, name: 'Open terminal' }))
+    .toBeVisible();
+  await expect
+    .element(page.getByRole('menuitem', { name: 'Detach terminal' }))
     .toBeVisible();
   expect(page.getByRole('menuitem', { name: 'Mark done' }).query()).toBeNull();
 });
@@ -126,8 +178,7 @@ test('renders no attention icon for attended prompt responses', () => {
     />
   );
 
-  expect(page.getByRole('img', { name: 'Response seen' }).query()).toBeNull();
   expect(
-    page.getByRole('img', { name: 'Response delivered' }).query()
+    document.querySelector('[role="img"][aria-label^="Response"]')
   ).toBeNull();
 });

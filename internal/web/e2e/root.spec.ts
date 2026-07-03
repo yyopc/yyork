@@ -1,7 +1,7 @@
-import { expect, type Page, test } from '@playwright/test';
+import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 
-async function installFakeTerminalWebSocket(page: Page) {
-  await page.addInitScript(() => {
+async function installFakeTerminalWebSocket(target: BrowserContext | Page) {
+  await target.addInitScript(() => {
     class FakeTerminalWebSocket extends EventTarget {
       static CONNECTING = 0;
       static OPEN = 1;
@@ -1057,6 +1057,155 @@ test('terminal session route overrides the default project orchestrator', async 
   await expect
     .poll(() => getLatestTerminalWebSocketURL(page))
     .not.toContain('/api/sessions/ao-orchestrator/terminal');
+});
+
+test('detached terminal window suppresses the matching docked terminal until closed', async ({
+  page,
+}) => {
+  const context = page.context();
+
+  await installFakeTerminalWebSocket(context);
+  await context.route('**/api/workspace', async (route) => {
+    await route.fulfill({
+      body: JSON.stringify({
+        activeProjectId: 'project-a',
+        orchestrators: [],
+        projects: [
+          {
+            id: 'project-a',
+            name: 'Project A',
+            path: '/tmp/project-a',
+            workerWorkspaceMode: 'local',
+          },
+          {
+            id: 'project-b',
+            name: 'Project B',
+            path: '/tmp/project-b',
+            workerWorkspaceMode: 'local',
+          },
+        ],
+        sessions: [
+          {
+            agent: 'codex',
+            cwd: '/tmp/project-a-worker',
+            description: '',
+            id: 'ao-worker',
+            issue: '[PR #1]',
+            metadata: '[codex/working]',
+            project: 'project-a',
+            recap: '',
+            state: 'working',
+            terminalSupported: true,
+            title: 'Project A worker',
+            workerId: '[AO-A]',
+          },
+          {
+            agent: 'codex',
+            cwd: '/tmp/project-b-worker',
+            description: '',
+            id: 'ao-worker',
+            issue: '[PR #2]',
+            metadata: '[codex/working]',
+            project: 'project-b',
+            recap: '',
+            state: 'working',
+            terminalSupported: true,
+            title: 'Project B worker',
+            workerId: '[AO-B]',
+          },
+        ],
+      }),
+      contentType: 'application/json',
+      status: 200,
+    });
+  });
+
+  await page.goto('/terminal/ao-worker?project=project-a&detached=1');
+  await expect(
+    page
+      .locator('section[aria-label$="terminal panel"]')
+      .getByLabel('[AO-A] terminal')
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('header')).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Projects' })).toHaveCount(
+    0
+  );
+  await expect(page.getByLabel('Canvas inspector')).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Attach terminal' })
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: 'Attach terminal' }).click();
+  await expect(page).toHaveURL('/terminal/ao-worker?project=project-a');
+  await expect(
+    page
+      .locator('section[aria-label$="terminal panel"]')
+      .getByLabel('[AO-A] terminal')
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('header')).toHaveCount(1);
+  await expect.poll(() => getTerminalOpenWebSocketCount(page)).toBe(1);
+
+  await page.reload();
+  await expect(
+    page
+      .locator('section[aria-label$="terminal panel"]')
+      .getByLabel('[AO-A] terminal')
+  ).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => getTerminalOpenWebSocketCount(page)).toBe(1);
+
+  await page.evaluate(() => {
+    window.open = () => null;
+  });
+  await page
+    .getByRole('button', { name: 'Open terminal in new window' })
+    .click();
+  await expect(page.getByText('Could not open terminal window')).toBeVisible();
+  await expect.poll(() => getTerminalOpenWebSocketCount(page)).toBe(1);
+
+  await page.reload();
+  await expect(
+    page
+      .locator('section[aria-label$="terminal panel"]')
+      .getByLabel('[AO-A] terminal')
+  ).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => getTerminalOpenWebSocketCount(page)).toBe(1);
+
+  const popupPromise = page.waitForEvent('popup');
+  await page
+    .getByRole('button', { name: 'Open terminal in new window' })
+    .click();
+  const popup = await popupPromise;
+
+  await expect(popup).toHaveURL(
+    '/terminal/ao-worker?project=project-a&detached=1'
+  );
+  await expect(
+    page.getByRole('heading', { name: 'Terminal open in new window' })
+  ).toBeVisible();
+  await expect.poll(() => getTerminalOpenWebSocketCount(page)).toBe(0);
+  await expect(
+    popup
+      .locator('section[aria-label$="terminal panel"]')
+      .getByLabel('[AO-A] terminal')
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(
+    popup.getByRole('button', { name: 'Attach terminal' })
+  ).toBeVisible();
+
+  const popupClosed = popup.waitForEvent('close');
+  await popup.getByRole('button', { name: 'Attach terminal' }).click();
+  await popupClosed;
+
+  await expect(
+    page.getByRole('heading', { name: 'Terminal open in new window' })
+  ).toBeHidden();
+  await expect(page).toHaveURL('/terminal/ao-worker?project=project-a');
+  await expect(
+    page
+      .locator('section[aria-label$="terminal panel"]')
+      .getByLabel('[AO-A] terminal')
+  ).toBeVisible();
+  await expect.poll(() => getTerminalOpenWebSocketCount(page)).toBe(1);
 });
 
 test('empty yyork workspace renders an operational empty state', async ({

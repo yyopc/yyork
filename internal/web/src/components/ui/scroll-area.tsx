@@ -8,11 +8,16 @@ import { cn } from '@/lib/tailwind/utils';
 
 function ScrollArea({
   className,
+  contentClassName,
   children,
   orientation,
+  viewportClassName,
   ...props
 }: ScrollAreaPrimitive.Root.Props &
-  Pick<ScrollAreaPrimitive.Scrollbar.Props, 'orientation'>) {
+  Pick<ScrollAreaPrimitive.Scrollbar.Props, 'orientation'> & {
+    contentClassName?: string;
+    viewportClassName?: string;
+  }) {
   const { i18n } = useTranslation();
 
   return (
@@ -24,9 +29,17 @@ function ScrollArea({
     >
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
-        className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1"
+        className={cn(
+          'size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1',
+          viewportClassName
+        )}
       >
-        {children}
+        <ScrollAreaPrimitive.Content
+          data-slot="scroll-area-content"
+          className={contentClassName}
+        >
+          {children}
+        </ScrollAreaPrimitive.Content>
       </ScrollAreaPrimitive.Viewport>
       <ScrollBar orientation={orientation} />
       <ScrollAreaPrimitive.Corner data-slot="scroll-area-corner" />

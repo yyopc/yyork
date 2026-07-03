@@ -18,7 +18,13 @@ export const terminalScrollbackRows = 100_000;
  * API (and tests can satisfy it with a stub).
  */
 export type TerminalHandle = {
-  write(data: string | Uint8Array): void;
+  write(data: string | Uint8Array, onParsed?: () => void): void;
+  /**
+   * Used by TerminalPanel after a selected session's replay bytes have parsed,
+   * so the reused xterm instance opens on the latest prompt instead of the top
+   * of scrollback.
+   */
+  scrollToBottom(): void;
   element: HTMLElement;
   cols: number;
   rows: number;
@@ -262,7 +268,8 @@ export function XTermTerminal(props: XTermTerminalProps) {
     // Expose live values so the panel reads the current grid dimensions and
     // element rather than a snapshot taken at ready-time.
     const handle = {
-      write: (data) => term.write(data),
+      write: (data, onParsed) => term.write(data, onParsed),
+      scrollToBottom: () => term.scrollToBottom(),
     } as TerminalHandle;
     Object.defineProperties(handle, {
       element: {

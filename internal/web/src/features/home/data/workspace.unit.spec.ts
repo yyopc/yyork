@@ -8,6 +8,7 @@ import {
   patchWorkspaceWithRemovedProject,
   removeProjectMutationOptions,
   renameSessionMutationOptions,
+  restartSessionMutationOptions,
 } from '@/features/home/data/workspace';
 
 describe('removeProjectMutationOptions', () => {
@@ -182,6 +183,40 @@ describe('markSessionDoneMutationOptions', () => {
         sessionId: 'v042rv',
       })
     ).rejects.toThrow('expected JSON');
+  });
+});
+
+describe('restartSessionMutationOptions', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('posts to the session restart endpoint and returns the restarted row', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({
+        id: 'vzka9e',
+        projectPath: '/repo/yyork',
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      restartSessionMutationOptions().mutationFn({
+        projectId: '/repo/yyork',
+        sessionId: 'vzka9e',
+      })
+    ).resolves.toEqual({
+      id: 'vzka9e',
+      projectPath: '/repo/yyork',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/sessions/vzka9e/restart?project=%2Frepo%2Fyyork',
+      {
+        method: 'POST',
+      }
+    );
   });
 });
 

@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { SlotText } from 'slot-text/react';
 
 import { usePrefersReducedMotion } from '@/lib/tailwind/dotmatrix-hooks';
@@ -19,7 +18,6 @@ export function ToolCallBulletinLine(props: {
   text: string;
 }) {
   const reducedMotion = usePrefersReducedMotion();
-  const options = useMemo(() => slotTextOptions, []);
 
   return (
     <div
@@ -43,7 +41,7 @@ export function ToolCallBulletinLine(props: {
         ) : (
           <SlotText
             className="max-w-full truncate"
-            options={options}
+            options={slotTextOptions}
             text={props.text}
           />
         )}

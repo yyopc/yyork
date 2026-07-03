@@ -1,5 +1,8 @@
 import { useHotkey } from '@tanstack/react-hotkeys';
 import {
+  FileDiffIcon,
+  FilesIcon,
+  GlobeIcon,
   LaptopIcon,
   type LucideIcon,
   PanelRightCloseIcon,
@@ -10,6 +13,7 @@ import {
 import { appHotkeys } from '@/lib/app-hotkeys';
 import { cn } from '@/lib/tailwind/utils';
 
+import { Logo } from '@/components/brand/logo';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -28,13 +32,18 @@ import {
 } from '@/components/ui/tooltip';
 
 import { isCanvasTab } from '@/features/home/domain/canvas-tabs';
-import type { WorkerWorkspaceMode } from '@/features/home/domain/session-workspace';
+import {
+  getWorkerSessionWorkspaceMode,
+  type WorkerWorkspaceMode,
+} from '@/features/home/domain/session-workspace';
 import { useWorkspaceContext } from '@/features/home/pages/workspace-context';
 
-// 0.75rem (slot↔button gap) + 2.25rem (toggle button) + 0.75rem (header pe-3).
-// The slot's width = canvas pane width − these trailing offsets so its left
-// edge anchors exactly to the canvas pane's left edge below.
-const SLOT_TRAILING_PX = 60;
+// 0.75rem (slot↔button gap) + 1.75rem (toggle button) + 0.75rem (header pe-3).
+// The open slot's width = canvas pane width − these trailing offsets so its
+// left edge anchors to the canvas pane's left edge below.
+const CANVAS_TAB_SLOT_TRAILING_PX = 52;
+const canvasTabTriggerClassName =
+  'rounded-sm px-3 text-xs leading-4 data-active:text-sidebar-foreground dark:data-active:text-sidebar-foreground';
 const workerWorkspaceOptions = [
   { icon: LaptopIcon, label: 'work locally', value: 'local' },
   {
@@ -50,6 +59,7 @@ const workerWorkspaceOptions = [
   value: WorkerWorkspaceMode;
 }>;
 type WorkerWorkspaceOption = (typeof workerWorkspaceOptions)[number];
+type WorkerWorkspaceSelectScope = 'current-worker' | 'project-default';
 
 export function MainTopbar() {
   const { isMobile, openMobile, state } = useSidebar();
@@ -61,12 +71,17 @@ export function MainTopbar() {
     onCanvasTabChange,
     onWorkerWorkspaceModeChange,
     selectedProject,
+    selectedTerminalSession,
     workerWorkspaceModePending,
   } = useWorkspaceContext();
   const isSidebarOpen = isMobile ? openMobile : state === 'expanded';
   const canvasButtonLabel = canvasOpen
     ? 'Close Canvas side panel'
     : 'Open Canvas side panel';
+  const workerWorkspaceSelectScope: WorkerWorkspaceSelectScope =
+    selectedTerminalSession && selectedTerminalSession.kind !== 'orchestrator'
+      ? 'current-worker'
+      : 'project-default';
 
   const toggleCanvas = () => {
     onCanvasOpenChange(!canvasOpen);
@@ -91,7 +106,14 @@ export function MainTopbar() {
           <div className="ms-auto shrink-0">
             <WorkerWorkspaceSelect
               disabled={workerWorkspaceModePending}
-              value={selectedProject.workerWorkspaceMode}
+              scope={workerWorkspaceSelectScope}
+              value={getWorkerSessionWorkspaceMode(
+                selectedTerminalSession &&
+                  selectedTerminalSession.kind !== 'orchestrator'
+                  ? selectedTerminalSession
+                  : undefined,
+                selectedProject.workerWorkspaceMode
+              )}
               onValueChange={onWorkerWorkspaceModeChange}
             />
           </div>
@@ -100,50 +122,68 @@ export function MainTopbar() {
 
       {canvasAvailable && (
         <div className="flex shrink-0 items-center gap-3">
-          <div
-            data-state={canvasOpen ? 'expanded' : 'collapsed'}
-            className="flex shrink-0 items-center justify-start overflow-hidden"
-            style={{
-              // Slot width tracks the canvas pane's actual rendered width
-              // (kept in sync by the ResizeObserver in TerminalLayout). The
-              // calc reflows in the same layout pass as the pane below, so
-              // the slot is immediately reactive — no React render, no
-              // transition lag — during sidebar collapse/expand, the resize
-              // rail drag, and the open/close animation of the pane itself.
-              width: `calc(var(--canvas-pane-width, 0px) - ${SLOT_TRAILING_PX}px)`,
-            }}
-            aria-hidden={!canvasOpen}
-          >
+          {canvasOpen ? (
             <div
-              data-state={canvasOpen ? 'expanded' : 'collapsed'}
-              className={cn(
-                'flex items-center transition-[transform,opacity] duration-200 ease-linear',
-                'data-[state=collapsed]:translate-x-3 data-[state=collapsed]:opacity-0'
-              )}
-              inert={!canvasOpen}
+              data-state="expanded"
+              className="flex shrink-0 items-center justify-start overflow-hidden"
+              style={{
+                width: `calc(var(--canvas-pane-width, 0px) - ${CANVAS_TAB_SLOT_TRAILING_PX}px)`,
+              }}
             >
-              <Tabs
-                value={canvasTab}
-                onValueChange={(value) => {
-                  if (isCanvasTab(value)) {
-                    onCanvasTabChange(value);
-                  }
-                }}
+              <div
+                data-state="expanded"
+                className={cn(
+                  'flex items-center transition-[transform,opacity] duration-200 ease-linear',
+                  'data-[state=collapsed]:translate-x-3 data-[state=collapsed]:opacity-0'
+                )}
               >
-                <TabsList className="rounded-sm">
-                  <TabsTrigger className="rounded-sm px-3" value="files">
-                    Files
-                  </TabsTrigger>
-                  <TabsTrigger className="rounded-sm px-3" value="review">
-                    Review
-                  </TabsTrigger>
-                  <TabsTrigger className="rounded-sm px-3" value="browser">
-                    Browser
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
+                <Tabs
+                  value={canvasTab}
+                  onValueChange={(value) => {
+                    if (isCanvasTab(value)) {
+                      onCanvasTabChange(value);
+                    }
+                  }}
+                >
+                  <TabsList className="rounded-sm">
+                    <TabsTrigger
+                      className={canvasTabTriggerClassName}
+                      value="files"
+                    >
+                      <FilesIcon
+                        aria-hidden="true"
+                        className="size-4"
+                        data-icon="inline-start"
+                      />
+                      <span>Files</span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                      className={canvasTabTriggerClassName}
+                      value="review"
+                    >
+                      <FileDiffIcon
+                        aria-hidden="true"
+                        className="size-4"
+                        data-icon="inline-start"
+                      />
+                      <span>Review</span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                      className={canvasTabTriggerClassName}
+                      value="browser"
+                    >
+                      <GlobeIcon
+                        aria-hidden="true"
+                        className="size-4"
+                        data-icon="inline-start"
+                      />
+                      <span>Browser</span>
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
             </div>
-          </div>
+          ) : null}
           <CanvasToggleButton
             canvasButtonLabel={canvasButtonLabel}
             canvasOpen={canvasOpen}
@@ -158,6 +198,7 @@ export function MainTopbar() {
 function WorkerWorkspaceSelect(props: {
   disabled: boolean;
   onValueChange: (mode: WorkerWorkspaceMode) => void;
+  scope: WorkerWorkspaceSelectScope;
   value: WorkerWorkspaceMode;
 }) {
   const selectedOption = workerWorkspaceOptions.find(
@@ -177,11 +218,15 @@ function WorkerWorkspaceSelect(props: {
     >
       <SelectTrigger
         aria-label="Worker workspace"
-        className="h-7 w-fit rounded-sm border-none bg-sidebar text-xs text-sidebar-foreground shadow-none hover:bg-sidebar-accent [&_svg:not([class*='size-'])]:size-4"
+        className="h-7 w-fit rounded-sm border-none bg-sidebar py-0 pl-2 text-xs text-sidebar-foreground shadow-none hover:bg-sidebar-accent data-[size=sm]:h-7 [&_svg:not([class*='size-'])]:size-4"
         size="sm"
       >
         {selectedOption ? (
-          <WorkerWorkspaceOptionContent option={selectedOption} />
+          <WorkerWorkspaceOptionContent
+            option={selectedOption}
+            scope={props.scope}
+            surface="trigger"
+          />
         ) : (
           <SelectValue />
         )}
@@ -192,8 +237,16 @@ function WorkerWorkspaceSelect(props: {
       >
         <SelectGroup>
           {workerWorkspaceOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              <WorkerWorkspaceOptionContent option={option} />
+            <SelectItem
+              key={option.value}
+              className="h-7 py-0 text-xs leading-4"
+              value={option.value}
+            >
+              <WorkerWorkspaceOptionContent
+                option={option}
+                scope={props.scope}
+                surface="menu"
+              />
             </SelectItem>
           ))}
         </SelectGroup>
@@ -204,18 +257,39 @@ function WorkerWorkspaceSelect(props: {
 
 function WorkerWorkspaceOptionContent(props: {
   option: WorkerWorkspaceOption;
+  scope: WorkerWorkspaceSelectScope;
+  surface: 'menu' | 'trigger';
 }) {
   const Icon = props.option.icon;
 
   return (
-    <span className="flex min-w-0 flex-1 items-center gap-2">
+    <span className="flex min-w-0 flex-1 items-center gap-1.5">
       <Icon
         aria-hidden="true"
-        className={cn('text-muted-foreground', props.option.iconClassName)}
+        className={cn(
+          'size-4 text-muted-foreground',
+          props.option.iconClassName
+        )}
       />
-      <span className="truncate">{props.option.label}</span>
+      <span className="truncate">{getWorkerWorkspaceOptionLabel(props)}</span>
     </span>
   );
+}
+
+function getWorkerWorkspaceOptionLabel(props: {
+  option: WorkerWorkspaceOption;
+  scope: WorkerWorkspaceSelectScope;
+  surface: 'menu' | 'trigger';
+}) {
+  if (
+    props.surface === 'menu' &&
+    props.scope === 'current-worker' &&
+    props.option.value === 'new-worktree'
+  ) {
+    return 'fork to worktree';
+  }
+
+  return props.option.label;
 }
 
 function isWorkerWorkspaceMode(value: unknown): value is WorkerWorkspaceMode {
@@ -266,7 +340,7 @@ function AppBrand() {
 function BrandTypography() {
   return (
     <>
-      <span className="truncate text-base leading-6 font-bold">yyork</span>
+      <Logo className="h-4 w-[3.75rem] shrink-0 text-sidebar-foreground" />
       <span className="shrink-0 rounded-full border border-sidebar-border bg-sidebar-primary px-1.5 py-0.5 text-[10px] leading-none font-semibold text-sidebar-primary-foreground">
         alpha
       </span>

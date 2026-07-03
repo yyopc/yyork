@@ -52,17 +52,23 @@ export interface WorkspaceContextValue {
     selection: ProjectSetupHarnessSelection
   ) => void;
   onTerminalSessionDelete?: (selectionKey: string, label: string) => void;
+  onTerminalSessionAttachDetached?: () => void;
   onTerminalSessionHide?: (selectionKey: string, label: string) => void;
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
+  onTerminalSessionFocusDetached?: (selectionKey: string) => void;
+  onTerminalSessionOpenDetached?: (selectionKey: string) => void;
   onTerminalSessionPinToggle?: (selectionKey: string) => void;
   onTerminalSessionRename?: (selectionKey: string, label: string) => void;
+  onTerminalSessionRestart?: (selectionKey: string, label: string) => void;
   onWorkerWorkspaceModeChange: (mode: WorkerWorkspaceMode) => void;
   onWorkerSessionSelect: (selectionKey: string) => void;
   onWorkspaceRefresh: () => void;
   pinnedTerminalSessionKeys?: string[];
   selectedProject?: ProjectOrchestrator;
+  detachedTerminalSession?: WorkerSession;
   selectedTerminalSession?: WorkerSession;
   selectedTerminalSessionKey?: string;
+  terminalDetached?: boolean;
   terminalSessions: WorkerSession[];
   workerWorkspaceModePending: boolean;
   workspaceError?: string;

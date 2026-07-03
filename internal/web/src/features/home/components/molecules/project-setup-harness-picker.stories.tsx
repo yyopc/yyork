@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 
 import { ProjectSetupCardShell } from '@/features/home/components/molecules/project-setup-card-shell';
-import { HarnessPickerDemo } from '@/features/home/components/molecules/project-setup-harness-picker.stories.shared';
+import { HarnessPickerDemo } from '@/features/home/components/molecules/project-setup-harness-picker-demo';
 import { FirstRunProjectCard } from '@/features/home/components/organisms/first-run-project-card';
 
 const meta = {

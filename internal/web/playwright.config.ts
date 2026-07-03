@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 const port = process.env.VITE_PORT ?? '3000';
 const baseURL = process.env.VITE_BASE_URL ?? `http://localhost:${port}`;
+const desktopViewport = { width: 1440, height: 900 };
 
 export default defineConfig({
   testDir: './e2e',
@@ -17,7 +18,15 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        contextOptions: {
+          screen: desktopViewport,
+        },
+        hasTouch: false,
+        isMobile: false,
+        viewport: desktopViewport,
+      },
     },
   ],
   webServer: {

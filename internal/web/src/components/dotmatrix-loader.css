@@ -12,6 +12,13 @@
   --dmx-halo-level: 0;
 }
 
+.dmx-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
 .dmx-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

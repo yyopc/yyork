@@ -3,6 +3,97 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* shadcn scroll-fade utility subset for vertical scroll containers. */
+@property --scroll-fade-t {
+  syntax: '<length-percentage>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --scroll-fade-b {
+  syntax: '<length-percentage>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --scroll-fade-mask {
+  syntax: '*';
+  inherits: false;
+}
+
+@theme inline {
+  @keyframes scroll-fade-reveal-t {
+    from {
+      --scroll-fade-t: 0px;
+    }
+
+    to {
+      --scroll-fade-t: var(
+        --_scroll-fade-size-t,
+        var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10)))
+      );
+    }
+  }
+
+  @keyframes scroll-fade-reveal-b {
+    from {
+      --scroll-fade-b: var(
+        --_scroll-fade-size-b,
+        var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10)))
+      );
+    }
+
+    to {
+      --scroll-fade-b: 0px;
+    }
+  }
+}
+
+@utility scroll-fade-y {
+  --_scroll-fade-size-t: var(
+    --scroll-fade-t-size,
+    var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10)))
+  );
+  --_scroll-fade-size-b: var(
+    --scroll-fade-b-size,
+    var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10)))
+  );
+  --scroll-fade-block: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--scroll-fade-t, 0px),
+    #000 calc(100% - var(--scroll-fade-b, 0px)),
+    transparent 100%
+  );
+  -webkit-mask-image: var(--scroll-fade-mask, var(--scroll-fade-block));
+  mask-image: var(--scroll-fade-mask, var(--scroll-fade-block));
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+
+  @supports (animation-timeline: scroll()) {
+    animation:
+      scroll-fade-reveal-t 1ms ease-in-out,
+      scroll-fade-reveal-b 1ms ease-in-out;
+    animation-timeline: scroll(self y), scroll(self y);
+    animation-range:
+      0 var(--scroll-fade-reveal, calc(var(--spacing) * 24)),
+      calc(100% - var(--scroll-fade-reveal, calc(var(--spacing) * 24))) 100%;
+    animation-fill-mode: both;
+  }
+
+  @supports not (animation-timeline: scroll()) {
+    --scroll-fade-t: var(--_scroll-fade-size-t);
+    --scroll-fade-b: var(--_scroll-fade-size-b);
+  }
+}
+
+@utility scroll-fade-* {
+  --scroll-fade-size: calc(var(--spacing) * --value(integer));
+  --scroll-fade-size: --value([length], [percentage]);
+}
+
 @theme {
   --font-sans:
     'Geist Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
@@ -604,6 +695,16 @@
   background: var(--background);
 }
 
+.yyork-file-tree-resizable-panel > .yyork-file-tree-shell {
+  padding-top: 0.75rem;
+}
+
+.yyork-file-tree-resizable-panel
+  > .yyork-file-tree-shell
+  > .yyork-file-tree-toolbar {
+  min-height: 1.75rem;
+}
+
 .yyork-file-tree-pane {
   height: 100%;
   min-width: 0;
@@ -611,6 +712,10 @@
 
 .yyork-file-tree-resizable-panel {
   min-width: 0;
+}
+
+.yyork-diff-file-tree-resizable-panel {
+  min-width: 10rem;
 }
 
 .yyork-file-tree-resize-handle {
@@ -662,16 +767,42 @@
   --truncate-marker-background-color: var(--background);
 }
 
-.yyork-diff-virtualizer {
+.yyork-diff-review-workspace {
+  position: relative;
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  background: var(--background);
+}
+
+.yyork-diff-review-panel,
+.yyork-diff-file-tree-pane {
+  height: 100%;
+  min-width: 0;
+}
+
+.yyork-diff-file-tree-pane {
+  padding-top: 12px;
+}
+
+.yyork-diff-file-tree-pane > .yyork-file-tree-toolbar {
+  height: 1.75rem;
+  min-height: 1.75rem;
+  padding-top: 0;
+}
+
+.yyork-diff-code-view {
   box-sizing: border-box;
   height: 100%;
   min-height: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
   background: var(--background);
   scrollbar-gutter: stable;
-}
-
-.yyork-diff-virtualizer-content {
-  min-width: 100%;
 }
 
 .yyork-diff-viewer {
@@ -680,6 +811,29 @@
   --diffs-font-family: var(--font-mono);
   --diffs-font-size: 0.75rem;
   --diffs-line-height: 1.45;
+}
+
+.yyork-diff-viewed-toggle {
+  display: inline-flex;
+  height: 1.5rem;
+  align-items: center;
+  gap: 0.375rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  padding-inline: 0.375rem 0.5rem;
+  background: var(--background);
+  color: var(--muted-foreground);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+  user-select: none;
+}
+
+.yyork-diff-viewed-toggle--checked {
+  border-color: var(--primary);
+  background: color-mix(in oklch, var(--primary) 16%, transparent);
+  color: var(--foreground);
 }
 
 @keyframes fade {

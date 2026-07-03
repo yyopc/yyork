@@ -3,28 +3,13 @@ import {
   type CodeViewItem,
   type CodeViewProps,
 } from '@pierre/diffs/react';
-import type {
-  FileTree as FileTreeModel,
-  FileTreeDirectoryHandle,
-  FileTreeItemHandle,
-  GitStatusEntry,
-} from '@pierre/trees';
+import type { GitStatusEntry } from '@pierre/trees';
 import { FileTree as PierreFileTree, useFileTree } from '@pierre/trees/react';
 import { useQuery } from '@tanstack/react-query';
-import {
-  CodeIcon,
-  EyeIcon,
-  FolderOpenIcon,
-  ListCollapseIcon,
-  ListTreeIcon,
-  PanelRightCloseIcon,
-  PanelRightOpenIcon,
-  WrapTextIcon,
-} from 'lucide-react';
+import { CodeIcon, EyeIcon, FolderOpenIcon, WrapTextIcon } from 'lucide-react';
 import {
   type ReactNode,
   useState,
-  useSyncExternalStore,
   type WheelEvent as ReactWheelEvent,
 } from 'react';
 
@@ -43,6 +28,13 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
+import {
+  FileTreeExpansionToggle,
+  FileTreeSidebarToggle,
+  getFileTreeDirectoryPaths,
+  getSelectedFilePathFromSelection,
+  useFileTreeExpansionState,
+} from '@/features/home/components/molecules/canvas-file-tree-controls';
 import { CanvasMarkdownPreview } from '@/features/home/components/molecules/canvas-markdown-preview';
 import { CanvasWebPreview } from '@/features/home/components/molecules/canvas-web-preview';
 import { CanvasDiffView } from '@/features/home/components/organisms/canvas-diff-view';
@@ -51,7 +43,10 @@ import {
   sessionFileContentQueryOptions,
   sessionFilesQueryOptions,
 } from '@/features/home/data/session-files';
-import type { HomeWorkspaceCanvasReviewPreferences } from '@/features/home/data/workspace-preferences';
+import {
+  getCanvasPreviewTargetKey,
+  type HomeWorkspaceCanvasReviewPreferences,
+} from '@/features/home/data/workspace-preferences';
 import {
   type CanvasTab,
   isCanvasTab,
@@ -69,6 +64,13 @@ export interface CanvasTargetSummary {
   projectId?: string;
   projectName?: string;
   sessionId?: string;
+}
+
+function getCanvasPreviewName(target: CanvasTargetSummary) {
+  if (target.sessionId) {
+    return `session:${target.sessionId}`;
+  }
+  return getCanvasPreviewTargetKey(target);
 }
 
 type FileCodeViewOptions = NonNullable<CodeViewProps<undefined>['options']>;
@@ -233,7 +235,7 @@ export function CanvasPanel(props: {
             defaultUrl={props.previewUrl}
             onUrlChange={props.onPreviewUrlChange}
             projectId={props.target.projectId}
-            previewName={props.target.projectName}
+            previewName={getCanvasPreviewName(props.target)}
             sessionId={props.target.sessionId}
           />
         </TabsContent>
@@ -494,7 +496,7 @@ function CanvasFilePreview(props: {
       className="yyork-file-preview-pane flex min-h-0 min-w-0 flex-col"
     >
       {props.selectedPath ? (
-        <div className="yyork-file-preview-header yyork-file-preview-header--with-action py-2">
+        <div className="yyork-file-preview-header yyork-file-preview-header--with-action py-3">
           <span className="min-w-0 flex-1 truncate">{props.selectedPath}</span>
           <div className="yyork-file-preview-header-controls">
             {previewKind ? (
@@ -661,92 +663,6 @@ function FileWrapToggle(props: {
   );
 }
 
-function FileTreeSidebarToggle(props: {
-  fileTreeOpen: boolean;
-  onFileTreeOpenChange: (open: boolean) => void;
-}) {
-  const label = props.fileTreeOpen ? 'Hide file tree' : 'Show file tree';
-
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-7 rounded-sm text-muted-foreground"
-            aria-label={label}
-            aria-pressed={props.fileTreeOpen}
-            onClick={() => {
-              props.onFileTreeOpenChange(!props.fileTreeOpen);
-            }}
-          />
-        }
-      >
-        {props.fileTreeOpen ? (
-          <PanelRightCloseIcon aria-hidden="true" />
-        ) : (
-          <PanelRightOpenIcon aria-hidden="true" />
-        )}
-      </TooltipTrigger>
-      <TooltipContent side="left">
-        <p>{label}</p>
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
-function FileTreeExpansionToggle(props: {
-  expansionState: FileTreeExpansionState;
-  model: FileTreeModel;
-  paths: string[];
-}) {
-  const disabled = props.expansionState.directoryCount === 0;
-  const label = props.expansionState.allExpanded
-    ? 'Collapse all folders'
-    : 'Expand all folders';
-  const Icon = props.expansionState.allExpanded
-    ? ListCollapseIcon
-    : ListTreeIcon;
-
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-7 rounded-sm text-muted-foreground"
-            aria-label={label}
-            aria-pressed={props.expansionState.allExpanded}
-            disabled={disabled}
-            onClick={() => {
-              setFileTreeDirectoryExpansion(
-                props.model,
-                props.paths,
-                !props.expansionState.allExpanded
-              );
-            }}
-          />
-        }
-      >
-        <Icon aria-hidden="true" />
-      </TooltipTrigger>
-      <TooltipContent side="left">
-        <p>{label}</p>
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
-interface FileTreeExpansionState {
-  allExpanded: boolean;
-  directoryCount: number;
-  expandedDirectoryCount: number;
-}
-
 function resolvePersistedSelectedFilePath(
   selectedFilePath: string | undefined,
   paths: string[]
@@ -756,19 +672,6 @@ function resolvePersistedSelectedFilePath(
   }
 
   return paths.includes(selectedFilePath) ? selectedFilePath : null;
-}
-
-function getSelectedFilePathFromSelection(
-  selectedPaths: readonly string[]
-): string | null {
-  for (let index = selectedPaths.length - 1; index >= 0; index -= 1) {
-    const selectedPath = selectedPaths[index];
-    if (selectedPath && !selectedPath.endsWith('/')) {
-      return selectedPath;
-    }
-  }
-
-  return null;
 }
 
 function handleFileCodeViewWheel(event: ReactWheelEvent<HTMLDivElement>) {
@@ -832,155 +735,6 @@ function getStringVersion(value: string): number {
     hash = Math.imul(31, hash) + value.charCodeAt(index);
   }
   return hash >>> 0;
-}
-
-function useFileTreeExpansionState(
-  model: FileTreeModel,
-  directoryPaths: string[]
-): FileTreeExpansionState {
-  // Recomputing the expansion signature is O(directories), and the model emits
-  // one change event per directory during expand/collapse-all. Reading it on
-  // every emit makes bulk expansion O(directories^2). Coalesce recomputes into
-  // a single animation frame while keeping the current paths in render state.
-  const getSnapshot = () =>
-    getFileTreeExpansionSignature(model, directoryPaths);
-
-  function subscribe(onStoreChange: () => void) {
-    let frame = 0;
-    let currentSignature = getSnapshot();
-
-    const flush = () => {
-      frame = 0;
-      const next = getSnapshot();
-      if (next !== currentSignature) {
-        currentSignature = next;
-        onStoreChange();
-      }
-    };
-
-    const unsubscribe = model.subscribe(() => {
-      if (frame === 0) {
-        frame = requestAnimationFrame(flush);
-      }
-    });
-
-    return () => {
-      if (frame !== 0) {
-        cancelAnimationFrame(frame);
-      }
-      unsubscribe();
-    };
-  }
-
-  const signature = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-  const [directoryCount = 0, expandedDirectoryCount = 0] = signature
-    .split(':')
-    .map((value) => Number(value));
-
-  return {
-    allExpanded:
-      directoryCount > 0 && expandedDirectoryCount === directoryCount,
-    directoryCount,
-    expandedDirectoryCount,
-  };
-}
-
-function getFileTreeExpansionSignature(
-  model: FileTreeModel,
-  directoryPaths: string[]
-): string {
-  let expandedDirectoryCount = 0;
-  for (const path of directoryPaths) {
-    if (getFileTreeDirectoryHandle(model, path)?.isExpanded()) {
-      expandedDirectoryCount += 1;
-    }
-  }
-
-  return `${directoryPaths.length}:${expandedDirectoryCount}`;
-}
-
-function setFileTreeDirectoryExpansion(
-  model: FileTreeModel,
-  directoryPaths: string[],
-  expanded: boolean
-) {
-  const paths = expanded
-    ? directoryPaths
-    : getReversedFileTreeDirectoryPaths(directoryPaths);
-  for (const path of paths) {
-    const directory = getFileTreeDirectoryHandle(model, path);
-    if (!directory || directory.isExpanded() === expanded) {
-      continue;
-    }
-
-    if (expanded) {
-      directory.expand();
-    } else {
-      directory.collapse();
-    }
-  }
-}
-
-function getFileTreeDirectoryHandle(
-  model: FileTreeModel,
-  path: string
-): FileTreeDirectoryHandle | null {
-  const item = model.getItem(path);
-  if (!isFileTreeDirectoryHandle(item)) {
-    return null;
-  }
-
-  return item;
-}
-
-function isFileTreeDirectoryHandle(
-  item: FileTreeItemHandle | null
-): item is FileTreeDirectoryHandle {
-  return item?.isDirectory() === true;
-}
-
-function getFileTreeDirectoryPaths(paths: string[]): string[] {
-  const directoryPaths = new Set<string>();
-  for (const path of paths) {
-    const trimmedPath = path.replace(/^\/+|\/+$/g, '');
-    if (!trimmedPath) {
-      continue;
-    }
-
-    const segments = trimmedPath.split('/');
-    const terminalSegmentCount = path.endsWith('/')
-      ? segments.length
-      : segments.length - 1;
-    for (let index = 1; index <= terminalSegmentCount; index += 1) {
-      directoryPaths.add(`${segments.slice(0, index).join('/')}/`);
-    }
-  }
-
-  const sortedDirectoryPaths = Array.from(directoryPaths);
-  sortedDirectoryPaths.sort(compareFileTreeDirectoryPaths);
-  return sortedDirectoryPaths;
-}
-
-function compareFileTreeDirectoryPaths(left: string, right: string): number {
-  const leftDepth = left.split('/').length;
-  const rightDepth = right.split('/').length;
-  if (leftDepth !== rightDepth) {
-    return leftDepth - rightDepth;
-  }
-
-  return left.localeCompare(right);
-}
-
-function getReversedFileTreeDirectoryPaths(paths: string[]): string[] {
-  const reversedPaths: string[] = [];
-  for (let index = paths.length - 1; index >= 0; index -= 1) {
-    const path = paths[index];
-    if (path) {
-      reversedPaths.push(path);
-    }
-  }
-
-  return reversedPaths;
 }
 
 function CanvasPlaceholder(props: {

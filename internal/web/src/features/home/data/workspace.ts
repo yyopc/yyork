@@ -307,6 +307,44 @@ export function stopSessionMutationOptions() {
   };
 }
 
+const restartSessionResponseSchema = z.object({
+  id: z.string(),
+  projectPath: z.string(),
+});
+
+export type RestartSessionResult = z.infer<typeof restartSessionResponseSchema>;
+
+// restartSession asks yyork to replace the selected session's terminal process
+// with a native transcript resume, preserving the yyork row and workspace.
+export function restartSessionMutationOptions() {
+  return {
+    mutationFn: async (input: {
+      projectId?: string;
+      sessionId: string;
+    }): Promise<RestartSessionResult> => {
+      const params = new URLSearchParams();
+      if (input.projectId) {
+        params.set('project', input.projectId);
+      }
+      const response = await fetch(
+        `/api/sessions/${encodeURIComponent(input.sessionId)}/restart${
+          params.size > 0 ? `?${params.toString()}` : ''
+        }`,
+        {
+          method: 'POST',
+        }
+      );
+      if (!response.ok) {
+        const detail = (await response.text()).trim();
+        throw new Error(
+          detail || `Failed to restart session: ${response.status}`
+        );
+      }
+      return restartSessionResponseSchema.parse(await response.json());
+    },
+  };
+}
+
 // renameSession sets (or clears) a session's persisted display name. An empty
 // displayName reverts the session to its auto-derived title. The backend is
 // the single source of truth: it persists to the SQLite store and emits a
@@ -382,6 +420,37 @@ export function markSessionDoneMutationOptions() {
       }
 
       await response.json();
+    },
+  };
+}
+
+const forkSessionResponseSchema = z.object({
+  id: z.string(),
+  projectPath: z.string(),
+});
+
+export type ForkSessionResult = z.infer<typeof forkSessionResponseSchema>;
+
+// forkSession asks yyork to create a new worktree-backed worker by forking the
+// selected session's native Codex/Claude conversation.
+export function forkSessionMutationOptions() {
+  return {
+    mutationFn: async (input: { prompt?: string; sessionId: string }) => {
+      const response = await fetch(
+        `/api/sessions/${encodeURIComponent(input.sessionId)}/fork`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: input.prompt ?? 'Start implementation.',
+          }),
+        }
+      );
+      if (!response.ok) {
+        const detail = (await response.text()).trim();
+        throw new Error(detail || `Failed to fork session: ${response.status}`);
+      }
+      return forkSessionResponseSchema.parse(await response.json());
     },
   };
 }

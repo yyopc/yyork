@@ -77,7 +77,9 @@ function makeWorkerSession(
 }
 
 function StickySidebarHarness(props: {
+  onTerminalSessionOpenDetached?: (selectionKey: string) => void;
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
+  pinnedTerminalSessionKeys?: string[];
 }) {
   const sessions = makeStickyOverflowSessions();
 
@@ -94,6 +96,7 @@ function StickySidebarHarness(props: {
         onTerminalSessionDelete={() => {}}
         onTerminalSessionHide={() => {}}
         onTerminalSessionMarkDone={props.onTerminalSessionMarkDone}
+        onTerminalSessionOpenDetached={props.onTerminalSessionOpenDetached}
         onTerminalSessionPinToggle={() => {}}
         onTerminalSessionRename={() => {}}
         onWorkerSessionGroupOpenChange={() => {}}
@@ -102,7 +105,7 @@ function StickySidebarHarness(props: {
         openWorkerSessionGroupIds={workerStates}
         orchestrators={[]}
         pinnedProjectIds={[]}
-        pinnedTerminalSessionKeys={[]}
+        pinnedTerminalSessionKeys={props.pinnedTerminalSessionKeys ?? []}
         projects={stickyProjects}
         selectedProjectId={stickyProjects[0]?.id ?? ''}
         selectedTerminalSessionKey={
@@ -116,7 +119,9 @@ function StickySidebarHarness(props: {
 
 async function renderDesktopStickySidebar(
   props: {
+    onTerminalSessionOpenDetached?: (selectionKey: string) => void;
     onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
+    pinnedTerminalSessionKeys?: string[];
   } = {}
 ) {
   await page.viewport(1024, 768);
@@ -147,6 +152,52 @@ function getProjectsScrollArea() {
 
   expect(scrollArea).toBeTruthy();
   return scrollArea as HTMLElement;
+}
+
+function getPinnedGroupContent() {
+  const pinnedNav = document.querySelector<HTMLElement>(
+    '[role="navigation"][aria-label="Pinned"]'
+  );
+
+  if (!pinnedNav) {
+    throw new Error('Expected Pinned navigation to render.');
+  }
+
+  const groupContent = pinnedNav.querySelector<HTMLElement>(
+    '[data-sidebar="group-content"]'
+  );
+
+  expect(groupContent).toBeTruthy();
+  return groupContent as HTMLElement;
+}
+
+function getNavButton(navLabel: string, buttonLabel: string) {
+  const nav = document.querySelector<HTMLElement>(
+    `[role="navigation"][aria-label="${navLabel}"]`
+  );
+
+  if (!nav) {
+    throw new Error(`Expected ${navLabel} navigation to render.`);
+  }
+
+  const button = nav.querySelector<HTMLButtonElement>(
+    `button[aria-label="${buttonLabel}"]`
+  );
+
+  expect(button).toBeTruthy();
+  return button as HTMLButtonElement;
+}
+
+function hasActiveMaskImage(element: HTMLElement) {
+  const styles = getComputedStyle(element);
+  const maskImages = [
+    styles.maskImage,
+    styles.getPropertyValue('-webkit-mask-image'),
+  ].filter(Boolean);
+
+  return maskImages.some(
+    (maskImage) => maskImage !== 'none' && maskImage.includes('gradient')
+  );
 }
 
 function getStickyContexts() {
@@ -186,6 +237,82 @@ function isOpaque(element: HTMLElement) {
   return getComputedStyle(element).backgroundColor !== 'rgba(0, 0, 0, 0)';
 }
 
+function getReferenceColor(className: string) {
+  const reference = document.createElement('span');
+  reference.className = className;
+  document.body.append(reference);
+  const color = getComputedStyle(reference).color;
+  reference.remove();
+  return color;
+}
+
+test('uses the scroll fade affordance only on the projects scroller', async () => {
+  await renderDesktopStickySidebar();
+
+  const scrollArea = getProjectsScrollArea();
+  await vi.waitFor(() => {
+    expect(scrollArea.scrollHeight).toBeGreaterThan(scrollArea.clientHeight);
+    expect(hasActiveMaskImage(scrollArea)).toBe(true);
+  });
+
+  expect(scrollArea.classList.contains('scroll-fade-y')).toBe(true);
+  expect(scrollArea.classList.contains('scroll-fade-6')).toBe(true);
+  expect(
+    scrollArea.classList.contains(
+      '[--scroll-fade-reveal:calc(var(--spacing)*6)]'
+    )
+  ).toBe(true);
+  expect(getPinnedGroupContent().classList.contains('scroll-fade-y')).toBe(
+    false
+  );
+});
+
+test('matches pinned worker row font size to project worker rows', async () => {
+  await renderDesktopStickySidebar({
+    pinnedTerminalSessionKeys: ['sticky-alpha:sticky-alpha-prompt-0'],
+  });
+
+  const pinnedWorkerRow = getNavButton(
+    'Pinned',
+    'open the worker session: sticky-alpha-prompt-0'
+  );
+  const projectWorkerRow = getNavButton(
+    'Projects',
+    'Open prompt worker 2 terminal'
+  );
+
+  expect(getComputedStyle(pinnedWorkerRow).fontSize).toBe(
+    getComputedStyle(projectWorkerRow).fontSize
+  );
+});
+
+test('uses muted foreground for unselected agent session rows', async () => {
+  await renderDesktopStickySidebar({
+    pinnedTerminalSessionKeys: ['sticky-alpha:sticky-alpha-prompt-0'],
+  });
+
+  const mutedForeground = getReferenceColor('text-muted-foreground');
+  const pinnedWorkerRow = getNavButton(
+    'Pinned',
+    'open the worker session: sticky-alpha-prompt-0'
+  );
+  const projectWorkerRow = getNavButton(
+    'Projects',
+    'Open prompt worker 2 terminal'
+  );
+  const selectedProjectWorkerRow = getNavButton(
+    'Projects',
+    'Open working worker 1 terminal'
+  );
+
+  expect(getComputedStyle(pinnedWorkerRow).color).toBe(mutedForeground);
+  expect(getComputedStyle(projectWorkerRow).color).toBe(mutedForeground);
+  expect(selectedProjectWorkerRow.hasAttribute('data-active')).toBe(true);
+  expect(getComputedStyle(selectedProjectWorkerRow).color).not.toBe(
+    mutedForeground
+  );
+});
+
 test('keeps the project and worker group contexts sticky while sessions scroll', async () => {
   await renderDesktopStickySidebar();
 
@@ -223,8 +350,12 @@ test('keeps the project and worker group contexts sticky while sessions scroll',
 
 test('shows mark done only for prompt worker rows', async () => {
   const user = setupUser();
+  const onOpenDetached = vi.fn();
   const onMarkDone = vi.fn();
-  await renderDesktopStickySidebar({ onTerminalSessionMarkDone: onMarkDone });
+  await renderDesktopStickySidebar({
+    onTerminalSessionMarkDone: onMarkDone,
+    onTerminalSessionOpenDetached: onOpenDetached,
+  });
 
   getButtonByAriaLabel('Open prompt worker 1 terminal').dispatchEvent(
     new MouseEvent('contextmenu', {
@@ -238,6 +369,22 @@ test('shows mark done only for prompt worker rows', async () => {
   await expect
     .element(page.getByRole('menuitem', { name: 'Mark done' }))
     .toBeVisible();
+  await expect
+    .element(page.getByRole('menuitem', { name: 'Detach terminal' }))
+    .toBeVisible();
+  await user.click(page.getByRole('menuitem', { name: 'Detach terminal' }));
+  expect(onOpenDetached).toHaveBeenCalledWith(
+    'sticky-alpha:sticky-alpha-prompt-0'
+  );
+
+  getButtonByAriaLabel('Open prompt worker 1 terminal').dispatchEvent(
+    new MouseEvent('contextmenu', {
+      bubbles: true,
+      button: 2,
+      buttons: 2,
+      cancelable: true,
+    })
+  );
   await user.click(page.getByRole('menuitem', { name: 'Mark done' }));
   expect(onMarkDone).toHaveBeenCalledWith(
     'sticky-alpha:sticky-alpha-prompt-0',
@@ -254,7 +401,7 @@ test('shows mark done only for prompt worker rows', async () => {
   );
 
   await expect
-    .element(page.getByRole('menuitem', { name: 'Open terminal' }))
+    .element(page.getByRole('menuitem', { exact: true, name: 'Open terminal' }))
     .toBeVisible();
   expect(page.getByRole('menuitem', { name: 'Mark done' }).query()).toBeNull();
 });

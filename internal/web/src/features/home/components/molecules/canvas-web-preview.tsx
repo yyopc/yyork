@@ -9,9 +9,6 @@ import {
   MoreVerticalIcon,
   RefreshCcwIcon,
   RotateCcwIcon,
-  SendHorizontalIcon,
-  Trash2Icon,
-  XIcon,
 } from 'lucide-react';
 import {
   type ComponentProps,
@@ -48,6 +45,7 @@ import {
 import {
   type BrowserPreviewAgentationMessage,
   type BrowserPreviewAnnotation,
+  type BrowserPreviewCommand,
   type BrowserPreviewMessage,
   isBrowserPreviewBridgeMessage,
   isBrowserPreviewMessage,
@@ -101,17 +99,19 @@ interface PreviewState {
   sourceDefaultUrl?: string;
 }
 
-interface StagedAnnotation extends AnnotationPayload {
+interface TrackedAnnotation extends AnnotationPayload {
   key: string;
   sourceId?: string;
 }
 
 interface AnnotationState {
-  annotations: StagedAnnotation[];
+  annotations: TrackedAnnotation[];
   key: string;
 }
 
 const WebPreviewContext = createContext<WebPreviewContextValue | null>(null);
+
+const browserNavigationIconButtonClassName = 'size-7 rounded-sm shadow-none';
 
 type CanvasWebPreviewProps = {
   defaultUrl?: string;
@@ -138,17 +138,6 @@ export function CanvasWebPreview(props: CanvasWebPreviewProps) {
         <BrowserViewport
           onAgentationMessage={controller.handleAgentationMessage}
         />
-        {controller.annotations.length > 0 ||
-        controller.isSendingAnnotations ? (
-          <AnnotationTray
-            annotations={controller.annotations}
-            canSend={controller.canSendAnnotations}
-            pending={controller.isSendingAnnotations}
-            onClear={controller.clearAnnotations}
-            onRemove={controller.removeStagedAnnotation}
-            onSend={controller.sendAnnotations}
-          />
-        ) : null}
       </div>
     </WebPreviewContext>
   );
@@ -197,6 +186,10 @@ function useCanvasWebPreviewController(props: CanvasWebPreviewProps) {
   const canGoBack = historyIndex > 0;
   const canGoForward = historyIndex >= 0 && historyIndex < history.length - 1;
 
+  function clearAgentationOverlay() {
+    postPreviewAnnotationsClearCommand(iframeRef.current);
+  }
+
   function nextAnnotationKey() {
     annotationKeyRef.current += 1;
     return `annotation-${annotationKeyRef.current}`;
@@ -204,8 +197,8 @@ function useCanvasWebPreviewController(props: CanvasWebPreviewProps) {
 
   function setAnnotationsForCurrentUrl(
     update:
-      | StagedAnnotation[]
-      | ((current: StagedAnnotation[]) => StagedAnnotation[])
+      | TrackedAnnotation[]
+      | ((current: TrackedAnnotation[]) => TrackedAnnotation[])
   ) {
     setAnnotationState((current) => {
       const currentAnnotations =
@@ -356,8 +349,8 @@ function useCanvasWebPreviewController(props: CanvasWebPreviewProps) {
     }
   }
 
-  function sendAnnotationsToAgent(items: StagedAnnotation[] = annotations) {
-    if (items.length === 0 || sendMutation.isPending) {
+  function sendAnnotationsToAgent(items: TrackedAnnotation[] = annotations) {
+    if (items.length === 0) {
       return;
     }
 
@@ -379,12 +372,14 @@ function useCanvasWebPreviewController(props: CanvasWebPreviewProps) {
               ? errorValue.message
               : 'Failed to send annotations.'
           );
+          setAnnotationsForCurrentUrl(items);
         },
         onSuccess: (result) => {
+          clearAgentationOverlay();
+          setAnnotationsForCurrentUrl([]);
           toast.success(
             `Sent ${result.delivered} annotation${result.delivered === 1 ? '' : 's'} to the agent.`
           );
-          setAnnotationsForCurrentUrl([]);
         },
       }
     );
@@ -396,17 +391,22 @@ function useCanvasWebPreviewController(props: CanvasWebPreviewProps) {
     }
 
     const annotation = message.annotation
-      ? toStagedAnnotation(message.annotation, message.url, nextAnnotationKey())
+      ? toTrackedAnnotation(
+          message.annotation,
+          message.url,
+          nextAnnotationKey()
+        )
       : undefined;
     const annotationsFromMessage =
       message.annotations?.map((item) =>
-        toStagedAnnotation(item, message.url, nextAnnotationKey())
+        toTrackedAnnotation(item, message.url, nextAnnotationKey())
       ) ?? [];
 
     if (message.type === 'yyork:annotation-added' && annotation) {
       setAnnotationsForCurrentUrl((current) =>
         addOrUpdateAnnotation(current, annotation)
       );
+      sendAnnotationsToAgent([annotation]);
       return;
     }
 
@@ -458,17 +458,8 @@ function useCanvasWebPreviewController(props: CanvasWebPreviewProps) {
   };
 
   return {
-    annotations,
-    canSendAnnotations: Boolean(props.sessionId),
-    clearAnnotations: () => setAnnotationsForCurrentUrl([]),
     context,
     handleAgentationMessage,
-    isSendingAnnotations: sendMutation.isPending,
-    removeStagedAnnotation: (annotation: StagedAnnotation) =>
-      setAnnotationsForCurrentUrl((current) =>
-        removeAnnotation(current, annotation)
-      ),
-    sendAnnotations: () => sendAnnotationsToAgent(),
   };
 }
 
@@ -548,7 +539,7 @@ function BrowserMenuButton() {
             type="button"
             variant="ghost"
             size="icon"
-            className="rounded-sm shadow-none"
+            className={browserNavigationIconButtonClassName}
             aria-label="Browser options"
           />
         }
@@ -750,84 +741,6 @@ function BrowserViewport(props: {
   );
 }
 
-function AnnotationTray(props: {
-  annotations: StagedAnnotation[];
-  canSend: boolean;
-  onClear: () => void;
-  onRemove: (annotation: StagedAnnotation) => void;
-  onSend: () => void;
-  pending: boolean;
-}) {
-  const count = props.annotations.length;
-  const canSend = props.canSend && count > 0 && !props.pending;
-
-  return (
-    <div className="flex max-h-[34%] min-h-0 shrink-0 flex-col border-t border-border bg-muted/20">
-      <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2 text-xs">
-        <span className="font-medium">
-          {count} annotation{count === 1 ? '' : 's'} staged
-        </span>
-        <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="rounded-sm"
-            disabled={count === 0 || props.pending}
-            onClick={props.onClear}
-          >
-            <Trash2Icon aria-hidden="true" data-icon="inline-start" />
-            Clear
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            className="rounded-sm"
-            disabled={!canSend}
-            onClick={props.onSend}
-          >
-            <SendHorizontalIcon aria-hidden="true" data-icon="inline-start" />
-            {props.pending ? 'Sending...' : 'Send to agent'}
-          </Button>
-        </div>
-      </div>
-      <ul className="min-h-0 flex-1 divide-y divide-border overflow-auto">
-        {props.annotations.map((annotation) => (
-          <li
-            key={annotation.key}
-            className="flex items-start gap-2 px-3 py-2 text-xs"
-          >
-            <div className="min-wt-0 flex-1">
-              <p className="wrap-break-words">
-                {annotation.comment ||
-                  annotation.selectedText ||
-                  annotation.element ||
-                  'Annotation'}
-              </p>
-              {annotation.element || annotation.elementPath ? (
-                <p className="mt-0.5 truncate text-muted-foreground">
-                  {annotation.element} <code>{annotation.elementPath}</code>
-                </p>
-              ) : null}
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="rounded-sm"
-              aria-label="Remove annotation"
-              disabled={props.pending}
-              onClick={() => props.onRemove(annotation)}
-            >
-              <XIcon aria-hidden="true" />
-            </Button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 function WebPreviewNavigation({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div
@@ -854,7 +767,7 @@ function WebPreviewNavigationButton({
             type="button"
             variant="ghost"
             size="icon"
-            className={cn('rounded-sm shadow-none', className)}
+            className={cn(browserNavigationIconButtonClassName, className)}
             aria-label={tooltip}
             {...props}
           />
@@ -956,11 +869,11 @@ function getActivePreviewState(
   return createPreviewState(defaultUrl);
 }
 
-function toStagedAnnotation(
+function toTrackedAnnotation(
   annotation: BrowserPreviewAnnotation,
   url: string | undefined,
   key: string
-): StagedAnnotation {
+): TrackedAnnotation {
   return {
     comment: annotation.comment,
     element: annotation.element,
@@ -977,8 +890,8 @@ function toStagedAnnotation(
 }
 
 function addOrUpdateAnnotation(
-  current: StagedAnnotation[],
-  next: StagedAnnotation
+  current: TrackedAnnotation[],
+  next: TrackedAnnotation
 ) {
   if (!next.sourceId) {
     return [...current, next];
@@ -995,8 +908,8 @@ function addOrUpdateAnnotation(
 }
 
 function removeAnnotation(
-  current: StagedAnnotation[],
-  annotation: StagedAnnotation
+  current: TrackedAnnotation[],
+  annotation: TrackedAnnotation
 ) {
   if (annotation.sourceId) {
     return current.filter((item) => item.sourceId !== annotation.sourceId);
@@ -1006,7 +919,7 @@ function removeAnnotation(
 }
 
 function toAnnotationRequestPayload(
-  annotation: StagedAnnotation
+  annotation: TrackedAnnotation
 ): AnnotationPayload {
   return {
     comment: annotation.comment,
@@ -1132,17 +1045,29 @@ function postPreviewStorageCommand(
   frame: HTMLIFrameElement | null,
   scope: StorageClearScope
 ) {
-  const messageType =
+  const messageType: BrowserPreviewCommand['type'] =
     scope === 'cache'
       ? 'yyork:clear-cache'
       : scope === 'cookies'
         ? 'yyork:clear-cookies'
         : 'yyork:clear-storage';
+  postBrowserPreviewCommand(frame, messageType);
+}
+
+function postPreviewAnnotationsClearCommand(frame: HTMLIFrameElement | null) {
+  postBrowserPreviewCommand(frame, 'yyork:clear-annotations');
+}
+
+function postBrowserPreviewCommand(
+  frame: HTMLIFrameElement | null,
+  type: BrowserPreviewCommand['type']
+) {
   frame?.contentWindow?.postMessage(
     {
       source: 'yyork-browser',
-      type: messageType,
-    },
+      type,
+      version: 1,
+    } satisfies BrowserPreviewCommand,
     '*'
   );
 }

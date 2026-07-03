@@ -30,6 +30,16 @@ export type BrowserPreviewBridgeMessage = {
   y?: number;
 };
 
+export type BrowserPreviewCommand = {
+  source: 'yyork-browser';
+  type:
+    | 'yyork:clear-annotations'
+    | 'yyork:clear-cache'
+    | 'yyork:clear-cookies'
+    | 'yyork:clear-storage';
+  version: 1;
+};
+
 export type BrowserPreviewAnnotation = {
   boundingBox?: {
     height: number;

@@ -1,18 +1,16 @@
 'use client';
 
-import { useMemo } from 'react';
-
 import {
   type DotAnimationResolver,
   DotMatrixBase,
   type DotMatrixCommonProps,
-  isWithinCircularMask,
 } from '@/lib/tailwind/dotmatrix-core';
 import {
   useCyclePhase,
   useDotMatrixPhases,
   usePrefersReducedMotion,
 } from '@/lib/tailwind/dotmatrix-hooks';
+import { isWithinCircularMask } from '@/lib/tailwind/dotmatrix-shape';
 
 export type DotmCircular5Props = DotMatrixCommonProps;
 
@@ -42,35 +40,33 @@ export function DotmCircular5({
     speed,
   });
 
-  const resolver = useMemo<DotAnimationResolver>(() => {
-    return ({ row, col, phase: p }) => {
-      if (!isWithinCircularMask(row, col)) {
-        return { className: 'dmx-inactive' };
-      }
+  const resolver: DotAnimationResolver = ({ row, col, phase: p }) => {
+    if (!isWithinCircularMask(row, col)) {
+      return { className: 'dmx-inactive' };
+    }
 
-      const x = col - 2;
-      const y = row - 2;
-      const radius = Math.hypot(x, y);
-      const angle = Math.atan2(y, x);
-      const theta = (reducedMotion || p === 'idle' ? 0 : phase) * Math.PI * 2;
-      const pinwheel = Math.cos(angle * 4 - theta * 2.2);
-      const radialGate = Math.sin(radius * 2.1 - theta * 1.25);
+    const x = col - 2;
+    const y = row - 2;
+    const radius = Math.hypot(x, y);
+    const angle = Math.atan2(y, x);
+    const theta = (reducedMotion || p === 'idle' ? 0 : phase) * Math.PI * 2;
+    const pinwheel = Math.cos(angle * 4 - theta * 2.2);
+    const radialGate = Math.sin(radius * 2.1 - theta * 1.25);
 
-      if (radius < 0.6) {
-        return { style: { opacity: 0.66 } };
-      }
+    if (radius < 0.6) {
+      return { style: { opacity: 0.66 } };
+    }
 
-      if (pinwheel > 0.48 && radialGate > -0.25) {
-        return { style: { opacity: BLADE_OPACITY } };
-      }
+    if (pinwheel > 0.48 && radialGate > -0.25) {
+      return { style: { opacity: BLADE_OPACITY } };
+    }
 
-      if (pinwheel > 0.1) {
-        return { style: { opacity: HALO_OPACITY } };
-      }
+    if (pinwheel > 0.1) {
+      return { style: { opacity: HALO_OPACITY } };
+    }
 
-      return { style: { opacity: BASE_OPACITY } };
-    };
-  }, [reducedMotion, phase]);
+    return { style: { opacity: BASE_OPACITY } };
+  };
 
   return (
     <DotMatrixBase

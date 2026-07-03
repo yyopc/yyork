@@ -34,7 +34,7 @@ export const Codex: Story = {
       canvas.getByText('Waiting for your answer on the split strategy.')
     ).toBeVisible();
     await expect(
-      canvas.getByRole('img', { name: 'Response delivered' })
+      canvas.getByRole('button', { name: /Response delivered/ })
     ).toBeVisible();
   },
 };
@@ -121,7 +121,7 @@ export const WithSessionContextMenu: Story = {
 
     await expect(body.getByRole('menuitem', { name: 'Unpin' })).toBeVisible();
     await expect(
-      body.getByRole('menuitem', { name: 'Open terminal' })
+      body.getByRole('menuitem', { name: /^Open terminal$/ })
     ).toBeVisible();
     await expect(body.getByRole('menuitem', { name: 'Rename' })).toBeVisible();
     await expect(

@@ -8,6 +8,7 @@ import {
 import { appHotkeys } from '@/lib/app-hotkeys';
 import { cn } from '@/lib/tailwind/utils';
 
+import { Logo } from '@/components/brand/logo';
 import { ShortcutKbdGroup } from '@/components/ui/shortcut-kbd';
 
 import {
@@ -110,9 +111,7 @@ function AppPreview(props: {
               </div>
             </div>
             <div className="flex min-w-0 grow items-center gap-2 px-3.5">
-              <span className="text-base leading-6 font-bold text-sidebar-foreground">
-                yyork
-              </span>
+              <Logo className="h-4 w-[3.75rem] shrink-0 text-sidebar-foreground" />
               <span className="flex items-center rounded-full border border-sidebar-border bg-sidebar-primary px-1.5 py-0.5 text-[10px] leading-none font-semibold text-sidebar-primary-foreground">
                 alpha
               </span>

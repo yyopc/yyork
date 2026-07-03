@@ -219,6 +219,34 @@ export function getWorkerSessionSelectionKey(
   return `${encodeURIComponent(session.project)}:${encodeURIComponent(session.id)}`;
 }
 
+export function getWorkerSessionWorkspaceMode(
+  session: Pick<WorkerSession, 'metadata'> | undefined,
+  fallbackMode: WorkerWorkspaceMode
+): WorkerWorkspaceMode {
+  if (!session?.metadata.trim()) {
+    return fallbackMode;
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(session.metadata);
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      !Array.isArray(parsed) &&
+      'workspaceMode' in parsed
+    ) {
+      const mode = (parsed as { workspaceMode?: unknown }).workspaceMode;
+      if (workerWorkspaceModes.includes(mode as WorkerWorkspaceMode)) {
+        return mode as WorkerWorkspaceMode;
+      }
+    }
+  } catch {
+    return fallbackMode;
+  }
+
+  return fallbackMode;
+}
+
 export function getProjectIdFromSelectionKey(selectionKey: string) {
   const separatorIndex = selectionKey.indexOf(':');
   if (separatorIndex <= 0) {
@@ -292,7 +320,7 @@ export function getWorkerSessionNavLabel(
   return session.kind === 'orchestrator' ? 'Orchestrator' : 'New worker agent';
 }
 
-export function isWorkerSessionTitlePending(
+function isWorkerSessionTitlePending(
   session: Pick<WorkerSession, 'kind' | 'metadata'>
 ) {
   if (session.kind === 'orchestrator') {

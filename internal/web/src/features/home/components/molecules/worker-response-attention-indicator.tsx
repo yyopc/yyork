@@ -1,4 +1,4 @@
-import { DotIcon } from 'lucide-react';
+import { CircleIcon } from 'lucide-react';
 
 import { cn } from '@/lib/tailwind/utils';
 
@@ -15,17 +15,18 @@ export function WorkerResponseAttentionIndicator(props: {
 
   return (
     <span
-      aria-label={props.attention.label}
+      aria-hidden="true"
       className={cn(
         'pointer-events-none inline-flex shrink-0 items-center',
         'text-primary',
         props.className
       )}
-      role="img"
     >
-      <DotIcon
+      <CircleIcon
         aria-hidden="true"
-        className={props.size === 'card' ? 'size-4' : 'size-8'}
+        className={props.size === 'card' ? 'size-1.5' : 'size-1.5!'}
+        fill="currentColor"
+        strokeWidth={0}
       />
     </span>
   );

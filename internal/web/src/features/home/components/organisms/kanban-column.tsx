@@ -26,7 +26,7 @@ export function KanbanColumn(
         </span>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div className="min-h-0 flex-1 scroll-fade-y overflow-y-auto overscroll-contain [--scroll-fade-reveal:calc(var(--spacing)*6)] scroll-fade-6">
         {props.column.cards.map((card) => (
           <KanbanCard
             key={card.selectionKey}
@@ -35,8 +35,10 @@ export function KanbanColumn(
             onTerminalSessionDelete={props.onTerminalSessionDelete}
             onTerminalSessionHide={props.onTerminalSessionHide}
             onTerminalSessionMarkDone={props.onTerminalSessionMarkDone}
+            onTerminalSessionOpenDetached={props.onTerminalSessionOpenDetached}
             onTerminalSessionPinToggle={props.onTerminalSessionPinToggle}
             onTerminalSessionRename={props.onTerminalSessionRename}
+            onTerminalSessionRestart={props.onTerminalSessionRestart}
             pinnedTerminalSessionKeys={props.pinnedTerminalSessionKeys}
           />
         ))}

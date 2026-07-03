@@ -6,11 +6,11 @@ import { page, render, setupUser } from '@/tests/utils';
 import { CanvasWebPreview } from './canvas-web-preview';
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
-test('stages Agentation messages and sends them to the selected agent session', async () => {
-  const user = setupUser();
+test('sends Agentation add messages immediately and clears the iframe overlay after success', async () => {
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
     if (url === '/api/browser-preview/targets') {
@@ -41,6 +41,7 @@ test('stages Agentation messages and sends them to the selected agent session', 
   const iframeLocator = page.getByTitle('Browser preview');
   await expect.element(iframeLocator).toBeVisible();
   const iframe = iframeLocator.element() as HTMLIFrameElement;
+  const postMessageSpy = vi.spyOn(iframe.contentWindow!, 'postMessage');
 
   window.dispatchEvent(
     new MessageEvent('message', {
@@ -59,9 +60,6 @@ test('stages Agentation messages and sends them to the selected agent session', 
       source: iframe.contentWindow,
     })
   );
-
-  await expect.element(page.getByText('1 annotation staged')).toBeVisible();
-  await user.click(page.getByRole('button', { name: 'Send to agent' }));
 
   await vi.waitFor(() => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -85,9 +83,144 @@ test('stages Agentation messages and sends them to the selected agent session', 
       method: 'POST',
     })
   );
+  expect(page.getByText(/annotation staged/).query()).toBeNull();
+  expect(
+    page.getByRole('button', { name: 'Send to agent' }).query()
+  ).toBeNull();
+  await vi.waitFor(() => {
+    expect(postMessageSpy).toHaveBeenCalledWith(
+      {
+        source: 'yyork-browser',
+        type: 'yyork:clear-annotations',
+        version: 1,
+      },
+      '*'
+    );
+  });
 });
 
-test('sends Agentation submit events to the selected agent session', async () => {
+test('Agentation add without a selected session does not post or clear the iframe overlay', async () => {
+  const fetchMock = previewTargetsFetchMock();
+  vi.stubGlobal('fetch', fetchMock);
+
+  render(
+    <CanvasWebPreview
+      defaultUrl="http://localhost:3000/app"
+      projectId="project-a"
+    />
+  );
+
+  const iframeLocator = page.getByTitle('Browser preview');
+  await expect.element(iframeLocator).toBeVisible();
+  const iframe = iframeLocator.element() as HTMLIFrameElement;
+  const postMessageSpy = vi.spyOn(iframe.contentWindow!, 'postMessage');
+
+  window.dispatchEvent(
+    new MessageEvent('message', {
+      data: {
+        annotation: {
+          comment: 'tighten spacing',
+          element: 'button',
+          elementPath: 'main > button',
+          id: 'ann-1',
+          selectedText: 'Ship',
+        },
+        source: 'yyork-preview-agentation',
+        type: 'yyork:annotation-added',
+        url: 'http://localhost:3000/app',
+      },
+      source: iframe.contentWindow,
+    })
+  );
+
+  await expect
+    .element(page.getByText('Select a worker session to send annotations.'))
+    .toBeVisible();
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(postMessageSpy).not.toHaveBeenCalledWith(
+    {
+      source: 'yyork-browser',
+      type: 'yyork:clear-annotations',
+      version: 1,
+    },
+    '*'
+  );
+  expect(page.getByText(/annotation staged/).query()).toBeNull();
+  expect(
+    page.getByRole('button', { name: 'Send to agent' }).query()
+  ).toBeNull();
+});
+
+test('Agentation add keeps the iframe overlay when the annotation send fails', async () => {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url === '/api/browser-preview/targets') {
+      return new Response(
+        JSON.stringify({
+          previewUrl: 'about:blank',
+          targetUrl: 'http://localhost:3000/app',
+        })
+      );
+    }
+
+    if (url === '/api/annotations/session-1?project=project-a') {
+      return new Response('agent unavailable', { status: 503 });
+    }
+
+    return new Response('unexpected request', { status: 500 });
+  });
+  vi.stubGlobal('fetch', fetchMock);
+
+  render(
+    <CanvasWebPreview
+      defaultUrl="http://localhost:3000/app"
+      projectId="project-a"
+      sessionId="session-1"
+    />
+  );
+
+  const iframeLocator = page.getByTitle('Browser preview');
+  await expect.element(iframeLocator).toBeVisible();
+  const iframe = iframeLocator.element() as HTMLIFrameElement;
+  const postMessageSpy = vi.spyOn(iframe.contentWindow!, 'postMessage');
+
+  window.dispatchEvent(
+    new MessageEvent('message', {
+      data: {
+        annotation: {
+          comment: 'tighten spacing',
+          element: 'button',
+          elementPath: 'main > button',
+          id: 'ann-1',
+          selectedText: 'Ship',
+        },
+        source: 'yyork-preview-agentation',
+        type: 'yyork:annotation-added',
+        url: 'http://localhost:3000/app',
+      },
+      source: iframe.contentWindow,
+    })
+  );
+
+  await vi.waitFor(() => {
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  await expect.element(page.getByText('agent unavailable')).toBeVisible();
+  expect(postMessageSpy).not.toHaveBeenCalledWith(
+    {
+      source: 'yyork-browser',
+      type: 'yyork:clear-annotations',
+      version: 1,
+    },
+    '*'
+  );
+  expect(page.getByText(/annotation staged/).query()).toBeNull();
+  expect(
+    page.getByRole('button', { name: 'Send to agent' }).query()
+  ).toBeNull();
+});
+
+test('sends Agentation submit events to the selected agent session for compatibility', async () => {
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
     if (url === '/api/browser-preview/targets') {
@@ -118,6 +251,7 @@ test('sends Agentation submit events to the selected agent session', async () =>
   const iframeLocator = page.getByTitle('Browser preview');
   await expect.element(iframeLocator).toBeVisible();
   const iframe = iframeLocator.element() as HTMLIFrameElement;
+  const postMessageSpy = vi.spyOn(iframe.contentWindow!, 'postMessage');
 
   window.dispatchEvent(
     new MessageEvent('message', {
@@ -159,6 +293,16 @@ test('sends Agentation submit events to the selected agent session', async () =>
       method: 'POST',
     })
   );
+  await vi.waitFor(() => {
+    expect(postMessageSpy).toHaveBeenCalledWith(
+      {
+        source: 'yyork-browser',
+        type: 'yyork:clear-annotations',
+        version: 1,
+      },
+      '*'
+    );
+  });
 });
 
 function previewTargetsFetchMock() {
@@ -381,7 +525,19 @@ test('hard reload over a bridge preview waits for the ack and reloads once', asy
   const iframe = iframeLocator.element() as HTMLIFrameElement;
 
   await user.click(page.getByRole('button', { name: 'Browser options' }));
-  await user.click(page.getByRole('menuitem', { name: 'Hard reload' }));
+  const hardReloadItem = page.getByRole('menuitem', { name: 'Hard reload' });
+  await expect.element(hardReloadItem).toBeVisible();
+  const compactMenuItemStyle = getComputedStyle(hardReloadItem.element());
+  const compactMenuIconStyle = getComputedStyle(
+    hardReloadItem.element().querySelector('svg') as SVGElement
+  );
+  expect(compactMenuItemStyle.fontSize).toBe('14px');
+  expect(compactMenuItemStyle.lineHeight).toBe('20px');
+  expect(compactMenuItemStyle.paddingTop).toBe('4px');
+  expect(compactMenuItemStyle.columnGap).toBe('6px');
+  expect(compactMenuIconStyle.width).toBe('16px');
+  expect(compactMenuIconStyle.height).toBe('16px');
+  await user.click(hardReloadItem);
 
   // The bridge acked, the frame rebinds exactly once: one extra target
   // registration and a single remount.

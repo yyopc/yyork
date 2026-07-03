@@ -4,7 +4,6 @@ import { ProjectSetupHarnessPicker } from '@/features/home/components/molecules/
 import { sampleAgentHarnesses } from '@/features/home/demo/agent-harness.fixtures';
 import type { AgentHarnessId } from '@/features/home/domain/agent-harness';
 
-export default {}
 export function HarnessPickerDemo(props: {
   defaultOrchestrator?: AgentHarnessId;
   defaultRememberOrchestrator?: boolean;

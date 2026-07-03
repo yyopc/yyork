@@ -3,10 +3,8 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/tailwind/utils';
 
 /** Matches `NoProjectsEmptyState` card shell (424×438; scale applied by shell wrapper). */
-export const projectSetupCardClassName =
+const projectSetupCardClassName =
   'relative flex h-[438px] w-[424px] flex-col overflow-hidden rounded-2xl border border-border bg-background p-9 shadow-[0_8px_24px_rgba(10,10,10,0.08),0_2px_6px_rgba(10,10,10,0.05)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.42),0_2px_6px_rgba(0,0,0,0.32)]';
-
-export const projectSetupCardShellViewTransitionName = 'project-setup-card';
 
 /**
  * Shared card shell for first-run empty-state evolution and embedded project

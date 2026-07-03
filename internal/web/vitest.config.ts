@@ -11,6 +11,16 @@ export default defineConfig({
   test: {
     projects: [
       {
+        optimizeDeps: {
+          include: [
+            '@base-ui/react/checkbox',
+            '@base-ui/react/scroll-area',
+            '@base-ui/react/toggle',
+            '@pierre/diffs/react',
+            '@pierre/trees/react',
+            'react-resizable-panels',
+          ],
+        },
         test: {
           name: 'browser',
           browser: {

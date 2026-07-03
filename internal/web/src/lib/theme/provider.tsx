@@ -3,11 +3,10 @@ import {
   type Dispatch,
   type ReactNode,
   type SetStateAction,
-  useCallback,
-  useContext,
+  use,
   useEffect,
-  useMemo,
   useState,
+  useSyncExternalStore,
 } from 'react';
 
 type ColorTheme = 'light' | 'dark';
@@ -48,6 +47,23 @@ function getSystemTheme(): ColorTheme {
     return 'light';
   }
   return window.matchMedia(systemQuery).matches ? 'dark' : 'light';
+}
+
+function getServerSystemTheme(): ColorTheme {
+  return 'light';
+}
+
+function subscribeSystemTheme(onStoreChange: () => void) {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  const media = window.matchMedia(systemQuery);
+  media.addEventListener('change', onStoreChange);
+
+  return () => {
+    media.removeEventListener('change', onStoreChange);
+  };
 }
 
 function normalizeTheme(value: string | undefined, fallback: ThemeName) {
@@ -128,42 +144,32 @@ export function ThemeProvider({
   const [theme, setThemeState] = useState<ThemeName>(() =>
     readStoredTheme(storageKey, storageFallback)
   );
-  const [systemTheme, setSystemTheme] = useState<ColorTheme>(() =>
-    getSystemTheme()
+  const systemTheme = useSyncExternalStore(
+    subscribeSystemTheme,
+    getSystemTheme,
+    getServerSystemTheme
   );
 
   const appliedTheme = normalizeTheme(forcedTheme ?? theme, storageFallback);
   const resolvedTheme =
     appliedTheme === 'system' ? systemTheme : (appliedTheme as ColorTheme);
 
-  const setTheme = useCallback<Dispatch<SetStateAction<string>>>(
-    (value) => {
-      setThemeState((current) => {
-        const next = normalizeTheme(
-          typeof value === 'function' ? value(current) : value,
-          storageFallback
-        );
+  const setTheme: Dispatch<SetStateAction<string>> = (value) => {
+    setThemeState((current) => {
+      const next = normalizeTheme(
+        typeof value === 'function' ? value(current) : value,
+        storageFallback
+      );
 
-        try {
-          localStorage.setItem(storageKey, next);
-        } catch {
-          // localStorage can be unavailable in private or restricted contexts.
-        }
+      try {
+        localStorage.setItem(storageKey, next);
+      } catch {
+        // localStorage can be unavailable in private or restricted contexts.
+      }
 
-        return next;
-      });
-    },
-    [storageFallback, storageKey]
-  );
-
-  useEffect(() => {
-    const media = window.matchMedia(systemQuery);
-    const syncSystemTheme = () => setSystemTheme(getSystemTheme());
-
-    syncSystemTheme();
-    media.addEventListener('change', syncSystemTheme);
-    return () => media.removeEventListener('change', syncSystemTheme);
-  }, []);
+      return next;
+    });
+  };
 
   useEffect(() => {
     const syncStoredTheme = (event: StorageEvent) => {
@@ -187,25 +193,14 @@ export function ThemeProvider({
     });
   }, [appliedTheme, disableTransitionOnChange, enableColorScheme, systemTheme]);
 
-  const value = useMemo<ThemeContextValue>(
-    () => ({
-      forcedTheme,
-      resolvedTheme,
-      setTheme,
-      systemTheme,
-      theme,
-      themes: enableSystem ? [...themes, 'system'] : themes,
-    }),
-    [
-      enableSystem,
-      forcedTheme,
-      resolvedTheme,
-      setTheme,
-      systemTheme,
-      theme,
-      themes,
-    ]
-  );
+  const value: ThemeContextValue = {
+    forcedTheme,
+    resolvedTheme,
+    setTheme,
+    systemTheme,
+    theme,
+    themes: enableSystem ? [...themes, 'system'] : themes,
+  };
 
   return (
     <themeContext.Provider value={value}>{children}</themeContext.Provider>
@@ -213,5 +208,5 @@ export function ThemeProvider({
 }
 
 export function useTheme() {
-  return useContext(themeContext);
+  return use(themeContext);
 }

@@ -131,7 +131,7 @@ export const WorkerSessionsNested: Story = {
   args: sidebarStoryArgs,
   play: async ({ canvas }) => {
     await expect(
-      canvas.getAllByRole('img', { name: 'Response delivered' })[0]
+      canvas.getAllByRole('button', { name: /Response delivered/ })[0]
     ).toBeVisible();
   },
 };

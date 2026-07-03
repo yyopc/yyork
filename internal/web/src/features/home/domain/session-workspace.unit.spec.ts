@@ -13,6 +13,7 @@ import {
   getWorkerSessionGroups,
   getWorkerSessionNavLabel,
   getWorkerSessionSelectionKey,
+  getWorkerSessionWorkspaceMode,
   type SessionWorkspace,
   terminalSessionIdRequiresProject,
   withSelectedWorkerSession,
@@ -86,6 +87,21 @@ describe('session workspace projection', () => {
     ).toBe(workspace.projects[1]);
     expect(getProjectPath(workspace.projects[1])).toBe(
       '/Users/example/agent-orchestrator'
+    );
+  });
+
+  it('reads a worker session workspace mode from metadata with a project fallback', () => {
+    expect(
+      getWorkerSessionWorkspaceMode(
+        { metadata: JSON.stringify({ workspaceMode: 'new-worktree' }) },
+        'local'
+      )
+    ).toBe('new-worktree');
+    expect(getWorkerSessionWorkspaceMode({ metadata: '{' }, 'local')).toBe(
+      'local'
+    );
+    expect(getWorkerSessionWorkspaceMode(undefined, 'new-worktree')).toBe(
+      'new-worktree'
     );
   });
 

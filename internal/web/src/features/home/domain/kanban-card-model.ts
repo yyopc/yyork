@@ -112,7 +112,7 @@ export function getElapsedLabel(session: WorkerSessionRecord): string {
   return formatElapsed(resolveElapsedMs(session, metadata));
 }
 
-export function parseSessionMetadata(raw: string): Record<string, unknown> {
+function parseSessionMetadata(raw: string): Record<string, unknown> {
   if (!raw.trim()) {
     return {};
   }

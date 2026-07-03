@@ -1,10 +1,8 @@
 import { cn } from '@/lib/tailwind/utils';
 
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from '@/components/ui/hover-card';
+import { HoverCard } from '@/components/ui/hover-card';
+import { HoverCardContent } from '@/components/ui/hover-card-content';
+import { HoverCardTrigger } from '@/components/ui/hover-card-trigger';
 
 import { SessionContextMenu } from '@/features/home/components/molecules/session-context-menu';
 import { ToolCallBulletinLine } from '@/features/home/components/molecules/tool-call-bulletin-line';
@@ -21,8 +19,10 @@ export interface KanbanSessionActionProps {
   onTerminalSessionDelete?: (selectionKey: string, label: string) => void;
   onTerminalSessionHide?: (selectionKey: string, label: string) => void;
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
+  onTerminalSessionOpenDetached?: (selectionKey: string) => void;
   onTerminalSessionPinToggle?: (selectionKey: string) => void;
   onTerminalSessionRename?: (selectionKey: string, label: string) => void;
+  onTerminalSessionRestart?: (selectionKey: string, label: string) => void;
   pinnedTerminalSessionKeys?: string[];
 }
 
@@ -146,6 +146,11 @@ export function KanbanCard(
         card.selectionKey
       )}
       onOpen={openSession}
+      onOpenDetached={
+        props.onTerminalSessionOpenDetached
+          ? () => props.onTerminalSessionOpenDetached?.(card.selectionKey)
+          : undefined
+      }
       onPinToggle={
         props.onTerminalSessionPinToggle
           ? () => props.onTerminalSessionPinToggle?.(card.selectionKey)
@@ -172,6 +177,12 @@ export function KanbanCard(
         props.onTerminalSessionDelete
           ? () =>
               props.onTerminalSessionDelete?.(card.selectionKey, sessionLabel)
+          : undefined
+      }
+      onRestart={
+        props.onTerminalSessionRestart
+          ? () =>
+              props.onTerminalSessionRestart?.(card.selectionKey, sessionLabel)
           : undefined
       }
     >

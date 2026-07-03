@@ -10,12 +10,20 @@ type AnnotationPayload = {
   annotation: Annotation;
 };
 
+type BrowserPreviewCommand = {
+  source?: unknown;
+  type?: unknown;
+  version?: unknown;
+};
+
 const config = readPreviewConfig();
 const AgentationComponent = Agentation as React.ComponentType<AgentationProps>;
+const agentationStoragePrefix = 'feedback-annotations-';
 const darkSchemeQuery =
   typeof window.matchMedia === 'function'
     ? window.matchMedia('(prefers-color-scheme: dark)')
     : null;
+let renderRevision = 0;
 
 function systemTheme(): 'dark' | 'light' {
   return darkSchemeQuery?.matches === false ? 'light' : 'dark';
@@ -76,7 +84,7 @@ function renderToolbar(root: Root) {
   root.render(
     React.createElement(AgentationComponent, {
       // Remount on system theme changes so Agentation re-reads the key.
-      key: theme,
+      key: `${theme}:${renderRevision}`,
       copyToClipboard: true,
       onAnnotationAdd(annotation: Annotation) {
         post('yyork:annotation-added', {
@@ -106,6 +114,40 @@ function renderToolbar(root: Root) {
   );
 }
 
+function clearStoredAnnotations() {
+  try {
+    localStorage.removeItem(
+      `${agentationStoragePrefix}${window.location.pathname}`
+    );
+  } catch {
+    // If storage is blocked, the remount still clears in-memory annotations.
+  }
+}
+
+function clearAgentation(root: Root) {
+  clearStoredAnnotations();
+  renderRevision += 1;
+  renderToolbar(root);
+}
+
+function handleBrowserCommand(event: MessageEvent, root: Root) {
+  if (event.source !== window.parent) {
+    return;
+  }
+
+  const data = event.data as BrowserPreviewCommand;
+  if (
+    !data ||
+    data.source !== 'yyork-browser' ||
+    data.version !== 1 ||
+    data.type !== 'yyork:clear-annotations'
+  ) {
+    return;
+  }
+
+  clearAgentation(root);
+}
+
 function mountAgentation() {
   if (document.getElementById('__yyork-agentation-root')) {
     return;
@@ -119,6 +161,9 @@ function mountAgentation() {
   const root = createRoot(rootElement);
   renderToolbar(root);
   darkSchemeQuery?.addEventListener('change', () => renderToolbar(root));
+  window.addEventListener('message', (event) =>
+    handleBrowserCommand(event, root)
+  );
   post('yyork:agentation-ready');
 }
 

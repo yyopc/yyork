@@ -1,4 +1,10 @@
-import { Maximize2Icon, Minimize2Icon, RotateCcwIcon } from 'lucide-react';
+import {
+  Maximize2Icon,
+  Minimize2Icon,
+  RotateCcwIcon,
+  SquareArrowDownRightIcon,
+  SquareArrowUpRightIcon,
+} from 'lucide-react';
 import {
   type Dispatch,
   type ReactNode,
@@ -45,14 +51,20 @@ type TerminalSize = typeof initialTerminalSize;
 
 interface TerminalPanelProps {
   className?: string;
+  detached?: boolean;
   hidden?: boolean;
+  onAttachDetached?: () => void;
+  onOpenDetached?: () => void;
   session?: WorkerSession;
 }
 
 interface TerminalPanelViewProps {
   canRetry: boolean;
   className?: string;
+  detached?: boolean;
   hidden?: boolean;
+  onAttachDetached?: () => void;
+  onOpenDetached?: () => void;
   onTerminalData: (data: string) => void;
   onTerminalError: (error: unknown) => void;
   onTerminalReady: (terminal: TerminalHandle) => void;
@@ -142,6 +154,7 @@ function useTerminalPanel(props: TerminalPanelProps): TerminalPanelViewProps {
   const socketRef = useRef<WebSocket | null>(null);
   const terminalRef = useRef<TerminalHandle | null>(null);
   const clearBeforeNextMessageRef = useRef(false);
+  const scrollToBottomAfterNextMessageRef = useRef(false);
   const reconnectAttemptRef = useRef(0);
   const resizeDebounceTimerRef = useRef<number | undefined>(undefined);
   const terminalSizeRef = useRef(initialTerminalSize);
@@ -165,13 +178,18 @@ function useTerminalPanel(props: TerminalPanelProps): TerminalPanelViewProps {
             ? runtimeState.connectionSnapshot.status
             : 'connecting';
 
+  function prepareNextTerminalReplay() {
+    clearBeforeNextMessageRef.current = true;
+    scrollToBottomAfterNextMessageRef.current = true;
+  }
+
   useEffect(() => {
     reconnectAttemptRef.current = 0;
     // The terminal instance is reused across sessions instead of being torn down
     // and rebuilt, so the previous session's screen + scrollback would linger.
     // Clear it now, and guard the next socket message in case the new session's
     // output is already in flight before the clear lands.
-    clearBeforeNextMessageRef.current = true;
+    prepareNextTerminalReplay();
     terminalRef.current?.write(terminalResetSequence);
   }, [terminalSessionKey]);
 
@@ -238,7 +256,7 @@ function useTerminalPanel(props: TerminalPanelProps): TerminalPanelViewProps {
       reconnectAttemptRef.current += 1;
       reconnectTimer = window.setTimeout(() => {
         reconnectTimer = undefined;
-        clearBeforeNextMessageRef.current = true;
+        prepareNextTerminalReplay();
         dispatchRuntime({
           sessionKey: terminalSessionKey,
           type: 'retry-connection',
@@ -293,7 +311,12 @@ function useTerminalPanel(props: TerminalPanelProps): TerminalPanelViewProps {
         currentTerminal.write(terminalResetSequence);
         clearBeforeNextMessageRef.current = false;
       }
-      writeTerminalMessage(currentTerminal, event.data);
+      const scrollToBottomAfterWrite =
+        scrollToBottomAfterNextMessageRef.current;
+      scrollToBottomAfterNextMessageRef.current = false;
+      writeTerminalMessage(currentTerminal, event.data, {
+        scrollToBottomAfterWrite,
+      });
     });
 
     socket.addEventListener('error', () => {
@@ -361,7 +384,7 @@ function useTerminalPanel(props: TerminalPanelProps): TerminalPanelViewProps {
     // trigger SIGWINCH and clear stale glyphs before it lands.
     const socket = socketRef.current;
     if (socket && socket.readyState === WebSocket.OPEN) {
-      clearBeforeNextMessageRef.current = true;
+      prepareNextTerminalReplay();
       syncTerminalPanelSize({
         forceSend: true,
         resizeDebounceTimerRef,
@@ -402,7 +425,7 @@ function useTerminalPanel(props: TerminalPanelProps): TerminalPanelViewProps {
   }
 
   function handleTerminalRetry() {
-    clearBeforeNextMessageRef.current = true;
+    prepareNextTerminalReplay();
     reconnectAttemptRef.current = 0;
     dispatchRuntime({
       sessionKey: terminalSessionKey,
@@ -421,7 +444,7 @@ function useTerminalPanel(props: TerminalPanelProps): TerminalPanelViewProps {
       return;
     }
     const reconnectTerminal = () => {
-      clearBeforeNextMessageRef.current = true;
+      prepareNextTerminalReplay();
       reconnectAttemptRef.current = 0;
       dispatchRuntime({
         sessionKey: terminalSessionKey,
@@ -477,7 +500,10 @@ function useTerminalPanel(props: TerminalPanelProps): TerminalPanelViewProps {
   return {
     canRetry,
     className: props.className,
+    detached: props.detached,
     hidden: props.hidden,
+    onAttachDetached: props.onAttachDetached,
+    onOpenDetached: props.onOpenDetached,
     onTerminalData: handleTerminalData,
     onTerminalError: handleTerminalError,
     onTerminalReady: handleTerminalReady,
@@ -495,6 +521,10 @@ function TerminalPanelView(props: TerminalPanelViewProps) {
   const fullscreenButtonLabel = isTerminalFullscreen
     ? 'Restore terminal'
     : 'Maximize terminal';
+  const terminalControlButtonClassName =
+    'rounded-none border-r-0 bg-[var(--terminal-background)] text-[var(--terminal-foreground)] dark:bg-[var(--terminal-background)]';
+  const terminalControlEndButtonClassName =
+    'rounded-none bg-[var(--terminal-background)] text-[var(--terminal-foreground)] dark:bg-[var(--terminal-background)]';
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -581,15 +611,39 @@ function TerminalPanelView(props: TerminalPanelViewProps) {
         {props.canRetry ? (
           <IconButton
             label="Reconnect terminal"
-            className="border-r-0"
+            className={terminalControlButtonClassName}
             onClick={props.onTerminalRetry}
           >
             <RotateCcwIcon />
           </IconButton>
         ) : null}
-        <OpenIdeButton session={props.session} />
+        {!props.detached && props.onOpenDetached ? (
+          <IconButton
+            label="Detach terminal"
+            className={terminalControlButtonClassName}
+            variant="outline"
+            onClick={props.onOpenDetached}
+          >
+            <SquareArrowUpRightIcon />
+          </IconButton>
+        ) : null}
+        {props.detached && props.onAttachDetached ? (
+          <IconButton
+            label="Attach terminal"
+            className={terminalControlButtonClassName}
+            variant="outline"
+            onClick={props.onAttachDetached}
+          >
+            <SquareArrowDownRightIcon />
+          </IconButton>
+        ) : null}
+        <OpenIdeButton
+          className={terminalControlButtonClassName}
+          session={props.session}
+        />
         <IconButton
           label={fullscreenButtonLabel}
+          className={terminalControlEndButtonClassName}
           variant="outline"
           onClick={handleTerminalFullscreenToggle}
         >
@@ -715,20 +769,28 @@ function syncTerminalPanelSize(params: {
   });
 }
 
-function writeTerminalMessage(terminal: TerminalHandle, data: unknown) {
+function writeTerminalMessage(
+  terminal: TerminalHandle,
+  data: unknown,
+  options: { scrollToBottomAfterWrite?: boolean } = {}
+) {
+  const onParsed = options.scrollToBottomAfterWrite
+    ? () => terminal.scrollToBottom()
+    : undefined;
+
   if (typeof data === 'string') {
-    terminal.write(data);
+    terminal.write(data, onParsed);
     return;
   }
 
   if (data instanceof ArrayBuffer) {
-    terminal.write(new Uint8Array(data));
+    terminal.write(new Uint8Array(data), onParsed);
     return;
   }
 
   if (data instanceof Blob) {
     void data.arrayBuffer().then((buffer) => {
-      terminal.write(new Uint8Array(buffer));
+      terminal.write(new Uint8Array(buffer), onParsed);
     });
   }
 }

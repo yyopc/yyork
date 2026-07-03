@@ -1,4 +1,5 @@
-import viteReact from '@vitejs/plugin-react';
+import babel from '@rolldown/plugin-babel';
+import viteReact, { reactCompilerPreset } from '@vitejs/plugin-react';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, loadEnv } from 'vite';
@@ -43,11 +44,8 @@ export default defineConfig(({ mode }) => {
       tsConfigPaths({
         root: configDir,
       }),
-      viteReact({
-        babel: {
-          plugins: ['babel-plugin-react-compiler'],
-        },
-      }),
+      viteReact(),
+      babel({ presets: [reactCompilerPreset()] }),
     ],
   };
 });

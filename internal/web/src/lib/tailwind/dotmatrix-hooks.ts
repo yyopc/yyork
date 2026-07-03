@@ -1,28 +1,45 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import type { DotMatrixPhase } from '@/lib/tailwind/dotmatrix-core';
 
+const reducedMotionQuery = '(prefers-reduced-motion: reduce)';
+
+function getPrefersReducedMotionSnapshot(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  return window.matchMedia(reducedMotionQuery).matches;
+}
+
+function subscribePrefersReducedMotion(onStoreChange: () => void) {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  const query = window.matchMedia(reducedMotionQuery);
+  query.addEventListener('change', onStoreChange);
+
+  return () => {
+    query.removeEventListener('change', onStoreChange);
+  };
+}
+
+function clearDotMatrixTimers(timeouts: { current: number[] }) {
+  for (let i = 0; i < timeouts.current.length; i += 1) {
+    window.clearTimeout(timeouts.current[i]!);
+  }
+  timeouts.current = [];
+}
+
 export function usePrefersReducedMotion(): boolean {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-
-  useEffect(() => {
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
-
-    const update = () => {
-      setPrefersReducedMotion(query.matches);
-    };
-
-    update();
-    query.addEventListener('change', update);
-
-    return () => {
-      query.removeEventListener('change', update);
-    };
-  }, []);
-
-  return prefersReducedMotion;
+  return useSyncExternalStore(
+    subscribePrefersReducedMotion,
+    getPrefersReducedMotionSnapshot,
+    () => false
+  );
 }
 
 export interface UseCyclePhaseOptions {
@@ -40,7 +57,6 @@ export function useCyclePhase({
 
   useEffect(() => {
     if (!active) {
-      setPhase(0);
       return;
     }
 
@@ -60,97 +76,7 @@ export function useCyclePhase({
     return () => cancelAnimationFrame(rafId);
   }, [active, cycleMsBase, speed]);
 
-  return phase;
-}
-
-interface UseSteppedCycleOptions {
-  active: boolean;
-  cycleMsBase: number;
-  steps: number;
-  speed?: number;
-  idleStep?: number;
-}
-
-type FrameListener = (now: number) => void;
-
-const listeners = new Set<FrameListener>();
-let rafId: number | null = null;
-
-function emit(now: number) {
-  listeners.forEach((listener) => {
-    listener(now);
-  });
-}
-
-function tick(now: number) {
-  emit(now);
-  if (listeners.size > 0) {
-    rafId = window.requestAnimationFrame(tick);
-  } else {
-    rafId = null;
-  }
-}
-
-function subscribeFrame(listener: FrameListener) {
-  listeners.add(listener);
-  if (rafId === null) {
-    rafId = window.requestAnimationFrame(tick);
-  }
-  return () => {
-    listeners.delete(listener);
-    if (listeners.size === 0 && rafId !== null) {
-      window.cancelAnimationFrame(rafId);
-      rafId = null;
-    }
-  };
-}
-
-export function useSteppedCycle({
-  active,
-  cycleMsBase,
-  steps,
-  speed = 1,
-  idleStep = 0,
-}: UseSteppedCycleOptions): number {
-  const safeSteps = Math.max(1, Math.floor(steps));
-  const safeSpeed = speed > 0 ? speed : 1;
-  const rawCycleMs = cycleMsBase / safeSpeed;
-  const rawStepMs = rawCycleMs / safeSteps;
-  const stepMs = rawStepMs > 0 && Number.isFinite(rawStepMs) ? rawStepMs : 1;
-  const cycleMs = stepMs * safeSteps;
-
-  const [step, setStep] = useState(() => (active ? 0 : idleStep));
-  const startMsRef = useRef<number>(0);
-  const activeRef = useRef(false);
-  const currentStepRef = useRef(idleStep);
-
-  useEffect(() => {
-    if (!active) {
-      activeRef.current = false;
-      currentStepRef.current = idleStep;
-      setStep(idleStep);
-      return;
-    }
-
-    const updateStep = (now: number) => {
-      if (!activeRef.current) {
-        startMsRef.current = now;
-        activeRef.current = true;
-      }
-
-      const elapsed = Math.max(0, now - startMsRef.current);
-      const nextStep = Math.floor((elapsed % cycleMs) / stepMs) % safeSteps;
-      if (nextStep !== currentStepRef.current) {
-        currentStepRef.current = nextStep;
-        setStep(nextStep);
-      }
-    };
-
-    updateStep(performance.now());
-    return subscribeFrame(updateStep);
-  }, [active, cycleMs, idleStep, safeSteps, stepMs]);
-
-  return active ? step : idleStep;
+  return active ? phase : 0;
 }
 
 interface UseDotMatrixPhasesOptions {
@@ -176,24 +102,17 @@ export function useDotMatrixPhases({
   const timeouts = useRef<number[]>([]);
   const hoverGen = useRef(0);
 
-  const clearTimers = useCallback(() => {
-    for (let i = 0; i < timeouts.current.length; i += 1) {
-      window.clearTimeout(timeouts.current[i]!);
-    }
-    timeouts.current = [];
-  }, []);
-
   useEffect(() => {
     hoverGen.current += 1;
-    clearTimers();
-    return clearTimers;
-  }, [autoRun, hoverAnimated, clearTimers]);
+    clearDotMatrixTimers(timeouts);
+    return () => clearDotMatrixTimers(timeouts);
+  }, [autoRun, hoverAnimated]);
 
-  const onMouseEnter = useCallback(() => {
+  const onMouseEnter = () => {
     if (!hoverAnimated || autoRun) {
       return;
     }
-    clearTimers();
+    clearDotMatrixTimers(timeouts);
     const gen = ++hoverGen.current;
     setHoverPhase('collapse');
     const collapseMs = Math.max(1, Math.round(300 / safeSpeed));
@@ -204,16 +123,16 @@ export function useDotMatrixPhases({
       setHoverPhase('hoverRipple');
     }, collapseMs);
     timeouts.current.push(id);
-  }, [hoverAnimated, autoRun, safeSpeed, clearTimers]);
+  };
 
-  const onMouseLeave = useCallback(() => {
+  const onMouseLeave = () => {
     if (!hoverAnimated || autoRun) {
       return;
     }
     hoverGen.current += 1;
-    clearTimers();
+    clearDotMatrixTimers(timeouts);
     setHoverPhase('idle');
-  }, [hoverAnimated, autoRun, clearTimers]);
+  };
 
   const phase: DotMatrixPhase = autoRun
     ? 'loadingRipple'
@@ -221,12 +140,9 @@ export function useDotMatrixPhases({
       ? hoverPhase
       : 'idle';
 
-  return useMemo(
-    () => ({
-      phase,
-      onMouseEnter,
-      onMouseLeave,
-    }),
-    [phase, onMouseEnter, onMouseLeave]
-  );
+  return {
+    phase,
+    onMouseEnter,
+    onMouseLeave,
+  };
 }

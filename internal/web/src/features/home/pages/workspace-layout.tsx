@@ -2,9 +2,9 @@ import { useHotkey } from '@tanstack/react-hotkeys';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Outlet,
+  useLocation,
   useNavigate,
   useParams,
-  useSearch,
 } from '@tanstack/react-router';
 import { useGlimm } from 'glimm/react';
 import {
@@ -63,6 +63,7 @@ import {
   createProjectMutationOptions,
   type CreateProjectResult,
   fallbackHomeWorkspace,
+  forkSessionMutationOptions,
   homeWorkspaceQueryKey,
   homeWorkspaceQueryOptions,
   markSessionDoneMutationOptions,
@@ -70,6 +71,7 @@ import {
   patchWorkspaceWithRemovedProject,
   removeProjectMutationOptions,
   renameSessionMutationOptions,
+  restartSessionMutationOptions,
   stopSessionMutationOptions,
   updateProjectWorkerWorkspaceMutationOptions,
 } from '@/features/home/data/workspace';
@@ -113,6 +115,12 @@ import {
   getWorkerSessionResponseDeliveredAt,
 } from '@/features/home/domain/worker-response-attention';
 import {
+  type DetachedTerminalWindowMode,
+  getDetachedTerminalWindowName,
+  navigateDocumentPictureInPictureOpenerToHref,
+  openDetachedTerminalBrowserWindow,
+} from '@/features/home/pages/detached-terminal-window';
+import {
   WorkspaceContext,
   type WorkspaceContextValue,
 } from '@/features/home/pages/workspace-context';
@@ -121,6 +129,11 @@ import { OrchestratorWorkspaceTemplate } from '@/features/home/templates/orchest
 interface PendingSessionStop {
   label: string;
   selectionKey: string;
+}
+
+interface TerminalRouteSearch {
+  detached?: '1';
+  project?: string;
 }
 
 interface WorkspaceLayoutState {
@@ -229,7 +242,15 @@ function useWorkspaceLayout() {
     projectId?: string;
     sessionId?: string;
   };
-  const search = useSearch({ strict: false }) as { project?: unknown };
+  const location = useLocation();
+  const search = new URLSearchParams(
+    typeof window === 'undefined' ? location.searchStr : window.location.search
+  );
+  const parsedSearch = location.search as {
+    detached?: unknown;
+    project?: unknown;
+  };
+  const detachedTerminalWindows = useDetachedTerminalWindows();
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false);
   const [initialFirstRunProjectSetup] = useState(
     getInitialFirstRunProjectSetupState
@@ -247,8 +268,12 @@ function useWorkspaceLayout() {
   const [projectSetupUsesDialog, setProjectSetupUsesDialog] = useState(false);
   const terminalRouteTarget = getTerminalRouteTarget(
     params.sessionId,
-    getOptionalSearchString(search.project)
+    getOptionalSearchString(search.get('project') ?? parsedSearch.project)
   );
+  const terminalRouteDetached =
+    search.get('detached') === '1' ||
+    parsedSearch.detached === '1' ||
+    parsedSearch.detached === 1;
   const boardProjectIdParam = params.projectId;
   const isTerminalRoute = Boolean(terminalRouteTarget);
   const [layoutState, dispatchLayout] = useReducer(
@@ -296,6 +321,9 @@ function useWorkspaceLayout() {
   const { mutateAsync: renameSession } = useMutation(
     renameSessionMutationOptions()
   );
+  const { mutateAsync: restartSession } = useMutation(
+    restartSessionMutationOptions()
+  );
   const { mutateAsync: markSessionDone } = useMutation(
     markSessionDoneMutationOptions()
   );
@@ -309,9 +337,11 @@ function useWorkspaceLayout() {
     chooseProjectDirectoryMutationOptions()
   );
   const {
-    isPending: workerWorkspaceModePending,
+    isPending: projectWorkerWorkspaceModePending,
     mutate: updateProjectWorkerWorkspace,
   } = useMutation(updateProjectWorkerWorkspaceMutationOptions());
+  const { isPending: forkSessionPending, mutateAsync: forkSession } =
+    useMutation(forkSessionMutationOptions());
 
   const workspace = queriedWorkspace ?? fallbackHomeWorkspace;
   const projects = workspace.projects.map((project) => ({
@@ -365,37 +395,47 @@ function useWorkspaceLayout() {
     )
       ? defaultOrchestratorSession.project
       : undefined;
-  const selectedTerminalSession = isTerminalRoute
+  const routeTerminalSession = isTerminalRoute
     ? (getTerminalSessionForRoute(terminalSessions, terminalRouteTarget) ??
       selectedWorkerSession)
     : undefined;
-  const selectedTerminalSessionKey = selectedTerminalSession
-    ? getWorkerSessionSelectionKey(selectedTerminalSession)
+  const routeTerminalSessionKey = routeTerminalSession
+    ? getWorkerSessionSelectionKey(routeTerminalSession)
     : routeSelectedWorkerSessionKey;
+  const detachedTerminalSessionKeySet = new Set(
+    detachedTerminalWindows.detachedTerminalSessionKeys
+  );
+  const detachedTerminalSession =
+    !terminalRouteDetached &&
+    routeTerminalSession &&
+    routeTerminalSessionKey &&
+    detachedTerminalSessionKeySet.has(routeTerminalSessionKey)
+      ? routeTerminalSession
+      : undefined;
+  const selectedTerminalSession = detachedTerminalSession
+    ? undefined
+    : routeTerminalSession;
+  const selectedTerminalSessionKey = routeTerminalSessionKey;
   const terminalRouteTargetLegacy =
     terminalRouteTarget?.legacySelectionKey ?? false;
   const terminalRouteTargetProject = terminalRouteTarget?.project;
   const terminalRouteTargetSessionId = terminalRouteTarget?.sessionId;
-  const selectedTerminalSessionId = selectedTerminalSession?.id;
-  const selectedTerminalSessionProject = selectedTerminalSession?.project;
+  const selectedTerminalSessionId = routeTerminalSession?.id;
+  const selectedTerminalSessionProject = routeTerminalSession?.project;
   const selectedTerminalSessionRouteProject =
-    selectedTerminalSession &&
-    terminalSessionIdRequiresProject(
-      terminalSessions,
-      selectedTerminalSession.id
-    )
-      ? selectedTerminalSession.project
+    routeTerminalSession &&
+    terminalSessionIdRequiresProject(terminalSessions, routeTerminalSession.id)
+      ? routeTerminalSession.project
       : undefined;
-  const selectedProjectId =
-    selectedTerminalSession?.project ?? defaultProjectId;
+  const selectedProjectId = routeTerminalSession?.project ?? defaultProjectId;
   const activeBoardProjectId = isTerminalRoute ? undefined : selectedProjectId;
   const selectedProject = getProjectByIdOrPath(projects, selectedProjectId);
-  const canvasTarget: CanvasTargetSummary = selectedTerminalSession
+  const canvasTarget: CanvasTargetSummary = routeTerminalSession
     ? {
-        cwd: selectedTerminalSession.cwd,
-        projectId: selectedTerminalSession.project,
+        cwd: routeTerminalSession.cwd,
+        projectId: routeTerminalSession.project,
         projectName: selectedProject?.name,
-        sessionId: selectedTerminalSession.id,
+        sessionId: routeTerminalSession.id,
       }
     : {
         cwd: getProjectPath(selectedProject),
@@ -435,6 +475,13 @@ function useWorkspaceLayout() {
         ? 'empty'
         : 'ready';
   const routeProjectId = routeProject?.id;
+  const projectSetupStateHiddenByProjects =
+    projects.length > 0 && !projectSetupUsesDialog;
+  const effectiveFirstRunProjectSetupPhase: FirstRunProjectCardPhase =
+    projectSetupStateHiddenByProjects ? 'empty' : firstRunProjectSetupPhase;
+  const effectiveStagedProjectPath = projectSetupStateHiddenByProjects
+    ? undefined
+    : stagedProjectPath;
 
   useEffect(() => {
     if (projects.length === 0) {
@@ -442,10 +489,6 @@ function useWorkspaceLayout() {
     }
 
     clearFirstRunProjectSetupDraft();
-    setFirstRunProjectSetupPhase('empty');
-    setStagedProjectPath(undefined);
-    setFirstRunProjectSetupSelection(defaultFirstRunProjectSetupSelection);
-    setProjectSetupUsesDialog(false);
   }, [projects.length]);
 
   useEffect(() => {
@@ -504,9 +547,12 @@ function useWorkspaceLayout() {
 
     void navigate({
       replace: true,
-      search: selectedTerminalSessionRouteProject
-        ? { project: selectedTerminalSessionRouteProject }
-        : {},
+      search: getTerminalRouteSearchWithDetached(
+        selectedTerminalSessionRouteProject
+          ? { project: selectedTerminalSessionRouteProject }
+          : {},
+        terminalRouteDetached
+      ),
       params: { sessionId: selectedTerminalSessionId },
       to: '/terminal/$sessionId',
     });
@@ -515,6 +561,7 @@ function useWorkspaceLayout() {
     selectedTerminalSessionId,
     selectedTerminalSessionProject,
     selectedTerminalSessionRouteProject,
+    terminalRouteDetached,
     terminalRouteTargetLegacy,
     terminalRouteTargetProject,
     terminalRouteTargetSessionId,
@@ -584,6 +631,44 @@ function useWorkspaceLayout() {
 
   const handleWorkerWorkspaceModeChange = (mode: WorkerWorkspaceMode) => {
     if (!selectedProject) {
+      return;
+    }
+
+    if (
+      mode === 'new-worktree' &&
+      selectedTerminalSession &&
+      selectedTerminalSession.kind !== 'orchestrator'
+    ) {
+      forkSession({
+        sessionId: selectedTerminalSession.id,
+        prompt: 'Start implementation.',
+      })
+        .then((forkedSession) => {
+          updateHomeWorkspacePreferences({
+            openProjectIds: updateOpenIds(
+              openProjectIds,
+              selectedTerminalSession.project,
+              true,
+              defaultOpenProjectIds
+            ),
+          });
+          void queryClient.invalidateQueries({
+            queryKey: homeWorkspaceQueryKey,
+          });
+          void navigate({
+            to: '/terminal/$sessionId',
+            params: { sessionId: forkedSession.id },
+            search: { project: selectedTerminalSession.project },
+          });
+        })
+        .catch((error: unknown) => {
+          toast.error('Could not fork session', {
+            description:
+              error instanceof Error
+                ? error.message
+                : 'The worker session could not be forked into a new worktree.',
+          });
+        });
       return;
     }
 
@@ -728,6 +813,29 @@ function useWorkspaceLayout() {
             error instanceof Error
               ? error.message
               : 'The session could not be moved to Done.',
+        });
+      });
+  };
+
+  const handleTerminalSessionRestart = (selectionKey: string) => {
+    const sessionId = getSessionIdFromSelectionKey(selectionKey);
+    if (!sessionId) {
+      return;
+    }
+    const projectId = getProjectIdFromSelectionKey(selectionKey);
+
+    restartSession({ sessionId, projectId })
+      .then(() => {
+        void queryClient.invalidateQueries({
+          queryKey: homeWorkspaceQueryKey,
+        });
+      })
+      .catch((error: unknown) => {
+        toast.error('Could not restart session', {
+          description:
+            error instanceof Error
+              ? error.message
+              : 'The session could not be restarted from its transcript.',
         });
       });
   };
@@ -932,11 +1040,12 @@ function useWorkspaceLayout() {
         setProjectSetupUsesDialog(false);
         commitAddedProject(result);
       });
+      setProjectSetupStarting(false);
+      clearStagedNamedropAnchor();
     } catch (error) {
       window.alert(
         error instanceof Error ? error.message : 'Failed to add project'
       );
-    } finally {
       setProjectSetupStarting(false);
       clearStagedNamedropAnchor();
     }
@@ -1028,6 +1137,7 @@ function useWorkspaceLayout() {
       dispatchLayout({ open: (open) => !open, type: 'command-palette' });
     },
     {
+      enabled: !terminalRouteDetached,
       requireReset: true,
     }
   );
@@ -1038,6 +1148,7 @@ function useWorkspaceLayout() {
       void handleAddProject();
     },
     {
+      enabled: !terminalRouteDetached,
       requireReset: true,
     }
   );
@@ -1050,7 +1161,7 @@ function useWorkspaceLayout() {
       }
     },
     {
-      enabled: Boolean(selectedProjectId),
+      enabled: Boolean(selectedProjectId) && !terminalRouteDetached,
       requireReset: true,
     }
   );
@@ -1063,7 +1174,7 @@ function useWorkspaceLayout() {
       }
     },
     {
-      enabled: Boolean(selectedProjectId),
+      enabled: Boolean(selectedProjectId) && !terminalRouteDetached,
       requireReset: true,
     }
   );
@@ -1074,6 +1185,7 @@ function useWorkspaceLayout() {
       setShortcutsDialogOpen((open) => !open);
     },
     {
+      enabled: !terminalRouteDetached,
       requireReset: true,
     }
   );
@@ -1094,7 +1206,7 @@ function useWorkspaceLayout() {
     });
   };
 
-  const handleTerminalSessionOpen = (selectionKey: string) => {
+  const prepareTerminalSessionOpen = (selectionKey: string) => {
     const targetSession = getTerminalSession(terminalSessions, selectionKey);
     const targetSessionId =
       targetSession?.id ?? getSessionIdFromSelectionKey(selectionKey);
@@ -1133,14 +1245,77 @@ function useWorkspaceLayout() {
       updateHomeWorkspacePreferences(preferenceUpdate);
     }
 
+    return {
+      targetProjectId,
+      targetSession,
+      targetSessionId,
+    };
+  };
+
+  const handleTerminalSessionOpen = (selectionKey: string) => {
+    const target = prepareTerminalSessionOpen(selectionKey);
+
+    if (!target) {
+      return;
+    }
+
     void navigate({
       to: '/terminal/$sessionId',
-      params: { sessionId: targetSessionId },
-      search: targetSession
-        ? getTerminalRouteSearch(terminalSessions, targetSession)
-        : targetProjectId
-          ? { project: targetProjectId }
+      params: { sessionId: target.targetSessionId },
+      search: target.targetSession
+        ? getTerminalRouteSearch(terminalSessions, target.targetSession)
+        : target.targetProjectId
+          ? { project: target.targetProjectId }
           : {},
+    });
+  };
+
+  const handleTerminalSessionOpenDetached = (selectionKey: string) => {
+    const target = prepareTerminalSessionOpen(selectionKey);
+
+    if (!target) {
+      return;
+    }
+
+    const routeSearch = target.targetSession
+      ? getTerminalRouteSearch(terminalSessions, target.targetSession)
+      : target.targetProjectId
+        ? { project: target.targetProjectId }
+        : {};
+
+    detachedTerminalWindows.openDetachedTerminalWindow({
+      href: createTerminalRouteHref(target.targetSessionId, {
+        ...routeSearch,
+        detached: '1',
+      }),
+      selectionKey,
+    });
+  };
+
+  const handleTerminalSessionAttachDetached = () => {
+    if (!terminalRouteTargetSessionId) {
+      return;
+    }
+
+    const routeSearch = routeTerminalSession
+      ? getTerminalRouteSearch(terminalSessions, routeTerminalSession)
+      : terminalRouteTargetProject
+        ? { project: terminalRouteTargetProject }
+        : {};
+    const href = createTerminalRouteHref(
+      terminalRouteTargetSessionId,
+      routeSearch
+    );
+
+    if (navigateDetachedOpenerToHref(href)) {
+      return;
+    }
+
+    void navigate({
+      replace: true,
+      search: routeSearch,
+      params: { sessionId: terminalRouteTargetSessionId },
+      to: '/terminal/$sessionId',
     });
   };
 
@@ -1181,7 +1356,7 @@ function useWorkspaceLayout() {
   ]);
 
   const workspaceContextValue: WorkspaceContextValue = {
-    canvasAvailable: isTerminalRoute,
+    canvasAvailable: isTerminalRoute && !terminalRouteDetached,
     canvasLayout,
     canvasOpen,
     canvasPreviewUrl,
@@ -1203,27 +1378,35 @@ function useWorkspaceLayout() {
     onAddProject: handleAddProject,
     onChangeStagedProject: handleChangeStagedProject,
     onStartProjectSetup: handleStartProjectSetup,
-    firstRunProjectSetupPhase,
+    firstRunProjectSetupPhase: effectiveFirstRunProjectSetupPhase,
     firstRunProjectSetupSelection,
     onFirstRunProjectSetupSelectionChange:
       handleFirstRunProjectSetupSelectionChange,
-    stagedProjectPath,
+    stagedProjectPath: effectiveStagedProjectPath,
     projectSetupStarting,
     projectSetupUsesDialog,
+    onTerminalSessionAttachDetached: handleTerminalSessionAttachDetached,
     onTerminalSessionDelete: handleTerminalSessionDelete,
+    onTerminalSessionFocusDetached:
+      detachedTerminalWindows.focusDetachedTerminalWindow,
     onTerminalSessionHide: handleTerminalSessionHide,
     onTerminalSessionMarkDone: handleTerminalSessionMarkDone,
+    onTerminalSessionOpenDetached: handleTerminalSessionOpenDetached,
     onTerminalSessionPinToggle: handleTerminalSessionPinToggle,
     onTerminalSessionRename: handleTerminalSessionRename,
+    onTerminalSessionRestart: handleTerminalSessionRestart,
     onWorkerWorkspaceModeChange: handleWorkerWorkspaceModeChange,
     onWorkerSessionSelect: handleTerminalSessionOpen,
     onWorkspaceRefresh: () => void refetchWorkspace(),
     pinnedTerminalSessionKeys,
     selectedProject,
+    detachedTerminalSession,
     selectedTerminalSession,
     selectedTerminalSessionKey,
+    terminalDetached: terminalRouteDetached,
     terminalSessions,
-    workerWorkspaceModePending,
+    workerWorkspaceModePending:
+      projectWorkerWorkspaceModePending || forkSessionPending,
     workspaceError:
       workspaceQueryError instanceof Error
         ? workspaceQueryError.message
@@ -1250,9 +1433,12 @@ function useWorkspaceLayout() {
     handleTerminalSessionDelete,
     handleTerminalSessionHide,
     handleTerminalSessionMarkDone,
+    handleTerminalSessionAttachDetached,
     handleTerminalSessionOpen,
+    handleTerminalSessionOpenDetached,
     handleTerminalSessionPinToggle,
     handleTerminalSessionRename,
+    handleTerminalSessionRestart,
     handleWorkerSessionGroupOpenChange,
     isTerminalRoute,
     openProjectIds,
@@ -1271,6 +1457,7 @@ function useWorkspaceLayout() {
     shortcutsDialogOpen,
     sidebarOpen,
     sidebarWidth,
+    terminalRouteDetached,
     terminalSessions,
     workerSessionGroups,
     workspaceContextValue,
@@ -1286,6 +1473,16 @@ function WorkspaceLayoutView(props: ReturnType<typeof useWorkspaceLayout>) {
     props.workspaceContextValue.projectSetupUsesDialog &&
     props.workspaceContextValue.firstRunProjectSetupPhase === 'agents' &&
     Boolean(props.workspaceContextValue.stagedProjectPath);
+
+  if (props.terminalRouteDetached) {
+    return (
+      <WorkspaceContext value={props.workspaceContextValue}>
+        <div className="flex h-dvh min-h-0 overflow-hidden bg-background font-sans text-foreground">
+          <Outlet />
+        </div>
+      </WorkspaceContext>
+    );
+  }
 
   return (
     <WorkspaceContext value={props.workspaceContextValue}>
@@ -1308,8 +1505,12 @@ function WorkspaceLayoutView(props: ReturnType<typeof useWorkspaceLayout>) {
             onTerminalSessionDelete={props.handleTerminalSessionDelete}
             onTerminalSessionHide={props.handleTerminalSessionHide}
             onTerminalSessionMarkDone={props.handleTerminalSessionMarkDone}
+            onTerminalSessionOpenDetached={
+              props.handleTerminalSessionOpenDetached
+            }
             onTerminalSessionPinToggle={props.handleTerminalSessionPinToggle}
             onTerminalSessionRename={props.handleTerminalSessionRename}
+            onTerminalSessionRestart={props.handleTerminalSessionRestart}
             onWorkerSessionGroupOpenChange={
               props.handleWorkerSessionGroupOpenChange
             }
@@ -1509,8 +1710,179 @@ function getOptionalSearchString(value: unknown) {
 function getTerminalRouteSearch(
   terminalSessions: WorkerSession[],
   targetSession: WorkerSession
-): { project?: string } {
-  return terminalSessionIdRequiresProject(terminalSessions, targetSession.id)
-    ? { project: targetSession.project }
-    : {};
+): TerminalRouteSearch {
+  if (!terminalSessionIdRequiresProject(terminalSessions, targetSession.id)) {
+    return {};
+  }
+
+  return { project: targetSession.project };
+}
+
+function getTerminalRouteSearchWithDetached(
+  search: TerminalRouteSearch,
+  detached: boolean
+): TerminalRouteSearch {
+  return detached ? { ...search, detached: '1' } : search;
+}
+
+function createTerminalRouteHref(
+  sessionId: string,
+  search: TerminalRouteSearch
+) {
+  const url = new URL(
+    `/terminal/${encodeURIComponent(sessionId)}`,
+    window.location.origin
+  );
+
+  if (search.project) {
+    url.searchParams.set('project', search.project);
+  }
+
+  if (search.detached) {
+    url.searchParams.set('detached', search.detached);
+  }
+
+  return `${url.pathname}${url.search}`;
+}
+
+function navigateDetachedOpenerToHref(href: string) {
+  if (navigateDocumentPictureInPictureOpenerToHref(href)) {
+    return true;
+  }
+
+  const opener = window.opener as Window | null;
+  if (!opener || opener.closed) {
+    return false;
+  }
+
+  try {
+    opener.location.assign(href);
+    opener.focus();
+    window.close();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+interface DetachedTerminalWindowRecord {
+  mode: DetachedTerminalWindowMode;
+  pollId: number;
+  popup: Window;
+}
+
+const detachedTerminalWindowPollMs = 500;
+
+function useDetachedTerminalWindows() {
+  const [detachedWindowRecords] = useState(
+    () => new Map<string, DetachedTerminalWindowRecord>()
+  );
+  const [detachedTerminalSessionKeys, setDetachedTerminalSessionKeys] =
+    useState<string[]>([]);
+
+  const forgetDetachedTerminalWindow = (selectionKey: string) => {
+    const record = detachedWindowRecords.get(selectionKey);
+    if (record) {
+      window.clearInterval(record.pollId);
+      detachedWindowRecords.delete(selectionKey);
+    }
+
+    setDetachedTerminalSessionKeys((current) =>
+      current.filter((key) => key !== selectionKey)
+    );
+  };
+
+  const focusDetachedTerminalWindow = (selectionKey: string) => {
+    const record = detachedWindowRecords.get(selectionKey);
+    if (record && !record.popup.closed) {
+      record.popup.focus();
+      return;
+    }
+
+    forgetDetachedTerminalWindow(selectionKey);
+  };
+
+  const openDetachedTerminalWindow = (params: {
+    href: string;
+    selectionKey: string;
+  }) => {
+    const existingRecord = detachedWindowRecords.get(params.selectionKey);
+    if (existingRecord && !existingRecord.popup.closed) {
+      existingRecord.popup.focus();
+      setDetachedTerminalSessionKeys((current) =>
+        addId(current, params.selectionKey)
+      );
+      return;
+    }
+
+    if (existingRecord) {
+      forgetDetachedTerminalWindow(params.selectionKey);
+    }
+
+    const hasOpenDocumentPictureInPictureWindow = Array.from(
+      detachedWindowRecords.values()
+    ).some(
+      (record) =>
+        record.mode === 'document-picture-in-picture' && !record.popup.closed
+    );
+
+    void openDetachedTerminalBrowserWindow({
+      hasOpenDocumentPictureInPictureWindow,
+      href: params.href,
+      onAttachFromDetached: (href) => {
+        window.location.assign(href);
+        window.focus();
+        window.documentPictureInPicture?.window?.close();
+      },
+      windowName: getDetachedTerminalWindowName(params.selectionKey),
+    }).then((result) => {
+      if (!result) {
+        toast.error('Could not open terminal window', {
+          action: {
+            label: 'Open here',
+            onClick: () => window.location.assign(params.href),
+          },
+          description:
+            'Your browser blocked the popup. Allow pop-ups for yyork or open the detached terminal in this tab.',
+        });
+        return;
+      }
+
+      const { mode, popup } = result;
+      const pollId = window.setInterval(() => {
+        if (popup.closed) {
+          forgetDetachedTerminalWindow(params.selectionKey);
+        }
+      }, detachedTerminalWindowPollMs);
+
+      popup.addEventListener(
+        'pagehide',
+        () => forgetDetachedTerminalWindow(params.selectionKey),
+        { once: true }
+      );
+      detachedWindowRecords.set(params.selectionKey, {
+        mode,
+        pollId,
+        popup,
+      });
+      setDetachedTerminalSessionKeys((current) =>
+        addId(current, params.selectionKey)
+      );
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      for (const record of detachedWindowRecords.values()) {
+        window.clearInterval(record.pollId);
+      }
+      detachedWindowRecords.clear();
+    };
+  }, [detachedWindowRecords]);
+
+  return {
+    detachedTerminalSessionKeys,
+    focusDetachedTerminalWindow,
+    openDetachedTerminalWindow,
+  };
 }

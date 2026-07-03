@@ -19,8 +19,10 @@ export function KanbanPage() {
           onTerminalSessionDelete={context.onTerminalSessionDelete}
           onTerminalSessionHide={context.onTerminalSessionHide}
           onTerminalSessionMarkDone={context.onTerminalSessionMarkDone}
+          onTerminalSessionOpenDetached={context.onTerminalSessionOpenDetached}
           onTerminalSessionPinToggle={context.onTerminalSessionPinToggle}
           onTerminalSessionRename={context.onTerminalSessionRename}
+          onTerminalSessionRestart={context.onTerminalSessionRestart}
           pinnedTerminalSessionKeys={context.pinnedTerminalSessionKeys}
         />
       ) : null}

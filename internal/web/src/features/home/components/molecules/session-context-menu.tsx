@@ -4,6 +4,8 @@ import {
   PencilIcon,
   PinIcon,
   PinOffIcon,
+  RotateCcwIcon,
+  SquareArrowUpRightIcon,
   SquareTerminalIcon,
   Trash2Icon,
 } from 'lucide-react';
@@ -24,8 +26,10 @@ export function SessionContextMenu(props: {
   onHide?: () => void;
   onMarkDone?: () => void;
   onOpen: () => void;
+  onOpenDetached?: () => void;
   onPinToggle?: () => void;
   onRename?: () => void;
+  onRestart?: () => void;
 }) {
   return (
     <ContextMenu>
@@ -48,6 +52,13 @@ export function SessionContextMenu(props: {
           <SquareTerminalIcon aria-hidden="true" />
           <span>Open terminal</span>
         </ContextMenuItem>
+        <ContextMenuItem
+          disabled={!props.onOpenDetached}
+          onClick={props.onOpenDetached}
+        >
+          <SquareArrowUpRightIcon aria-hidden="true" />
+          <span>Detach terminal</span>
+        </ContextMenuItem>
         {props.onMarkDone ? (
           <ContextMenuItem onClick={props.onMarkDone}>
             <CheckIcon aria-hidden="true" />
@@ -57,6 +68,10 @@ export function SessionContextMenu(props: {
         <ContextMenuItem disabled={!props.onRename} onClick={props.onRename}>
           <PencilIcon aria-hidden="true" />
           <span>Rename</span>
+        </ContextMenuItem>
+        <ContextMenuItem disabled={!props.onRestart} onClick={props.onRestart}>
+          <RotateCcwIcon aria-hidden="true" />
+          <span>Restart from transcript</span>
         </ContextMenuItem>
         <ContextMenuItem disabled={!props.onHide} onClick={props.onHide}>
           <EyeOffIcon aria-hidden="true" />

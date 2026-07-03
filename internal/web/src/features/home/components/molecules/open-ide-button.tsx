@@ -1,6 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
+import { cn } from '@/lib/tailwind/utils';
+
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import {
@@ -13,6 +15,7 @@ import { openSessionIdeMutationOptions } from '@/features/home/data/session-ide'
 import type { WorkerSession } from '@/features/home/domain/session-workspace';
 
 export function OpenIdeButton(props: {
+  className?: string;
   session?: Pick<WorkerSession, 'cwd' | 'id' | 'project' | 'title'>;
 }) {
   const openIdeMutation = useMutation(openSessionIdeMutationOptions());
@@ -54,7 +57,10 @@ export function OpenIdeButton(props: {
           onClick={() => {
             handleOpenIDE();
           }}
-          className="h-7 cursor-pointer rounded-none border-r-0 bg-background shadow-none hover:bg-muted hover:text-foreground disabled:cursor-not-allowed dark:hover:bg-muted/50"
+          className={cn(
+            'h-7 cursor-pointer rounded-none bg-background shadow-none hover:bg-muted hover:text-foreground disabled:cursor-not-allowed dark:hover:bg-muted/50',
+            props.className
+          )}
         >
           {openIdeMutation.isPending ? (
             <Spinner data-icon="inline-start" aria-hidden="true" />

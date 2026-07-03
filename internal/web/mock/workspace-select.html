@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Workspace select - yyork mock</title>
+    <script type="module" src="/theme-init.js"></script>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        background: #121316;
+      }
+
+      .plane {
+        display: grid;
+        min-height: 100vh;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .cell {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .cell + .cell {
+        border-left: 1px solid #2a2b30;
+      }
+
+      .viewport {
+        position: relative;
+        width: min(76%, 520px);
+        height: 220px;
+        overflow: hidden;
+        border: 1px solid #262830;
+        border-radius: 8px;
+        background: #17181c;
+        box-shadow: 0 24px 70px rgb(0 0 0 / 28%);
+      }
+
+      .topbar {
+        display: flex;
+        height: 58px;
+        align-items: center;
+        border-bottom: 1px solid #262830;
+        padding: 0 18px;
+      }
+
+      .topbar-left {
+        width: 82px;
+        height: 18px;
+        border-radius: 4px;
+        background: linear-gradient(90deg, #26282f, #1e2026);
+      }
+
+      .workspace-anchor {
+        position: absolute;
+        top: 15px;
+        right: 18px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
+      }
+
+      .workspace-trigger {
+        display: inline-flex;
+        height: 28px;
+        align-items: center;
+        gap: 6px;
+        border: 0;
+        border-radius: 4px;
+        background: #202126;
+        padding: 0 8px;
+        color: #e7e8eb;
+        font:
+          500 12px/16px Geist,
+          system-ui,
+          sans-serif;
+        box-shadow: none;
+      }
+
+      .workspace-trigger:hover {
+        background: #27282e;
+      }
+
+      .workspace-menu {
+        display: flex;
+        width: 176px;
+        flex-direction: column;
+        gap: 2px;
+        border: 1px solid #30323a;
+        border-radius: 8px;
+        background: #050506;
+        padding: 4px;
+        box-shadow: 0 16px 38px rgb(0 0 0 / 42%);
+      }
+
+      .workspace-row {
+        position: relative;
+        display: grid;
+        height: 28px;
+        grid-template-columns: 16px minmax(0, 1fr) 16px;
+        align-items: center;
+        gap: 8px;
+        border-radius: 5px;
+        padding: 0 8px;
+        color: #f3f4f6;
+        font:
+          500 12px/16px Geist,
+          system-ui,
+          sans-serif;
+        white-space: nowrap;
+      }
+
+      .workspace-row.selected {
+        background: #28292e;
+      }
+
+      .workspace-row.fork {
+        background: #07111d;
+        color: #f5f9ff;
+        box-shadow: inset 0 0 0 1px #24466a;
+      }
+
+      .workspace-row.fork::before {
+        position: absolute;
+        top: 6px;
+        bottom: 6px;
+        left: 0;
+        width: 2px;
+        border-radius: 999px;
+        background: #5aa7ff;
+        content: '';
+      }
+
+      .workspace-label {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      svg {
+        width: 16px;
+        height: 16px;
+        flex: 0 0 auto;
+        color: #a4a8b1;
+      }
+
+      .workspace-row.selected svg,
+      .check {
+        color: #f5f5f6;
+      }
+
+      .fork svg {
+        color: #bcdcff;
+      }
+
+      .chevron {
+        margin-left: 2px;
+      }
+
+      .rotated {
+        transform: rotate(-90deg);
+      }
+    </style>
+  </head>
+  <body>
+    <svg aria-hidden="true" style="display: none">
+      <symbol id="icon-laptop" viewBox="0 0 24 24">
+        <path
+          d="M18 5a2 2 0 0 1 2 2v8.526a2 2 0 0 0 .212.897l1.068 2.127a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45l1.068-2.127A2 2 0 0 0 4 15.526V7a2 2 0 0 1 2-2z"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+        />
+        <path
+          d="M20.054 15.987H3.946"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+        />
+      </symbol>
+      <symbol id="icon-split" viewBox="0 0 24 24">
+        <path
+          d="M16 3h5v5"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+        />
+        <path
+          d="M8 3H3v5"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+        />
+        <path
+          d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+        />
+        <path
+          d="m15 9 6-6"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+        />
+      </symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24">
+        <path
+          d="M20 6 9 17l-5-5"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+        />
+      </symbol>
+      <symbol id="icon-chevron" viewBox="0 0 24 24">
+        <path
+          d="m6 9 6 6 6-6"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+        />
+      </symbol>
+    </svg>
+
+    <main class="plane" aria-label="Workspace selector mockups">
+      <div class="cell">
+        <div class="viewport">
+          <div class="topbar">
+            <div class="topbar-left"></div>
+          </div>
+          <div class="workspace-anchor">
+            <div class="workspace-trigger">
+              <svg aria-hidden="true"><use href="#icon-laptop" /></svg>
+              <span>work locally</span>
+              <svg class="chevron" aria-hidden="true">
+                <use href="#icon-chevron" />
+              </svg>
+            </div>
+            <div class="workspace-menu">
+              <div class="workspace-row selected">
+                <svg aria-hidden="true"><use href="#icon-laptop" /></svg>
+                <span class="workspace-label">work locally</span>
+                <svg class="check" aria-hidden="true">
+                  <use href="#icon-check" />
+                </svg>
+              </div>
+              <div class="workspace-row">
+                <svg class="rotated" aria-hidden="true">
+                  <use href="#icon-split" />
+                </svg>
+                <span class="workspace-label">new worktree</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cell">
+        <div class="viewport">
+          <div class="topbar">
+            <div class="topbar-left"></div>
+          </div>
+          <div class="workspace-anchor">
+            <div class="workspace-trigger">
+              <svg aria-hidden="true"><use href="#icon-laptop" /></svg>
+              <span>work locally</span>
+              <svg class="chevron" aria-hidden="true">
+                <use href="#icon-chevron" />
+              </svg>
+            </div>
+            <div class="workspace-menu">
+              <div class="workspace-row selected">
+                <svg aria-hidden="true"><use href="#icon-laptop" /></svg>
+                <span class="workspace-label">work locally</span>
+                <svg class="check" aria-hidden="true">
+                  <use href="#icon-check" />
+                </svg>
+              </div>
+              <div class="workspace-row fork">
+                <svg class="rotated" aria-hidden="true">
+                  <use href="#icon-split" />
+                </svg>
+                <span class="workspace-label">fork to worktree</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>
