@@ -125,6 +125,7 @@ jobs:
           name: yyork-goreleaser-assets
           path: |
             dist/*.tar.gz
+            dist/*.zip
             dist/*checksums.txt
             dist/artifacts.json
             dist/metadata.json
@@ -150,7 +151,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: third_party/zellij
-          key: zellij-all-${{ hashFiles('bin/zellij-artifacts.mjs') }}
+          key: zellij-all-${{ hashFiles('scripts/release/zellij-artifacts.mjs') }}
 
       - name: Download GoReleaser artifacts
         uses: actions/download-artifact@v4
@@ -160,7 +161,7 @@ jobs:
 
       - name: Pack native, wrapper, and alias npm tarballs
         run: |
-          node ./bin/pack-npm-release.mjs \
+          node ./scripts/release/pack-npm-release.mjs \
             --artifacts-dir dist/goreleaser \
             --pack-destination dist/npm
 
@@ -296,6 +297,60 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  release-ux-smoke:
+    name: Release UX smoke (${{ matrix.os }})
+    timeout-minutes: 25
+    runs-on: ${{ matrix.os }}
+    needs:
+      - pack-npm
+      - preflight
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: ./.github/actions/setup-pnpm
+        with:
+          node-version: 24
+
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            pnpm --filter @yyork/web exec playwright install --with-deps chromium
+          else
+            pnpm --filter @yyork/web exec playwright install chromium
+          fi
+
+      - name: Download npm packages
+        uses: actions/download-artifact@v4
+        with:
+          name: yyork-npm-packages
+          path: dist/npm
+
+      - name: Run release UX smoke
+        shell: bash
+        run: |
+          node ./scripts/release/smoke-npm-release-ux.mjs \
+            --package-dir dist/npm \
+            --artifact-dir "dist/release-ux-smoke/${{ runner.os }}" \
+            --addr 127.0.0.1:7331
+
+      - name: Upload release UX smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yyork-release-ux-smoke-${{ runner.os }}
+          path: dist/release-ux-smoke
+          if-no-files-found: warn
+          retention-days: 14
+
   publish-npm:
     name: Publish npm packages
     timeout-minutes: 20
@@ -303,6 +358,7 @@ jobs:
     needs:
       - pack-npm
       - preflight
+      - release-ux-smoke
     if: ${{ needs.preflight.outputs.should_publish == 'true' }}
     permissions:
       contents: write
@@ -334,6 +390,7 @@ jobs:
             "yyopc-yyork-darwin-x64-$VERSION.tgz"
             "yyopc-yyork-linux-arm64-$VERSION.tgz"
             "yyopc-yyork-linux-x64-$VERSION.tgz"
+            "yyopc-yyork-windows-x64-$VERSION.tgz"
             "yyopc-yyork-$VERSION.tgz"
             "yyork-$VERSION.tgz"
           )
@@ -342,6 +399,7 @@ jobs:
             "@yyopc/yyork-darwin-x64"
             "@yyopc/yyork-linux-arm64"
             "@yyopc/yyork-linux-x64"
+            "@yyopc/yyork-windows-x64"
             "@yyopc/yyork"
             "yyork"
           )
@@ -366,6 +424,7 @@ jobs:
             "yyopc-yyork-darwin-x64-$VERSION.tgz" \
             "yyopc-yyork-linux-arm64-$VERSION.tgz" \
             "yyopc-yyork-linux-x64-$VERSION.tgz" \
+            "yyopc-yyork-windows-x64-$VERSION.tgz" \
             "yyopc-yyork-$VERSION.tgz"
           do
             npm publish "$tarball" --access public --tag "$NPM_DIST_TAG" --dry-run
@@ -392,7 +451,8 @@ jobs:
             "yyopc-yyork-darwin-arm64-$VERSION.tgz" \
             "yyopc-yyork-darwin-x64-$VERSION.tgz" \
             "yyopc-yyork-linux-arm64-$VERSION.tgz" \
-            "yyopc-yyork-linux-x64-$VERSION.tgz"
+            "yyopc-yyork-linux-x64-$VERSION.tgz" \
+            "yyopc-yyork-windows-x64-$VERSION.tgz"
           do
             npm publish "$tarball" --access public --tag "$NPM_DIST_TAG"
           done

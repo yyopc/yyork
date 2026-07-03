@@ -14,16 +14,16 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { ensureZellijArtifact, zellijVersion } from './zellij-artifacts.mjs';
 import {
   nativePackageMetadata,
   nativePackageMetadataForTarget,
   supportedNativePackageTargets,
   yyorkBinaryName,
   zellijBinaryName,
-} from './native-package.mjs';
-import { ensureZellijArtifact, zellijVersion } from './zellij-artifacts.mjs';
+} from '../../bin/native-package.mjs';
 
-const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const options = parseArgs(process.argv.slice(2));
 const metadata = options.target
   ? nativePackageMetadataForTarget(options.target)
@@ -202,7 +202,7 @@ function parseArgs(args) {
         break;
       case '--help':
         console.log(
-          'Usage: node bin/pack-native-package.mjs [--target TARGET] [--binary PATH] [--pack-destination DIR] [--publish] [--dry-run] [--keep-stage]'
+          'Usage: node scripts/release/pack-native-package.mjs [--target TARGET] [--binary PATH] [--pack-destination DIR] [--publish] [--dry-run] [--keep-stage]'
         );
         console.log(
           `Supported targets: ${supportedNativePackageTargets().join(', ')}`

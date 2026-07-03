@@ -18,9 +18,9 @@ import {
   nativePackageMetadataForTarget,
   supportedNativePackageTargets,
   yyorkBinaryName,
-} from './native-package.mjs';
+} from '../../bin/native-package.mjs';
 
-const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const packageJSON = JSON.parse(
   readFileSync(resolve(rootDir, 'package.json'), 'utf8')
 );
@@ -36,7 +36,7 @@ try {
     const binaryPath = extractYyorkBinary(archivePath, metadata, target);
 
     run('node', [
-      resolve(rootDir, 'bin', 'pack-native-package.mjs'),
+      resolve(rootDir, 'scripts', 'release', 'pack-native-package.mjs'),
       '--target',
       target,
       '--binary',
@@ -50,7 +50,7 @@ try {
     cwd: rootDir,
   });
   run('node', [
-    resolve(rootDir, 'bin', 'pack-alias-package.mjs'),
+    resolve(rootDir, 'scripts', 'release', 'pack-alias-package.mjs'),
     '--pack-destination',
     options.packDestination,
   ]);
@@ -107,7 +107,7 @@ function parseArgs(args) {
         break;
       case '--help':
         console.log(
-          'Usage: node bin/pack-npm-release.mjs [--artifacts-dir DIR] [--pack-destination DIR] [--target TARGET] [--keep-stage]'
+          'Usage: node scripts/release/pack-npm-release.mjs [--artifacts-dir DIR] [--pack-destination DIR] [--target TARGET] [--keep-stage]'
         );
         console.log(
           `Supported targets: ${supportedNativePackageTargets().join(', ')}`
@@ -130,7 +130,7 @@ function parseArgs(args) {
 }
 
 function findGoReleaserArchive(metadata) {
-  const suffix = `_${metadata.goos}_${metadata.goarch}.tar.gz`;
+  const suffix = goReleaserArchiveSuffix(metadata);
   const matches = recursiveFiles(options.artifactsDir).filter((entry) =>
     basename(entry).endsWith(suffix)
   );
@@ -148,7 +148,7 @@ function findGoReleaserArchive(metadata) {
 function extractYyorkBinary(archivePath, metadata, target) {
   const extractDir = resolve(stageDir, target);
   mkdirSync(extractDir, { recursive: true });
-  run('tar', ['-xzf', archivePath, '-C', extractDir]);
+  extractGoReleaserArchive(archivePath, metadata, extractDir);
 
   const binaryName = yyorkBinaryName(metadata.os);
   const candidates = recursiveFiles(extractDir).filter(
@@ -166,6 +166,20 @@ function extractYyorkBinary(archivePath, metadata, target) {
   return candidates[0];
 }
 
+function goReleaserArchiveSuffix(metadata) {
+  const extension = metadata.goos === 'windows' ? '.zip' : '.tar.gz';
+  return `_${metadata.goos}_${metadata.goarch}${extension}`;
+}
+
+function extractGoReleaserArchive(archivePath, metadata, extractDir) {
+  if (metadata.goos === 'windows') {
+    run('unzip', ['-q', archivePath, '-d', extractDir]);
+    return;
+  }
+
+  run('tar', ['-xzf', archivePath, '-C', extractDir]);
+}
+
 function requirePackedTarballs() {
   const tarballs = new Set(
     readdirSync(options.packDestination).filter((entry) =>
@@ -177,10 +191,7 @@ function requirePackedTarballs() {
     `yyork-${packageJSON.version}.tgz`,
     ...options.targets.map((target) => {
       const metadata = nativePackageMetadataForTarget(target);
-      return (
-        `yyopc-yyork-${metadata.os}-${metadata.cpu}-` +
-        `${packageJSON.version}.tgz`
-      );
+      return `${nativeTarballStem(metadata.name)}-${packageJSON.version}.tgz`;
     }),
   ];
 
@@ -191,6 +202,10 @@ function requirePackedTarballs() {
       );
     }
   }
+}
+
+function nativeTarballStem(packageName) {
+  return packageName.replace(/^@/, '').replace('/', '-');
 }
 
 function recursiveFiles(root) {

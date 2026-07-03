@@ -4,9 +4,9 @@ import {
   chmodSync,
   copyFileSync,
   createWriteStream,
-  existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   statSync,
@@ -17,7 +17,7 @@ import { get as httpsGet } from 'node:https';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 
-import { zellijBinaryName } from './native-package.mjs';
+import { zellijBinaryName } from '../../bin/native-package.mjs';
 
 export const zellijVersion = '0.44.3';
 export const zellijReleaseURL =
@@ -43,6 +43,11 @@ const zellijArtifacts = {
     targetDir: 'linux-amd64',
     assetName: 'zellij-x86_64-unknown-linux-musl.tar.gz',
     sha256: '0f7c346788627f506c0a28296517768633cff24fc822a739f8264b640ecad751',
+  },
+  'win32 x64': {
+    targetDir: 'windows-amd64',
+    assetName: 'zellij-x86_64-pc-windows-msvc.zip',
+    sha256: '45f25febb588d36f499232b3ba80a9edcde3b3a2a85bebb105a82457b0ca6aef',
   },
 };
 
@@ -87,14 +92,13 @@ export async function ensureZellijArtifact(metadata, options = {}) {
 
     const extractDir = resolve(tempDir, 'extract');
     mkdirSync(extractDir, { recursive: true });
-    run('tar', ['-xzf', archivePath, '-C', extractDir]);
+    extractArtifactArchive(archivePath, artifact.assetName, extractDir);
 
-    const extractedBinary = resolve(extractDir, binaryName);
-    if (!existsSync(extractedBinary)) {
-      throw new Error(
-        `${artifact.assetName} did not contain expected ${binaryName}.`
-      );
-    }
+    const extractedBinary = findExtractedBinary(
+      extractDir,
+      binaryName,
+      artifact.assetName
+    );
 
     mkdirSync(dirname(targetPath), { recursive: true });
     copyFileSync(extractedBinary, targetPath);
@@ -117,6 +121,34 @@ export async function ensureZellijArtifact(metadata, options = {}) {
   return targetPath;
 }
 
+export function extractArtifactArchive(archivePath, assetName, extractDir) {
+  if (assetName.endsWith('.tar.gz')) {
+    run('tar', ['-xzf', archivePath, '-C', extractDir]);
+    return;
+  }
+
+  if (assetName.endsWith('.zip')) {
+    run('unzip', ['-q', archivePath, '-d', extractDir]);
+    return;
+  }
+
+  throw new Error(`Unsupported zellij archive format: ${assetName}.`);
+}
+
+export function findExtractedBinary(rootDir, binaryName, assetName) {
+  const matches = recursiveFiles(rootDir).filter(
+    (entry) => basename(entry) === binaryName && !statSync(entry).isDirectory()
+  );
+
+  if (matches.length !== 1) {
+    throw new Error(
+      `${assetName} should contain one ${binaryName}; found ${matches.length}: ${matches.join(', ')}.`
+    );
+  }
+
+  return matches[0];
+}
+
 function isExecutable(path, platform) {
   try {
     const stat = statSync(path);
@@ -130,6 +162,19 @@ function isExecutable(path, platform) {
   } catch (_error) {
     return false;
   }
+}
+
+function recursiveFiles(root) {
+  const entries = [];
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const path = resolve(root, entry.name);
+    if (entry.isDirectory()) {
+      entries.push(...recursiveFiles(path));
+    } else {
+      entries.push(path);
+    }
+  }
+  return entries;
 }
 
 function downloadFile(url, targetPath, redirects = 0) {

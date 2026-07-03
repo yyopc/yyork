@@ -87,21 +87,21 @@
           name = "yyork";
           runtimeInputs = [
             pkgs.coreutils
-            pkgs.pnpm_10
+            go
           ];
           text = ''
             root="$PWD"
-            while [ "$root" != "/" ] && [ ! -f "$root/pnpm-workspace.yaml" ]; do
+            while [ "$root" != "/" ] && { [ ! -f "$root/go.mod" ] || [ ! -f "$root/main.go" ]; }; do
               root="$(dirname "$root")"
             done
 
-            if [ ! -f "$root/pnpm-workspace.yaml" ]; then
-              echo "Unable to find the yyork workspace root."
+            if [ ! -f "$root/go.mod" ] || [ ! -f "$root/main.go" ]; then
+              echo "Unable to find the yyork source root."
               exit 1
             fi
 
             cd "$root"
-            exec pnpm dev "$@"
+            exec go run . "$@"
           '';
         };
         portlessDev = pkgs.writeShellApplication {
@@ -155,7 +155,7 @@
           shellHook = ''
             export GOROOT="${go}/share/go"
             export GOPATH="$PWD/.go"
-            export GOBIN="$GOPATH/bin"
+            export GOBIN="$PWD/go-bin"
             export PNPM_HOME="$PWD/.pnpm"
             export PATH="$GOBIN:$PNPM_HOME:$PATH"
           '';

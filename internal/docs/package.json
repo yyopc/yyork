@@ -33,9 +33,9 @@
     "oxlint": "catalog:",
     "react-router-devtools": "^6.2.1",
     "serve": "^14.2.6",
-    "tailwindcss": "catalog:docs",
+    "tailwindcss": "catalog:",
     "typescript": "catalog:",
-    "vite": "catalog:docs"
+    "vite": "catalog:"
   },
   "engines": {
     "node": ">=24"

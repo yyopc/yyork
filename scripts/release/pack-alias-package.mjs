@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const rootPackageJSON = JSON.parse(
   readFileSync(resolve(rootDir, 'package.json'), 'utf8')
 );
@@ -160,7 +160,7 @@ function parseArgs(args) {
         break;
       case '--help':
         console.log(
-          'Usage: node bin/pack-alias-package.mjs [--pack-destination DIR] [--publish] [--tag TAG] [--dry-run] [--keep-stage]'
+          'Usage: node scripts/release/pack-alias-package.mjs [--pack-destination DIR] [--publish] [--tag TAG] [--dry-run] [--keep-stage]'
         );
         process.exit(0);
         break;

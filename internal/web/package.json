@@ -69,7 +69,6 @@
     "i18next": "25.8.0",
     "input-otp": "1.4.2",
     "lucide-react": "catalog:",
-    "next-themes": "0.4.6",
     "react": "catalog:",
     "react-day-picker": "10.0.1",
     "react-dom": "catalog:",
@@ -85,14 +84,16 @@
     "slot-text": "^0.3.1",
     "sonner": "2.0.7",
     "tailwind-merge": "catalog:",
-    "tailwindcss": "catalog:web",
+    "tailwindcss": "catalog:",
     "ts-pattern": "5.9.0",
     "tw-animate-css": "1.4.0",
     "vaul": "^1.1.2",
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@babel/core": "7.29.7",
     "@playwright/test": "1.58.0",
+    "@rolldown/plugin-babel": "0.2.3",
     "@storybook/addon-a11y": "10.4.6",
     "@storybook/addon-docs": "10.4.6",
     "@storybook/addon-mcp": "^0.6.0",
@@ -103,9 +104,10 @@
     "@tanstack/eslint-plugin-query": "5.91.4",
     "@tanstack/eslint-plugin-router": "1.161.4",
     "@tanstack/router-plugin": "~1.163.5",
+    "@types/babel__core": "7.20.5",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "@vitejs/plugin-react": "5.1.2",
+    "@vitejs/plugin-react": "6.0.3",
     "@vitest/browser": "4.1.9",
     "@vitest/browser-playwright": "4.1.9",
     "@vueless/storybook-dark-mode": "^10.0.8",
@@ -124,7 +126,7 @@
     "react-doctor": "^0.5.8",
     "storybook": "10.4.6",
     "typescript": "catalog:",
-    "vite": "catalog:web",
+    "vite": "catalog:",
     "vite-tsconfig-paths": "6.0.5",
     "vitest": "4.1.9",
     "vitest-browser-react": "2.0.4"
@@ -134,7 +136,13 @@
   },
   "knip": {
     "entry": [
-      "src/browser-preview-agentation.ts"
+      "src/browser-preview-agentation.ts",
+      "mock/_entry.js",
+      "mock/project-setup-harness-picker.main.tsx",
+      "mock/theme-init.js",
+      "mock/working-session-card.boot.js",
+      "mock/working-session-card.main.tsx",
+      "vite.storybook.ts"
     ]
   },
   "portless": {

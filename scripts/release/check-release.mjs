@@ -19,9 +19,9 @@ import {
   supportedNativePackages,
   yyorkBinaryName,
   zellijBinaryName,
-} from './native-package.mjs';
+} from '../../bin/native-package.mjs';
 
-const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const packageJSON = JSON.parse(
   readFileSync(resolve(rootDir, 'package.json'), 'utf8')
 );
@@ -33,7 +33,7 @@ try {
   runLogged(
     'node',
     [
-      resolve(rootDir, 'bin', 'pack-native-package.mjs'),
+      resolve(rootDir, 'scripts', 'release', 'pack-native-package.mjs'),
       '--pack-destination',
       tempDir,
     ],
@@ -51,7 +51,7 @@ try {
   runLogged(
     'node',
     [
-      resolve(rootDir, 'bin', 'pack-alias-package.mjs'),
+      resolve(rootDir, 'scripts', 'release', 'pack-alias-package.mjs'),
       '--pack-destination',
       tempDir,
     ],

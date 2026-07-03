@@ -36,6 +36,14 @@ const nativePackages = {
     goos: 'linux',
     goarch: 'amd64',
   },
+  'win32 x64': {
+    target: 'windows-x64',
+    name: '@yyopc/yyork-windows-x64',
+    os: 'win32',
+    cpu: 'x64',
+    goos: 'windows',
+    goarch: 'amd64',
+  },
 };
 
 const nativePackagesByTarget = Object.fromEntries(

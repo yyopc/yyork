@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-import { nativePackageMetadata } from './native-package.mjs';
 import {
   ensureZellijArtifact,
   zellijArtifactTargets,
   zellijVersion,
 } from './zellij-artifacts.mjs';
+import { nativePackageMetadata } from '../../bin/native-package.mjs';
 
 const targets = parseTargets(process.argv.slice(2));
 
@@ -16,7 +16,7 @@ for (const target of targets) {
 
 function parseTargets(args) {
   if (args.includes('--help')) {
-    console.log('Usage: node bin/fetch-zellij.mjs [--all]');
+    console.log('Usage: node scripts/release/fetch-zellij.mjs [--all]');
     process.exit(0);
   }
   if (args.includes('--all')) {

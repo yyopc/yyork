@@ -33,11 +33,12 @@
   "scripts": {
     "prepare": "pnpm --filter @yyork/web exec lefthook install --force || true",
     "postinstall": "node ./bin/install-yyork.mjs",
-    "release:check": "node ./bin/check-release.mjs",
-    "release:fetch-zellij": "node ./bin/fetch-zellij.mjs",
-    "release:fetch-zellij:all": "node ./bin/fetch-zellij.mjs --all",
-    "release:pack:native": "pnpm web:build && node ./bin/pack-native-package.mjs",
-    "release:pack:npm": "node ./bin/pack-npm-release.mjs",
+    "release:check": "node ./scripts/release/check-release.mjs",
+    "release:fetch-zellij": "node ./scripts/release/fetch-zellij.mjs",
+    "release:fetch-zellij:all": "node ./scripts/release/fetch-zellij.mjs --all",
+    "release:pack:native": "pnpm web:build && node ./scripts/release/pack-native-package.mjs",
+    "release:pack:npm": "node ./scripts/release/pack-npm-release.mjs",
+    "release:smoke:ux": "node ./scripts/release/smoke-npm-release-ux.mjs",
     "release:dry-run": "pnpm release:check",
     "release:publish": "echo \"Use the GitHub Actions Release workflow; release publishing is disabled locally.\" && exit 1",
     "api:generate": "pnpm api:generate:openapi && pnpm api:generate:zod",
@@ -53,6 +54,7 @@
     "web:test": "pnpm --filter @yyork/web test:ci",
     "docs:dev": "portless docs.yyork -- pnpm --filter @yyork/docs exec react-router dev",
     "docs:dev:direct": "pnpm --filter @yyork/docs dev",
+    "hf:dev": "cd launch-video && portless hf.yyork --app-port 3002 -- pnpm dlx hyperframes@0.7.17 preview --port 3002 --no-open",
     "storybook:dev": "portless storybook.yyork -- pnpm --filter @yyork/web storybook",
     "storybook:dev:direct": "pnpm --filter @yyork/web storybook:direct",
     "mock:dev": "portless mock.yyork --force -- pnpm --filter @yyork/web mock:dev",
@@ -79,13 +81,18 @@
     "@yyopc/yyork-darwin-arm64": "workspace:0.1.0-alpha.6",
     "@yyopc/yyork-darwin-x64": "workspace:0.1.0-alpha.6",
     "@yyopc/yyork-linux-arm64": "workspace:0.1.0-alpha.6",
-    "@yyopc/yyork-linux-x64": "workspace:0.1.0-alpha.6"
+    "@yyopc/yyork-linux-x64": "workspace:0.1.0-alpha.6",
+    "@yyopc/yyork-windows-x64": "workspace:0.1.0-alpha.6"
   },
   "engines": {
     "node": ">=18"
   },
   "packageManager": "pnpm@10.28.0",
   "pnpm": {
+    "overrides": {
+      "react-doctor>@sentry/node": "10.62.0",
+      "react-router-devtools>@tanstack/devtools-vite": "0.8.1"
+    },
     "onlyBuiltDependencies": [
       "@parcel/watcher",
       "@tailwindcss/oxide",

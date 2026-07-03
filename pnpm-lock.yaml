@@ -83,6 +83,9 @@ importers:
       '@yyopc/yyork-linux-x64':
         specifier: workspace:0.1.0-alpha.6
         version: link:npm/yyork-linux-x64
+      '@yyopc/yyork-windows-x64':
+        specifier: workspace:0.1.0-alpha.5
+        version: link:npm/yyork-windows-x64
 
   internal/docs:
     dependencies:
@@ -408,6 +411,8 @@ importers:
   npm/yyork-linux-arm64: {}
 
   npm/yyork-linux-x64: {}
+
+  npm/yyork-windows-x64: {}
 
 packages:
 

@@ -1,0 +1,25 @@
+{
+  "name": "@yyopc/yyork-windows-x64",
+  "version": "0.1.0-alpha.5",
+  "private": false,
+  "description": "Prebuilt yyork app runtime for Windows x64.",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yyopc/yyork.git"
+  },
+  "files": [
+    "bin/**",
+    "LICENSE",
+    "README.md"
+  ],
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

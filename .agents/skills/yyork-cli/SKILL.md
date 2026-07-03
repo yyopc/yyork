@@ -1,6 +1,7 @@
  ---
+
 name: yyork-cli
-description: Operate yyork's CLI correctly for local agent orchestration. Use when an agent needs to start or reason about the yyork dashboard/server, spawn yyork worker or orchestrator sessions, list sessions, send follow-up messages, stop sessions, work with yyork.localhost/portless dev startup, or avoid planned-but-unimplemented yyork commands.
+description: Operate yyork's CLI correctly for local agent orchestration. Use when an agent needs to start or reason about the yyork dashboard/server, spawn yyork worker or orchestrator sessions, list sessions, send follow-up messages, stop sessions, work with yyork.localhost/portless dev startup, or avoid planned-but-unimplemented yyork commands
 ---
 
 # yyork CLI
