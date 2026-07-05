@@ -11,7 +11,7 @@ import {
   FolderPlusIcon,
   LayoutDashboardIcon,
   PanelRightIcon,
-  SquareTerminalIcon,
+  TerminalIcon,
   Trash2Icon,
 } from 'lucide-react';
 import { useEffect, useReducer, useState } from 'react';
@@ -28,10 +28,12 @@ import { sweepProjectRemoved } from '@/lib/glimm/sweep-project-removed';
 import {
   CommandDialog,
   CommandEmpty,
+  CommandFooter,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
   CommandShortcut,
 } from '@/components/ui/command';
 
@@ -1138,6 +1140,7 @@ function useWorkspaceLayout() {
     },
     {
       enabled: !terminalRouteDetached,
+      ignoreInputs: false,
       requireReset: true,
     }
   );
@@ -1581,6 +1584,7 @@ function WorkspaceLayoutView(props: ReturnType<typeof useWorkspaceLayout>) {
               </CommandItem>
             ))}
           </CommandGroup>
+          <CommandSeparator className="my-1" />
           <CommandGroup heading="Sessions">
             {props.terminalSessions.map((session) => {
               const selectionKey = getWorkerSessionSelectionKey(session);
@@ -1602,12 +1606,13 @@ function WorkspaceLayoutView(props: ReturnType<typeof useWorkspaceLayout>) {
                     props.setCommandPaletteOpen(false);
                   }}
                 >
-                  <SquareTerminalIcon aria-hidden="true" />
+                  <TerminalIcon aria-hidden="true" />
                   <span className="min-w-0 flex-1 truncate">{label}</span>
                 </CommandItem>
               );
             })}
           </CommandGroup>
+          <CommandSeparator className="my-1" />
           <CommandGroup heading="Actions">
             <CommandItem
               value="add project open folder"
@@ -1665,6 +1670,7 @@ function WorkspaceLayoutView(props: ReturnType<typeof useWorkspaceLayout>) {
             ) : null}
           </CommandGroup>
         </CommandList>
+        <CommandFooter />
       </CommandDialog>
     </WorkspaceContext>
   );

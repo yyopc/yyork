@@ -2,7 +2,12 @@
 
 import type { RegisterableHotkey } from '@tanstack/react-hotkeys';
 import { Command as CommandPrimitive } from 'cmdk';
-import { CheckIcon, SearchIcon } from 'lucide-react';
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  CheckIcon,
+  SearchIcon,
+} from 'lucide-react';
 import * as React from 'react';
 
 import { cn } from '@/lib/tailwind/utils';
@@ -15,7 +20,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { InputGroup, InputGroupAddon } from '@/components/ui/input-group';
-import { KbdGroup } from '@/components/ui/kbd';
+import { Kbd, KbdGroup } from '@/components/ui/kbd';
 import { ShortcutKbdGroup } from '@/components/ui/shortcut-kbd';
 
 function Command({
@@ -98,7 +103,7 @@ function CommandList({
     <CommandPrimitive.List
       data-slot="command-list"
       className={cn(
-        'no-scrollbar max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto outline-none',
+        'no-scrollbar -mx-1 max-h-72 scroll-fade-y scroll-py-1 overflow-x-hidden overflow-y-auto px-1 outline-none [--scroll-fade-reveal:calc(var(--spacing)*6)] scroll-fade-6',
         className
       )}
       {...props}
@@ -142,9 +147,42 @@ function CommandSeparator({
   return (
     <CommandPrimitive.Separator
       data-slot="command-separator"
-      className={cn('-mx-1 h-px w-auto bg-border', className)}
+      className={cn('-mx-1 h-px w-[calc(100%+0.5rem)] bg-border', className)}
       {...props}
     />
+  );
+}
+
+function CommandFooter({ className, ...props }: React.ComponentProps<'div'>) {
+  return (
+    <div
+      data-slot="command-footer"
+      className={cn(
+        'sticky bottom-0 z-10 -mx-1 flex min-h-10 shrink-0 flex-wrap items-center gap-x-5 gap-y-2 border-t border-border bg-popover px-4 py-2 text-xs text-muted-foreground',
+        className
+      )}
+      {...props}
+    >
+      <span className="inline-flex items-center gap-2">
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-flex size-5 items-center justify-center rounded-sm border border-border bg-background text-muted-foreground">
+            <ArrowUpIcon aria-hidden="true" className="size-3.5" />
+          </span>
+          <span className="inline-flex size-5 items-center justify-center rounded-sm border border-border bg-background text-muted-foreground">
+            <ArrowDownIcon aria-hidden="true" className="size-3.5" />
+          </span>
+        </span>
+        <span>Navigate</span>
+      </span>
+      <span className="inline-flex items-center gap-2">
+        <Kbd>return</Kbd>
+        <span>Open</span>
+      </span>
+      <span className="inline-flex items-center gap-2 sm:ml-auto">
+        <Kbd>esc</Kbd>
+        <span>Close</span>
+      </span>
+    </div>
   );
 }
 
@@ -157,7 +195,7 @@ function CommandItem({
     <CommandPrimitive.Item
       data-slot="command-item"
       className={cn(
-        "group/command-item relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none in-data-[slot=dialog-content]:rounded-lg! data-selected:bg-muted data-selected:text-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-selected:**:[svg]:text-foreground",
+        "group/command-item relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground outline-hidden select-none hover:bg-muted hover:text-foreground in-data-[slot=dialog-content]:rounded-lg! data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-[selected=true]:bg-muted data-[selected=true]:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 hover:**:[svg]:text-foreground data-[selected=true]:**:[svg]:text-foreground",
         className
       )}
       {...props}
@@ -205,6 +243,7 @@ export {
   Command,
   CommandDialog,
   CommandEmpty,
+  CommandFooter,
   CommandGroup,
   CommandInput,
   CommandItem,
