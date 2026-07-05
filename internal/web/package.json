@@ -113,7 +113,6 @@
     "@vueless/storybook-dark-mode": "^10.0.8",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint-plugin-simple-import-sort": "12.1.1",
-    "eslint-plugin-sonarjs": "3.0.6",
     "eslint-plugin-storybook": "10.4.6",
     "lefthook": "2.0.16",
     "lil-gui": "^0.21.0",

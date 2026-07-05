@@ -8,7 +8,6 @@ export default defineConfig({
     '@tanstack/eslint-plugin-query',
     '@tanstack/eslint-plugin-router',
     'eslint-plugin-simple-import-sort',
-    'eslint-plugin-sonarjs',
     'eslint-plugin-storybook',
   ],
   categories: {
@@ -65,9 +64,6 @@ export default defineConfig({
     '@tanstack/query/mutation-property-order': 'error',
     '@tanstack/router/create-route-property-order': 'warn',
     '@tanstack/router/route-param-names': 'error',
-    'sonarjs/cognitive-complexity': ['warn', 50],
-    'sonarjs/prefer-immediate-return': 'warn',
-    'sonarjs/todo-tag': 'warn',
   },
   overrides: [
     {

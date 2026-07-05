@@ -1,3 +1,7 @@
+import type {
+  ComboboxRootChangeEventDetails,
+  ComboboxRootProps,
+} from '@base-ui/react/combobox';
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -27,12 +31,16 @@ export const FieldCombobox = <TItem extends Item>(
       containerProps?: ComponentProps<typeof FormFieldContainer>;
       inputProps?: ComponentProps<typeof ComboboxInput>;
     } & Omit<
-      ComponentProps<typeof Combobox>,
-      'items' | 'value' | 'multiple' | 'children'
+      ComboboxRootProps<TItem>,
+      'items' | 'value' | 'multiple' | 'children' | 'onValueChange'
     > & {
         items: TItem[];
         emptyContent?: ReactNode;
         children?: (item: TItem) => ReactElement;
+        onValueChange?: (
+          value: TItem['value'] | null,
+          event: ComboboxRootChangeEventDetails
+        ) => void;
       } & Pick<
         ComponentProps<typeof ComboboxInput>,
         'placeholder' | 'showClear'
@@ -47,6 +55,7 @@ export const FieldCombobox = <TItem extends Item>(
     showClear,
     placeholder,
     emptyContent,
+    onValueChange,
     ...rest
   } = props;
 
@@ -56,7 +65,7 @@ export const FieldCombobox = <TItem extends Item>(
 
   return (
     <FormFieldContainer {...containerProps}>
-      <Combobox
+      <Combobox<TItem>
         {...rest}
         items={items}
         disabled={field.disabled}
@@ -66,9 +75,9 @@ export const FieldCombobox = <TItem extends Item>(
         }
         itemToStringLabel={(item: TItem) => item.label?.toString() ?? ''}
         itemToStringValue={(item: TItem) => String(item.value)}
-        onValueChange={(item: TItem, event) => {
+        onValueChange={(item: TItem | null, event) => {
           field.onChange(item?.value ?? null, event);
-          rest.onValueChange?.(item?.value ?? null, event);
+          onValueChange?.(item?.value ?? null, event);
         }}
         inputRef={field.ref}
       >

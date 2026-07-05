@@ -15,7 +15,7 @@ catalog:
   tailwind-merge: 3.4.0
   lucide-react: 0.563.0
   oxlint: 1.54.0
-  typescript: 5.9.3
+  typescript: 7.0.1-rc
   clsx: 2.1.1
   npm-run-all: 4.1.5
   vite: 8.0.16
@@ -26,4 +26,3 @@ catalogs:
     '@tailwindcss/postcss': 4.3.1
   docs:
     '@tailwindcss/vite': 4.3.1
-

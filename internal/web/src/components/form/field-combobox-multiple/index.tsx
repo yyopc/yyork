@@ -1,3 +1,7 @@
+import type {
+  ComboboxRootChangeEventDetails,
+  ComboboxRootProps,
+} from '@base-ui/react/combobox';
 import {
   type ComponentProps,
   Fragment,
@@ -37,13 +41,22 @@ export const FieldComboboxMultiple = <TItem extends Item>(
       containerProps?: ComponentProps<typeof FormFieldContainer>;
       inputProps?: ComponentProps<typeof ComboboxChipsInput>;
     } & Omit<
-      ComponentProps<typeof Combobox>,
-      'items' | 'value' | 'multiple' | 'defaultValue' | 'children'
+      ComboboxRootProps<TItem, true>,
+      | 'items'
+      | 'value'
+      | 'multiple'
+      | 'defaultValue'
+      | 'children'
+      | 'onValueChange'
     > & {
         items: TItem[];
         showClear?: boolean;
         children?: (item: TItem) => ReactElement;
         emptyContent?: ReactNode;
+        onValueChange?: (
+          values: TItem['value'][],
+          event: ComboboxRootChangeEventDetails
+        ) => void;
       } & Pick<ComponentProps<typeof ComboboxChipsInput>, 'placeholder'>
   >
 ) => {
@@ -56,6 +69,7 @@ export const FieldComboboxMultiple = <TItem extends Item>(
     showClear = true,
     placeholder,
     emptyContent,
+    onValueChange,
     ...rest
   } = props;
 
@@ -65,7 +79,7 @@ export const FieldComboboxMultiple = <TItem extends Item>(
 
   return (
     <FormFieldContainer {...containerProps}>
-      <Combobox
+      <Combobox<TItem, true>
         {...rest}
         multiple
         items={items}
@@ -78,7 +92,7 @@ export const FieldComboboxMultiple = <TItem extends Item>(
         itemToStringValue={(item: TItem) => String(item.value)}
         onValueChange={(items: TItem[], event) => {
           field.onChange(items?.map((i) => i.value) ?? [], event);
-          rest.onValueChange?.(items?.map((i) => i.value) ?? [], event);
+          onValueChange?.(items?.map((i) => i.value) ?? [], event);
         }}
         inputRef={field.ref}
       >
