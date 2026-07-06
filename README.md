@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="internal/web/public/favicon.svg" alt="yyork" width="84" />
+  <img src="yyork-lettermark-light.svg#gh-light-mode-only" alt="yyork" width="500" />
+  <img src="yyork-lettermark-dark.svg#gh-dark-mode-only" alt="yyork" width="500" />
 </p>
-<h1 align="center">yyork</h1>
-<p align="center">Run AI coding agents in parallel, each inside its own durable workspace.</p>
+<p align="center">Let the <strong>yyorkhestrator</strong> manage the <strong>yyorker</strong> agents.</p>
 
 <p align="center">
   <img src="yyork-light.png#gh-light-mode-only" alt="yyork app showing parallel AI coding agents in isolated workspaces" width="100%" />
