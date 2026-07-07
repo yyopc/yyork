@@ -2,39 +2,32 @@
   <img src="yyork-lettermark-light.svg#gh-light-mode-only" alt="yyork" width="500" />
   <img src="yyork-lettermark-dark.svg#gh-dark-mode-only" alt="yyork" width="500" />
 </p>
-<p align="center">Let the <strong>yyorkhestrator</strong> manage the <strong>yyorker</strong> agents.</p>
+<p align="center">Your orchestrator-led agentic dev env.</p>
 
 <p align="center">
-  <img src="yyork-light.png#gh-light-mode-only" alt="yyork app showing parallel AI coding agents in isolated workspaces" width="100%" />
-  <img src="yyork-dark.png#gh-dark-mode-only" alt="yyork app showing parallel AI coding agents in isolated workspaces" width="100%" />
+  <img src="yyork-light.png#gh-light-mode-only" alt="yyork app with orchestrator terminal and canvas preview" width="100%" />
+  <img src="yyork-dark.png#gh-dark-mode-only" alt="yyork app with orchestrator terminal and canvas preview" width="100%" />
 </p>
 
 > [!WARNING]
-> yyork is still being built. Expect rough edges, breaking changes, and unfinished workflows. There is no merge flow yet, and cleanup commands can remove session worktrees and branches. Push or merge anything important before stopping a session.
+> yyork is still being built. Expect rough edges, breaking changes, and unfinished workflows.
 
 ## What it does
 
-yyork is a local app for supervising multiple AI coding agents at once.
+**yyork** is a development environment for working through an orchestrator agent in a real repo.
 
-- Each session runs in its own `git worktree` and branch.
-- [Zellij](https://zellij.dev) keeps agent sessions durable, invisibly — a session looks like a bare terminal running the agent CLI.
-- The app shows live session state from your machine.
-- A per-session canvas adds the workspace file tree, a review diff of the session's changes, and an embedded browser preview of your dev server.
-- Annotations dropped on the previewed page go straight back to the session's agent.
-- Claude Code and Codex run as their normal CLIs; yyork wraps the workspace around them.
+- Add a project and yyork opens an orchestrator session as the main thread.
+- Let the orchestrator spin up worker sessions for focused tasks when the work needs parallel attention.
+- Inspect each session with its terminal, file tree, diffs, and live preview.
+- Supports Claude Code and Codex.
 
 ## Install
 
-yyork is published on npm and is still in alpha.
-
-```bash
+```zsh
 # try without installing
-pnpx yyork ~/Projects/my-app
-
-# or with npm
 npx yyork ~/Projects/my-app
 
-# npm
+# install with npm
 npm i -g yyork
 
 # Nix flakes
@@ -43,7 +36,7 @@ nix profile add github:yyopc/yyork
 
 ## Basic flow
 
-```bash
+```zsh
 yyork ~/Projects/my-app
 ```
 
