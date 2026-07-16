@@ -70,19 +70,19 @@ importers:
         version: 0.14.0
     optionalDependencies:
       '@yyopc/yyork-darwin-arm64':
-        specifier: workspace:0.1.0-alpha.9
+        specifier: workspace:0.1.0-alpha.10
         version: link:npm/yyork-darwin-arm64
       '@yyopc/yyork-darwin-x64':
-        specifier: workspace:0.1.0-alpha.9
+        specifier: workspace:0.1.0-alpha.10
         version: link:npm/yyork-darwin-x64
       '@yyopc/yyork-linux-arm64':
-        specifier: workspace:0.1.0-alpha.9
+        specifier: workspace:0.1.0-alpha.10
         version: link:npm/yyork-linux-arm64
       '@yyopc/yyork-linux-x64':
-        specifier: workspace:0.1.0-alpha.9
+        specifier: workspace:0.1.0-alpha.10
         version: link:npm/yyork-linux-x64
       '@yyopc/yyork-windows-x64':
-        specifier: workspace:0.1.0-alpha.9
+        specifier: workspace:0.1.0-alpha.10
         version: link:npm/yyork-windows-x64
 
   internal/docs:
