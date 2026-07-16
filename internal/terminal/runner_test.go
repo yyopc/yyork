@@ -112,15 +112,14 @@ func TestCommandForStartSurfacesZellijResolutionError(t *testing.T) {
 }
 
 // The attach client's env can become a resurrected zellij server's env, so it
-// must never carry color-disabling vars from an agent/CI-launched backend
-// (Codex CLI exports NO_COLOR=1 and a blank COLORTERM).
+// must never carry color-disabling vars from an agent/CI-launched backend.
 func TestMergeTerminalEnvNormalizesColorVars(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("color env normalization is POSIX-only")
 	}
 
 	env := mergeTerminalEnv(
-		[]string{"NO_COLOR=1", "COLORTERM=", "TERM=dumb", "KEEP=yes"},
+		[]string{"NO_COLOR=1", "FORCE_COLOR=0", "COLORTERM=", "TERM=dumb", "KEEP=yes"},
 		[]string{"YYORK_SESSION_ID=abc"},
 	)
 
@@ -139,6 +138,9 @@ func TestMergeTerminalEnvNormalizesColorVars(t *testing.T) {
 	if value, present := got["NO_COLOR"]; present {
 		t.Fatalf("NO_COLOR=%q survived mergeTerminalEnv", value)
 	}
+	if value, present := got["FORCE_COLOR"]; present {
+		t.Fatalf("FORCE_COLOR=%q survived mergeTerminalEnv", value)
+	}
 	if got["COLORTERM"] != "truecolor" {
 		t.Fatalf("COLORTERM = %q, want truecolor", got["COLORTERM"])
 	}
@@ -150,6 +152,32 @@ func TestMergeTerminalEnvNormalizesColorVars(t *testing.T) {
 	}
 	if got["YYORK_SESSION_ID"] != "abc" {
 		t.Fatalf("YYORK_SESSION_ID = %q, want abc", got["YYORK_SESSION_ID"])
+	}
+}
+
+func TestMergeTerminalEnvPreservesForceColorEnable(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("color env normalization is POSIX-only")
+	}
+
+	env := mergeTerminalEnv(
+		[]string{"FORCE_COLOR=2", "TERM=dumb"},
+		[]string{"YYORK_SESSION_ID=abc"},
+	)
+
+	got := map[string]string{}
+	for _, pair := range env {
+		key, value, ok := strings.Cut(pair, "=")
+		if ok {
+			got[key] = value
+		}
+	}
+
+	if got["FORCE_COLOR"] != "2" {
+		t.Fatalf("FORCE_COLOR = %q, want 2", got["FORCE_COLOR"])
+	}
+	if got["TERM"] != "xterm-256color" {
+		t.Fatalf("TERM = %q, want xterm-256color", got["TERM"])
 	}
 }
 

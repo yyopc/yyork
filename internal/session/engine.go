@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/yyopc/yyork/internal/events"
@@ -48,6 +49,12 @@ type DurabilityProvider interface {
 	CreateSession(ctx context.Context, opts CreateOpts) error
 	KillSession(ctx context.Context, name string) error
 	SessionExists(ctx context.Context, name string) (bool, error)
+	// SessionAgentReachable reports whether attaching to the named session
+	// would land on a yyork-managed live agent host. False covers every dead
+	// shape at once: the session died with the machine (zellij EXITED), it
+	// vanished entirely, or a plain attach resurrected it as a bare shell
+	// without the agent.
+	SessionAgentReachable(ctx context.Context, name string) (bool, error)
 	ListSessionNames(ctx context.Context) ([]string, error)
 }
 
@@ -119,6 +126,30 @@ type Engine struct {
 	defaultPermissions agent.PermissionMode
 	now                func() time.Time
 	newID              func() string
+
+	// lifecycleMu guards lifecycleLocks, the per-session mutexes that
+	// serialize Restart/Revive per id: concurrent attaches to the same dead
+	// session must not race two kill/create cycles, while sessions with
+	// different ids stay independent (a slow revive of one dead session must
+	// not delay a liveness probe of another). Entries are never removed; the
+	// map is bounded by the distinct ids a single process touches.
+	lifecycleMu    sync.Mutex
+	lifecycleLocks map[string]*sync.Mutex
+}
+
+// lifecycleLock returns the mutex serializing restart/revive for one session id.
+func (e *Engine) lifecycleLock(id string) *sync.Mutex {
+	e.lifecycleMu.Lock()
+	defer e.lifecycleMu.Unlock()
+	if e.lifecycleLocks == nil {
+		e.lifecycleLocks = map[string]*sync.Mutex{}
+	}
+	lock := e.lifecycleLocks[id]
+	if lock == nil {
+		lock = &sync.Mutex{}
+		e.lifecycleLocks[id] = lock
+	}
+	return lock
 }
 
 // NewEngine constructs an Engine from the given config. Missing required
@@ -595,6 +626,15 @@ func (e *Engine) Restart(ctx context.Context, req RestartRequest) (store.Session
 		return store.Session{}, errors.New("session.Restart: SessionID is required")
 	}
 
+	lock := e.lifecycleLock(id)
+	lock.Lock()
+	defer lock.Unlock()
+
+	return e.restartLocked(ctx, id, req.Permissions)
+}
+
+// restartLocked is Restart's body. Callers must hold lifecycleLock(id).
+func (e *Engine) restartLocked(ctx context.Context, id string, requestedPermissions agent.PermissionMode) (store.Session, error) {
 	source, err := e.repo.Get(ctx, id)
 	if err != nil {
 		return store.Session{}, err
@@ -616,7 +656,7 @@ func (e *Engine) Restart(ctx context.Context, req RestartRequest) (store.Session
 	if err != nil {
 		return store.Session{}, err
 	}
-	permissions := req.Permissions
+	permissions := requestedPermissions
 	if permissions == "" {
 		permissions = e.defaultPermissions
 	}
@@ -682,6 +722,106 @@ func (e *Engine) Restart(ctx context.Context, req RestartRequest) (store.Session
 		return store.Session{}, fmt.Errorf("session.Restart: reload session: %w", err)
 	}
 	return updated, nil
+}
+
+// reviveStartupGrace is how long after a session's creation or restart
+// Revive declines to act. A freshly spawned session has a short window in
+// which its terminal host is still coming up; killing it there would murder
+// a healthy session that was about to answer.
+const reviveStartupGrace = 15 * time.Second
+
+// Revive restores a session whose agent runtime died out from under it.
+// After a machine reboot the zellij session is dead (or was resurrected as a
+// bare shell by an earlier attach), so opening it would show a blank
+// terminal instead of the agent. Revive detects that state — the session's
+// terminal host no longer answers its socket — and restarts the session in
+// place from the native agent transcript, so callers on the attach/send
+// paths land on a live conversation.
+//
+// A healthy session costs one socket probe and is returned unchanged. A dead
+// session whose native conversation cannot be restored (no recorded agent
+// session id yet) is also returned unchanged: the dead pane is still more
+// useful than an error or a deleted row.
+func (e *Engine) Revive(ctx context.Context, id string) (store.Session, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return store.Session{}, errors.New("session.Revive: id is required")
+	}
+
+	// Holding the per-session lock across probe+restart means a concurrent
+	// Revive of the same session waits here, then re-probes and sees the
+	// freshly created live session instead of racing a second kill/create.
+	lock := e.lifecycleLock(id)
+	lock.Lock()
+	defer lock.Unlock()
+
+	source, err := e.repo.Get(ctx, id)
+	if err != nil {
+		return store.Session{}, err
+	}
+
+	zellijSession := strings.TrimSpace(source.ZellijSession)
+	if zellijSession == "" {
+		zellijSession = source.ID
+	}
+	reachable, err := e.provider.SessionAgentReachable(ctx, zellijSession)
+	if err != nil {
+		return store.Session{}, fmt.Errorf("session.Revive: probe agent host: %w", err)
+	}
+	if reachable || e.withinReviveGrace(source) {
+		return source, nil
+	}
+
+	restarted, err := e.restartLocked(ctx, id, "")
+	if errors.Is(err, ErrRestartUnsupported) {
+		return source, nil
+	}
+	if err != nil {
+		return store.Session{}, fmt.Errorf("session.Revive: %w", err)
+	}
+
+	// Wait for the restored host to actually answer its socket before
+	// returning. The attach (or message send) that triggered this revive
+	// runs immediately after; without the wait it races the pane's startup,
+	// misses the direct terminal-host pipe, and degrades to a raw zellij
+	// attach that renders a blank screen until the client reconnects.
+	// Best-effort: an expired budget still returns the restarted session.
+	e.awaitAgentReachable(ctx, zellijSession)
+	return restarted, nil
+}
+
+// reviveReadyBudget bounds how long Revive waits for a restored session's
+// terminal host to start accepting connections.
+const reviveReadyBudget = 5 * time.Second
+
+func (e *Engine) awaitAgentReachable(ctx context.Context, zellijSession string) {
+	deadline := time.Now().Add(reviveReadyBudget)
+	for {
+		reachable, err := e.provider.SessionAgentReachable(ctx, zellijSession)
+		if err != nil || reachable || time.Now().After(deadline) {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(150 * time.Millisecond):
+		}
+	}
+}
+
+// withinReviveGrace reports whether the session was created or restarted so
+// recently that an unreachable terminal host more likely means "still
+// starting" than "dead".
+func (e *Engine) withinReviveGrace(source store.Session) bool {
+	now := e.now()
+	if !source.CreatedAt.IsZero() && now.Sub(source.CreatedAt) < reviveStartupGrace {
+		return true
+	}
+	restartedAt, err := time.Parse(time.RFC3339Nano, stringField(source.Metadata, "restartedAt"))
+	if err == nil && now.Sub(restartedAt) < reviveStartupGrace {
+		return true
+	}
+	return false
 }
 
 // EnsureOrchestrator returns the existing live orchestrator for projectPath, or
@@ -770,6 +910,9 @@ func (e *Engine) Stop(ctx context.Context, id string) error {
 // session is gone, deletes the row and emits a session.terminated event.
 // Returns the (possibly updated) row. If the row was deleted, the second
 // return value reports false.
+//
+// Like ReconcileAll, rows whose native conversation is restorable survive a
+// missing durability session: Revive brings them back on next use.
 func (e *Engine) Reconcile(ctx context.Context, id string) (store.Session, bool, error) {
 	sess, err := e.repo.Get(ctx, id)
 	if errors.Is(err, store.ErrSessionNotFound) {
@@ -783,7 +926,7 @@ func (e *Engine) Reconcile(ctx context.Context, id string) (store.Session, bool,
 	if err != nil {
 		return store.Session{}, false, fmt.Errorf("session.Reconcile: probe: %w", err)
 	}
-	if alive {
+	if alive || stringField(sess.Metadata, "agentSessionId") != "" {
 		return sess, true, nil
 	}
 
@@ -799,6 +942,13 @@ func (e *Engine) Reconcile(ctx context.Context, id string) (store.Session, bool,
 // ReconcileAll sweeps every row in the store against the durability
 // provider's live-set in a single list call (instead of N per-session
 // probes). Used at server boot to clear sessions that died across restart.
+//
+// Rows with a recorded native agent session id are never deleted here even
+// when their durability session is gone: the conversation still exists in
+// the agent's transcript, so Revive can restore it the next time the user
+// touches the session. Deleting would also remove the worktree and branch —
+// unrecoverable — on evidence as weak as zellij's serialization cache having
+// been cleaned. Only rows with nothing to restore are swept.
 func (e *Engine) ReconcileAll(ctx context.Context) error {
 	rows, err := e.repo.List(ctx)
 	if err != nil {
@@ -819,6 +969,9 @@ func (e *Engine) ReconcileAll(ctx context.Context) error {
 
 	for _, row := range rows {
 		if _, ok := liveSet[row.ZellijSession]; ok {
+			continue
+		}
+		if stringField(row.Metadata, "agentSessionId") != "" {
 			continue
 		}
 		e.removeSessionWorktree(ctx, row)
@@ -880,7 +1033,6 @@ func applyWorkspacePromptInstructions(pc *PromptContext, kind Kind, mode WorkerW
 		pc.CompletionInstruction = "Stay in the main worktree and coordinate worker sessions instead of implementing changes yourself unless explicitly asked."
 		return
 	}
-
 	switch mode {
 	case WorkerWorkspaceModeLocal:
 		pc.WorkspaceInstruction = "Your workspace is the main project worktree at " + pc.WorkspacePath + "."

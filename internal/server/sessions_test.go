@@ -557,6 +557,61 @@ func TestPatchSessionRejectsDoneForNonPromptSession(t *testing.T) {
 	}
 }
 
+func TestPatchSessionMarksWorkerResponseSeen(t *testing.T) {
+	t.Parallel()
+	s := openTestStore(t)
+	repo := s.Sessions()
+	deliveredAt := "2026-06-07T10:20:00Z"
+	if err := repo.Insert(context.Background(), store.Session{
+		ID: "01HRSEEN0000000000000001", ProjectPath: "/tmp/a", ProjectName: "a",
+		AgentPlugin: "codex", WorkspacePath: "/tmp/a/.w", ZellijSession: "01HRSEEN0000000000000001",
+		Metadata: map[string]any{"kind": "worker", "state": "prompt", "lastAssistantMessageAt": deliveredAt},
+	}); err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+
+	srv := server.New(server.Config{Sessions: repo, EventBus: events.NewBus()})
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	resp := patchSession(t, ts.URL, "01HRSEEN0000000000000001", `{"seenResponse":true}`)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	row, err := repo.Get(context.Background(), "01HRSEEN0000000000000001")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if row.Metadata["seenWorkerResponseAt"] != deliveredAt {
+		t.Fatalf("seenWorkerResponseAt = %v, want %q", row.Metadata["seenWorkerResponseAt"], deliveredAt)
+	}
+}
+
+func TestPatchSessionRejectsSeenResponseForWorkingSession(t *testing.T) {
+	t.Parallel()
+	s := openTestStore(t)
+	repo := s.Sessions()
+	if err := repo.Insert(context.Background(), store.Session{
+		ID: "01HRSEEN0000000000000002", ProjectPath: "/tmp/a", ProjectName: "a",
+		AgentPlugin: "codex", WorkspacePath: "/tmp/a/.w", ZellijSession: "01HRSEEN0000000000000002",
+		Metadata: map[string]any{"kind": "worker", "state": "working", "lastAssistantMessageAt": "2026-06-07T10:20:00Z"},
+	}); err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+
+	srv := server.New(server.Config{Sessions: repo, EventBus: events.NewBus()})
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	resp := patchSession(t, ts.URL, "01HRSEEN0000000000000002", `{"seenResponse":true}`)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("status = %d, want 409", resp.StatusCode)
+	}
+}
+
 func TestPatchSessionRejectsUnsupportedState(t *testing.T) {
 	t.Parallel()
 	srv := server.New(server.Config{

@@ -40,6 +40,19 @@ func TestBuildEnvPreservesExplicitTerm(t *testing.T) {
 	}
 }
 
+// A backend launched from an agent/CI shell (or a `yyork send` revive from
+// inside another agent) carries TERM=dumb. The session is always rendered by
+// yyork's web terminal, so a dumb TERM only degrades the agent TUI.
+func TestBuildEnvReplacesDumbTerm(t *testing.T) {
+	t.Setenv("TERM", "dumb")
+
+	env := buildEnv(nil)
+
+	if got := envValue(env, "TERM"); got != defaultZellijTerm {
+		t.Fatalf("TERM = %q, want %q", got, defaultZellijTerm)
+	}
+}
+
 // A backend launched from an agent/CI shell (e.g. Codex CLI) carries
 // NO_COLOR=1 and a blank COLORTERM. Those must never reach the long-lived
 // zellij server: panes inherit the server env forever, and agents inside them

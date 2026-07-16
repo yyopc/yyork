@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	crosspty "github.com/aymanbagabas/go-pty"
 
@@ -168,11 +169,12 @@ func mergeTerminalEnv(base []string, extra []string) []string {
 		// Zellij resurrects dead sessions on attach, and the resurrected
 		// server inherits THIS attach client's env — which every pane process
 		// the session spawns then inherits. A backend launched from an
-		// agent/CI shell carries NO_COLOR=1 and a blank COLORTERM (Codex CLI
-		// does this), which would force agents in the session to render
-		// monochrome. The terminal on the other end is the web frontend,
-		// which is truecolor-capable regardless of how the backend started.
+		// agent/CI shell carries NO_COLOR=1, FORCE_COLOR=0, and a blank
+		// COLORTERM, which would force agents in the session to render
+		// monochrome. The terminal on the other end is the web frontend, which
+		// is truecolor-capable regardless of how the backend started.
 		env = removeEnv(env, "NO_COLOR")
+		env = removeDisablingForceColor(env)
 		env = upsertEnv(env, "COLORTERM=truecolor")
 	}
 
@@ -189,6 +191,21 @@ func removeEnv(env []string, key string) []string {
 	for _, current := range env {
 		if len(current) >= len(keyPrefix) && current[:len(keyPrefix)] == keyPrefix {
 			continue
+		}
+		out = append(out, current)
+	}
+	return out
+}
+
+func removeDisablingForceColor(env []string) []string {
+	const keyPrefix = "FORCE_COLOR="
+	out := env[:0]
+	for _, current := range env {
+		if len(current) >= len(keyPrefix) && current[:len(keyPrefix)] == keyPrefix {
+			value := strings.ToLower(strings.TrimSpace(current[len(keyPrefix):]))
+			if value == "" || value == "0" || value == "false" || value == "no" {
+				continue
+			}
 		}
 		out = append(out, current)
 	}

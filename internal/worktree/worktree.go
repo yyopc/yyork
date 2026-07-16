@@ -127,7 +127,22 @@ func (m *gitModule) Create(ctx context.Context, projectPath, worktreePath, branc
 	if _, err := m.run(ctx, projectPath, "worktree", "add", "-b", branchName, worktreePath, baseRef); err != nil {
 		return fmt.Errorf("worktree: git worktree add: %w", err)
 	}
+	allowWorktreeDirenv(ctx, worktreePath)
 	return nil
+}
+
+func allowWorktreeDirenv(ctx context.Context, worktreePath string) {
+	envrcPath := filepath.Join(worktreePath, ".envrc")
+	if _, err := os.Stat(envrcPath); err != nil {
+		return
+	}
+	binary, err := exec.LookPath("direnv")
+	if err != nil || binary == "" {
+		return
+	}
+	cmd := exec.CommandContext(ctx, binary, "allow", envrcPath)
+	cmd.Dir = worktreePath
+	_ = cmd.Run()
 }
 
 func (m *gitModule) Remove(ctx context.Context, projectPath, worktreePath, branchName string) error {

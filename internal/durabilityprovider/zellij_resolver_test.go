@@ -32,6 +32,20 @@ func TestResolveZellijBinaryRejectsBadEnvOverride(t *testing.T) {
 	}
 }
 
+func TestResolveZellijBinaryFindsSideBySideBundledRuntime(t *testing.T) {
+	root := t.TempDir()
+	exe := filepath.Join(root, "bin", "yyork")
+	bundled := writeExecutable(t, filepath.Join(root, "bin", zellijExecutableName(runtime.GOOS)))
+
+	got, err := resolveZellijBinary(testZellijResolver(t, exe, nil, nil))
+	if err != nil {
+		t.Fatalf("resolveZellijBinary returned error: %v", err)
+	}
+	if got.Path != bundled || got.Source != ZellijBinarySourceBundled {
+		t.Fatalf("ResolveZellijBinary = %#v, want bundled %s", got, bundled)
+	}
+}
+
 func TestResolveZellijBinaryFindsBundledRuntime(t *testing.T) {
 	root := t.TempDir()
 	exe := filepath.Join(root, "bin", "yyork")

@@ -175,6 +175,7 @@ func Run(ctx context.Context, cfg Config) error {
 		Orchestrators:   engine,
 		Forker:          engine,
 		Restarter:       engine,
+		Reviver:         engine,
 		EventBus:        bus,
 		ControlToken:    controlToken,
 		Shutdown: func() {

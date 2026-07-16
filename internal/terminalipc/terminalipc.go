@@ -17,7 +17,10 @@ const (
 	FrameInput  byte = 2
 	FrameResize byte = 3
 
-	maxFrameSize = 4 * 1024 * 1024
+	// MaxFramePayload is the largest payload carried by one terminal IPC frame.
+	// Larger logical output (notably reconnect snapshots) must be split across
+	// multiple frames.
+	MaxFramePayload = 4 * 1024 * 1024
 )
 
 func SocketPath(sessionName string) (string, error) {
@@ -40,7 +43,7 @@ func EnsureSocketDir(socketPath string) error {
 }
 
 func WriteFrame(w io.Writer, frameType byte, payload []byte) error {
-	if len(payload) > maxFrameSize {
+	if len(payload) > MaxFramePayload {
 		return fmt.Errorf("terminal ipc frame too large: %d bytes", len(payload))
 	}
 	var header [5]byte
@@ -62,7 +65,7 @@ func ReadFrame(r io.Reader) (byte, []byte, error) {
 		return 0, nil, err
 	}
 	size := binary.BigEndian.Uint32(header[1:])
-	if size > maxFrameSize {
+	if size > MaxFramePayload {
 		return 0, nil, fmt.Errorf("terminal ipc frame too large: %d bytes", size)
 	}
 	payload := make([]byte, size)

@@ -15,9 +15,10 @@ import (
 )
 
 type createProjectRequest struct {
-	Path              string `json:"path"`
-	AgentPlugin       string `json:"agentPlugin,omitempty"`
-	WorkerAgentPlugin string `json:"workerAgentPlugin,omitempty"`
+	Path                string `json:"path"`
+	AgentPlugin         string `json:"agentPlugin,omitempty"`
+	WorkerAgentPlugin   string `json:"workerAgentPlugin,omitempty"`
+	WorkerWorkspaceMode string `json:"workerWorkspaceMode,omitempty"`
 }
 
 type createProjectResponse struct {
@@ -107,6 +108,12 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "workerAgentPlugin must be claude-code or codex", http.StatusBadRequest)
 		return
 	}
+	workerWorkspaceModeValue := strings.TrimSpace(payload.WorkerWorkspaceMode)
+	workerWorkspaceMode, ok := session.NormalizeWorkerWorkspaceMode(workerWorkspaceModeValue)
+	if !ok {
+		http.Error(w, "workerWorkspaceMode must be new-worktree or local", http.StatusBadRequest)
+		return
+	}
 
 	spawnReq := session.SpawnRequest{
 		ProjectPath: root,
@@ -121,10 +128,18 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.projectSettings != nil && workerAgentPlugin != "" {
-		if err := s.projectSettings.SetWorkerAgentPlugin(r.Context(), root, workerAgentPlugin); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+	if s.projectSettings != nil {
+		if workerAgentPlugin != "" {
+			if err := s.projectSettings.SetWorkerAgentPlugin(r.Context(), root, workerAgentPlugin); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+		if workerWorkspaceModeValue != "" {
+			if err := s.projectSettings.SetWorkerWorkspaceMode(r.Context(), root, string(workerWorkspaceMode)); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 	}
 

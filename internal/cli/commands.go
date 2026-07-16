@@ -604,6 +604,18 @@ func runSend(cmd *cobra.Command, sessionID, projectID string, args []string, jso
 		return fmt.Errorf("send: failed to read workspace: %w", err)
 	}
 
+	// A session whose zellij runtime died with the machine (reboot) would
+	// swallow the message into a blank resurrected shell. Best-effort revive
+	// restarts the agent from its native transcript first; the zellij session
+	// name is stable across the restart, so the send below stays valid and
+	// reports its own errors either way.
+	if eng, closeEngine, engineErr := buildEngine(ctx); engineErr == nil {
+		if _, reviveErr := eng.Revive(ctx, sessionID); reviveErr != nil && !errors.Is(reviveErr, store.ErrSessionNotFound) {
+			fmt.Fprintf(cmd.ErrOrStderr(), "send: warning: could not revive session %s: %v\n", sessionID, reviveErr)
+		}
+		closeEngine()
+	}
+
 	registry := durabilityprovider.NewDefaultRegistry()
 	if err := durabilityprovider.SendToSession(ctx, registry, workspace, projectID, sessionID, message); err != nil {
 		return fmt.Errorf("send: %w", err)
@@ -779,7 +791,8 @@ func titleFromMetadata(metadata map[string]any) string {
 			return value
 		}
 	}
-	if kindFromMetadata(metadata) == session.KindOrchestrator {
+	switch kindFromMetadata(metadata) {
+	case session.KindOrchestrator:
 		return "Orchestrator"
 	}
 	return "New worker agent"

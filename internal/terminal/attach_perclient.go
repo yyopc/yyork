@@ -157,7 +157,7 @@ func newClientAttach(process Process) *clientAttach {
 // ends. Closing the Process detaches this browser socket only; the durable
 // terminal session survives.
 func (c *clientAttach) pipe(conn *websocket.Conn) error {
-	conn.SetReadLimit(64 * 1024)
+	conn.SetReadLimit(terminalipc.MaxFramePayload)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

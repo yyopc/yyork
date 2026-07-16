@@ -88,9 +88,12 @@ func TestDefaultPromptsTellYyorkAgentsToUsePortlessURL(t *testing.T) {
 			t.Fatalf("%s: render: %v", name, err)
 		}
 		for _, want := range []string{
+			"d3k:agent",
 			"pnpm dev",
 			"https://yyork.localhost",
-			"portless",
+			"dev:docs",
+			"dev:mock",
+			"dev:sb",
 			"http://127.0.0.1:3000",
 		} {
 			if !strings.Contains(got, want) {

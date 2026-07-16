@@ -120,14 +120,15 @@ func (p *Plugin) getSessionMetadataCommand(ctx context.Context, prompt string) (
 }
 
 // GetRestoreCommand rebuilds the argv that continues an existing Codex
-// session: `codex resume <agentSessionId>`. ok is false when the hook-derived
-// native session id has not landed yet, so callers can fall back to fresh
-// launch behavior.
+// session from the hook-captured native session id in session metadata.
+// ok is false when that id has not landed yet, so callers can fall back
+// to fresh launch behavior. We do not scan ~/.codex/sessions transcripts:
+// SessionStart hooks already persist the resume id as agentSessionId.
 func (p *Plugin) GetRestoreCommand(ctx context.Context, cfg agent.RestoreConfig) (cmd []string, ok bool, err error) {
 	if err := ctx.Err(); err != nil {
 		return nil, false, err
 	}
-	agentSessionID := strings.TrimSpace(cfg.Session.Metadata[codexAgentSessionIDMetadataKey])
+	agentSessionID := codexAgentSessionID(cfg.Session)
 	if agentSessionID == "" {
 		return nil, false, nil
 	}
@@ -140,19 +141,20 @@ func (p *Plugin) GetRestoreCommand(ctx context.Context, cfg agent.RestoreConfig)
 	cmd = []string{binary, "resume"}
 	appendNoUpdateCheckFlag(&cmd)
 	appendApprovalFlags(&cmd, cfg.Permissions)
-	cmd = append(cmd, codexNoAltScreenFlag)
+	cmd = append(cmd, "--all", codexNoAltScreenFlag)
 	cmd = append(cmd, codexBypassHookTrustFlag)
 	cmd = append(cmd, agentSessionID)
 	return cmd, true, nil
 }
 
 // GetForkCommand rebuilds argv for a native Codex conversation fork in a
-// yyork-created worktree: `codex fork -C <worktree> <agentSessionId>`.
+// yyork-created worktree. Uses the same hook-captured agentSessionId as
+// GetRestoreCommand — no transcript scan.
 func (p *Plugin) GetForkCommand(ctx context.Context, cfg agent.ForkConfig) (cmd []string, ok bool, err error) {
 	if err := ctx.Err(); err != nil {
 		return nil, false, err
 	}
-	agentSessionID := strings.TrimSpace(cfg.Session.Metadata[codexAgentSessionIDMetadataKey])
+	agentSessionID := codexAgentSessionID(cfg.Session)
 	if agentSessionID == "" {
 		return nil, false, nil
 	}
@@ -169,7 +171,7 @@ func (p *Plugin) GetForkCommand(ctx context.Context, cfg agent.ForkConfig) (cmd 
 	cmd = []string{binary, "fork"}
 	appendNoUpdateCheckFlag(&cmd)
 	appendApprovalFlags(&cmd, cfg.Permissions)
-	cmd = append(cmd, codexNoAltScreenFlag)
+	cmd = append(cmd, "--all", codexNoAltScreenFlag)
 	cmd = append(cmd, codexBypassHookTrustFlag)
 	if cfg.SystemPromptFile != "" {
 		cmd = append(cmd, "-c", "model_instructions_file="+cfg.SystemPromptFile)
@@ -181,6 +183,12 @@ func (p *Plugin) GetForkCommand(ctx context.Context, cfg agent.ForkConfig) (cmd 
 		cmd = append(cmd, prompt)
 	}
 	return cmd, true, nil
+}
+
+// codexAgentSessionID returns the native Codex session id persisted by the
+// SessionStart hook. Empty means restore/fork is not available yet.
+func codexAgentSessionID(ref agent.SessionRef) string {
+	return strings.TrimSpace(ref.Metadata[codexAgentSessionIDMetadataKey])
 }
 
 // ResolveCodexBinary returns the path to the codex binary on this machine,

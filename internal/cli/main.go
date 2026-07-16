@@ -45,34 +45,34 @@ func Main(webFS fs.FS) {
 	}
 }
 
-// brand maps yyork's lipgloss palette — the same colors the server banner
-// (internal/logging) and the previous hand-rolled help renderer used — onto
-// fang's ColorScheme, so the CLI keeps its identity: black-on-pink title
-// badge, cyan commands, amber flags, dim comments.
-func brand(_ lipgloss.LightDarkFunc) fang.ColorScheme {
-	pink := lipgloss.Color("212")
-	cyan := lipgloss.Color("86")
-	amber := lipgloss.Color("215")
-	text := lipgloss.Color("252")
-	dim := lipgloss.Color("241")
-	black := lipgloss.Color("0")
+// brand maps the semantic colors from internal/web/src/styles/app.css onto
+// fang's ColorScheme. Lipgloss does not accept CSS OKLCH colors, so the
+// selected tokens are represented here by their sRGB equivalents. Accent,
+// sidebar, chart, and terminal-specific palettes are intentionally excluded.
+func brand(c lipgloss.LightDarkFunc) fang.ColorScheme {
+	foreground := c(lipgloss.Color("#09090b"), lipgloss.Color("#fafafa"))
+	primary := c(lipgloss.Color("#18181b"), lipgloss.Color("#fafafa"))
+	muted := c(lipgloss.Color("#f4f4f5"), lipgloss.Color("#18181b"))
+	mutedForeground := c(lipgloss.Color("#71717b"), lipgloss.Color("#9f9fa9"))
+	destructive := c(lipgloss.Color("#e7000b"), lipgloss.Color("#c10007"))
+	destructiveForeground := c(lipgloss.Color("#fef2f2"), lipgloss.Color("#ffffff"))
 
 	return fang.ColorScheme{
-		Base:           text,
-		Title:          pink,
-		Description:    text,
-		Codeblock:      lipgloss.Color("245"),
-		Program:        pink,
-		DimmedArgument: dim,
-		Comment:        dim,
-		Flag:           amber,
-		FlagDefault:    dim,
-		Command:        cyan,
-		QuotedString:   cyan,
-		Argument:       amber,
-		Help:           dim,
-		Dash:           dim,
-		ErrorHeader:    [2]color.Color{black, pink}, // black on pink, like the title badge
-		ErrorDetails:   text,
+		Base:           foreground,
+		Title:          primary,
+		Description:    foreground,
+		Codeblock:      muted,
+		Program:        primary,
+		DimmedArgument: mutedForeground,
+		Comment:        mutedForeground,
+		Flag:           primary,
+		FlagDefault:    mutedForeground,
+		Command:        primary,
+		QuotedString:   primary,
+		Argument:       foreground,
+		Help:           mutedForeground,
+		Dash:           mutedForeground,
+		ErrorHeader:    [2]color.Color{destructiveForeground, destructive},
+		ErrorDetails:   destructive,
 	}
 }

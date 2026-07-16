@@ -65,16 +65,19 @@ func (f *fakeWorktree) Remove(_ context.Context, projectPath, worktreePath, bran
 }
 
 type fakeProvider struct {
-	mu           sync.Mutex
-	createErr    error
-	killErr      error
-	existsErr    error
-	listErr      error
-	liveSessions map[string]bool // name -> exists
-	createCalls  []session.CreateOpts
-	killCalls    []string
-	existsCalls  []string
-	listCalls    int
+	mu                sync.Mutex
+	createErr         error
+	killErr           error
+	existsErr         error
+	reachableErr      error
+	listErr           error
+	liveSessions      map[string]bool // name -> exists
+	reachableSessions map[string]bool // name -> terminal host answers its socket
+	createCalls       []session.CreateOpts
+	killCalls         []string
+	existsCalls       []string
+	reachableCalls    []string
+	listCalls         int
 }
 
 func (f *fakeProvider) CreateSession(_ context.Context, opts session.CreateOpts) error {
@@ -88,6 +91,10 @@ func (f *fakeProvider) CreateSession(_ context.Context, opts session.CreateOpts)
 		f.liveSessions = map[string]bool{}
 	}
 	f.liveSessions[opts.Name] = true
+	if f.reachableSessions == nil {
+		f.reachableSessions = map[string]bool{}
+	}
+	f.reachableSessions[opts.Name] = true
 	return nil
 }
 
@@ -99,6 +106,7 @@ func (f *fakeProvider) KillSession(_ context.Context, name string) error {
 		return f.killErr
 	}
 	delete(f.liveSessions, name)
+	delete(f.reachableSessions, name)
 	return nil
 }
 
@@ -110,6 +118,16 @@ func (f *fakeProvider) SessionExists(_ context.Context, name string) (bool, erro
 		return false, f.existsErr
 	}
 	return f.liveSessions[name], nil
+}
+
+func (f *fakeProvider) SessionAgentReachable(_ context.Context, name string) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.reachableCalls = append(f.reachableCalls, name)
+	if f.reachableErr != nil {
+		return false, f.reachableErr
+	}
+	return f.reachableSessions[name], nil
 }
 
 func (f *fakeProvider) ListSessionNames(_ context.Context) ([]string, error) {
@@ -774,6 +792,211 @@ func TestRestartUnsupportedWhenNativeSessionUnavailable(t *testing.T) {
 	}
 }
 
+// reviveSourceRow returns a session row shaped like one whose agent runtime
+// may have died: the row exists, and whether its terminal host still answers
+// is up to the test's provider fixture. CreatedAt is set well in the past so
+// the revive startup-grace window does not apply unless a test wants it.
+func reviveSourceRow() store.Session {
+	return store.Session{
+		ID:            "source-1",
+		ProjectPath:   "/tmp/proj",
+		ProjectName:   "proj",
+		AgentPlugin:   "fake",
+		WorkspacePath: "/tmp/proj",
+		ZellijSession: "source-1",
+		CreatedAt:     time.Now().UTC().Add(-time.Hour),
+		Metadata: map[string]any{
+			"agentSessionId": "native-1",
+			"kind":           "worker",
+			"state":          string(session.StateWorking),
+			"workspaceMode":  string(session.WorkerWorkspaceModeLocal),
+		},
+	}
+}
+
+func TestReviveRestartsUnreachableSession(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	ctx := context.Background()
+	h.agent.restoreOK = true
+	h.agent.restoreCmd = []string{"fake", "resume", "native-1"}
+	// Post-reboot shape: the session may even still be listed by zellij
+	// (resurrectable, or blank-resurrected), but its terminal host is gone.
+	h.provider.liveSessions = map[string]bool{"source-1": true}
+
+	source := reviveSourceRow()
+	if err := h.repo.Insert(ctx, source); err != nil {
+		t.Fatalf("insert source: %v", err)
+	}
+
+	revived, err := h.engine.Revive(ctx, source.ID)
+	if err != nil {
+		t.Fatalf("Revive: %v", err)
+	}
+	if revived.ID != source.ID {
+		t.Fatalf("revived.ID = %q, want %q", revived.ID, source.ID)
+	}
+	if revived.Metadata["state"] != string(session.StatePrompt) {
+		t.Fatalf("state = %#v, want prompt after restart", revived.Metadata["state"])
+	}
+	if revived.Metadata["restoredFromAgentSessionId"] != "native-1" {
+		t.Fatalf("restoredFromAgentSessionId = %#v, want native-1", revived.Metadata)
+	}
+	// At least two probes: the detection probe plus the post-restart
+	// readiness wait. All must target the session's zellij name.
+	if len(h.provider.reachableCalls) < 2 {
+		t.Fatalf("reachableCalls = %#v, want detection and readiness probes", h.provider.reachableCalls)
+	}
+	for _, name := range h.provider.reachableCalls {
+		if name != "source-1" {
+			t.Fatalf("reachableCalls = %#v, want only source-1 probes", h.provider.reachableCalls)
+		}
+	}
+	if len(h.provider.killCalls) != 1 || h.provider.killCalls[0] != "source-1" {
+		t.Fatalf("killCalls = %#v, want the dead session removed", h.provider.killCalls)
+	}
+	if len(h.provider.createCalls) != 1 {
+		t.Fatalf("createCalls = %d, want 1", len(h.provider.createCalls))
+	}
+	if !equalStrings(h.provider.createCalls[0].LaunchCmd, h.agent.restoreCmd) {
+		t.Fatalf("LaunchCmd = %#v, want restore command %#v", h.provider.createCalls[0].LaunchCmd, h.agent.restoreCmd)
+	}
+
+	// A second Revive sees the recreated reachable session and does nothing.
+	again, err := h.engine.Revive(ctx, source.ID)
+	if err != nil {
+		t.Fatalf("second Revive: %v", err)
+	}
+	if again.Metadata["restartCount"] != revived.Metadata["restartCount"] {
+		t.Fatalf("second Revive restarted again: %#v", again.Metadata)
+	}
+	if len(h.provider.createCalls) != 1 {
+		t.Fatalf("createCalls after second Revive = %d, want still 1", len(h.provider.createCalls))
+	}
+}
+
+func TestReviveNoopWhenAgentReachable(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	ctx := context.Background()
+	h.agent.restoreOK = true
+	h.agent.restoreCmd = []string{"fake", "resume", "native-1"}
+	h.provider.liveSessions = map[string]bool{"source-1": true}
+	h.provider.reachableSessions = map[string]bool{"source-1": true}
+
+	source := reviveSourceRow()
+	if err := h.repo.Insert(ctx, source); err != nil {
+		t.Fatalf("insert source: %v", err)
+	}
+
+	revived, err := h.engine.Revive(ctx, source.ID)
+	if err != nil {
+		t.Fatalf("Revive: %v", err)
+	}
+	if revived.Metadata["state"] != string(session.StateWorking) {
+		t.Fatalf("state = %#v, want untouched working state", revived.Metadata["state"])
+	}
+	if len(h.agent.restoreCalls) != 0 {
+		t.Fatalf("restoreCalls = %d, want 0", len(h.agent.restoreCalls))
+	}
+	if len(h.provider.killCalls) != 0 || len(h.provider.createCalls) != 0 {
+		t.Fatalf("kill/create = %d/%d, want 0/0", len(h.provider.killCalls), len(h.provider.createCalls))
+	}
+}
+
+// TestReviveSkipsFreshSessions covers the startup-grace window: a session
+// created moments ago whose terminal host has not started listening yet must
+// not be torn down by an eager attach.
+func TestReviveSkipsFreshSessions(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	ctx := context.Background()
+	h.agent.restoreOK = true
+	h.agent.restoreCmd = []string{"fake", "resume", "native-1"}
+
+	source := reviveSourceRow()
+	source.CreatedAt = time.Now().UTC()
+	if err := h.repo.Insert(ctx, source); err != nil {
+		t.Fatalf("insert source: %v", err)
+	}
+
+	revived, err := h.engine.Revive(ctx, source.ID)
+	if err != nil {
+		t.Fatalf("Revive: %v", err)
+	}
+	if revived.ID != source.ID {
+		t.Fatalf("revived.ID = %q, want %q", revived.ID, source.ID)
+	}
+	if len(h.provider.killCalls) != 0 || len(h.provider.createCalls) != 0 {
+		t.Fatalf("kill/create = %d/%d, want 0/0 within the startup grace window", len(h.provider.killCalls), len(h.provider.createCalls))
+	}
+}
+
+// TestReviveConcurrentAttachesRestartOnce models two browser tabs attaching
+// to the same dead session at the same time: the per-session lock must
+// collapse them into a single kill/create cycle.
+func TestReviveConcurrentAttachesRestartOnce(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	ctx := context.Background()
+	h.agent.restoreOK = true
+	h.agent.restoreCmd = []string{"fake", "resume", "native-1"}
+	h.provider.liveSessions = map[string]bool{"source-1": true}
+
+	source := reviveSourceRow()
+	if err := h.repo.Insert(ctx, source); err != nil {
+		t.Fatalf("insert source: %v", err)
+	}
+
+	var wg sync.WaitGroup
+	errs := make([]error, 2)
+	for i := range errs {
+		wg.Add(1)
+		go func(slot int) {
+			defer wg.Done()
+			_, errs[slot] = h.engine.Revive(ctx, source.ID)
+		}(i)
+	}
+	wg.Wait()
+
+	for slot, err := range errs {
+		if err != nil {
+			t.Fatalf("Revive[%d]: %v", slot, err)
+		}
+	}
+	if len(h.provider.createCalls) != 1 {
+		t.Fatalf("createCalls = %d, want exactly 1 restart across concurrent revives", len(h.provider.createCalls))
+	}
+	if len(h.provider.killCalls) != 1 {
+		t.Fatalf("killCalls = %d, want exactly 1", len(h.provider.killCalls))
+	}
+}
+
+func TestReviveKeepsDeadSessionWhenRestoreUnavailable(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	ctx := context.Background()
+	// restoreOK stays false: the agent never reported a native session id.
+	h.provider.liveSessions = map[string]bool{"source-1": true}
+
+	source := reviveSourceRow()
+	delete(source.Metadata, "agentSessionId")
+	if err := h.repo.Insert(ctx, source); err != nil {
+		t.Fatalf("insert source: %v", err)
+	}
+
+	revived, err := h.engine.Revive(ctx, source.ID)
+	if err != nil {
+		t.Fatalf("Revive: %v", err)
+	}
+	if revived.ID != source.ID {
+		t.Fatalf("revived.ID = %q, want %q", revived.ID, source.ID)
+	}
+	if len(h.provider.killCalls) != 0 || len(h.provider.createCalls) != 0 {
+		t.Fatalf("kill/create = %d/%d, want 0/0 when restore is unsupported", len(h.provider.killCalls), len(h.provider.createCalls))
+	}
+}
+
 // promptContextFor rebuilds the PromptContext the engine derives during Spawn,
 // from the facts it persists on the session row.
 func promptContextFor(sess store.Session) session.PromptContext {
@@ -1191,6 +1414,40 @@ func TestReconcileAllDeletesDeadAndKeepsLive(t *testing.T) {
 	}
 	if events[0].Payload["id"] != dead.ID {
 		t.Errorf("event id = %q, want %q", events[0].Payload["id"], dead.ID)
+	}
+}
+
+// TestReconcileKeepsDeadRestorableRows verifies rows with a recorded native
+// agent session survive reconcile even when their durability session is gone
+// entirely (e.g. zellij's serialization cache was cleaned, or the session
+// died mid-run). Revive restores them on next use; deleting would also
+// destroy the worktree.
+func TestReconcileKeepsDeadRestorableRows(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t)
+	ctx := context.Background()
+
+	source := reviveSourceRow()
+	if err := h.repo.Insert(ctx, source); err != nil {
+		t.Fatalf("insert source: %v", err)
+	}
+
+	if err := h.engine.ReconcileAll(ctx); err != nil {
+		t.Fatalf("ReconcileAll: %v", err)
+	}
+	if _, err := h.repo.Get(ctx, source.ID); err != nil {
+		t.Fatalf("restorable row deleted by ReconcileAll: %v", err)
+	}
+
+	got, alive, err := h.engine.Reconcile(ctx, source.ID)
+	if err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+	if !alive || got.ID != source.ID {
+		t.Fatalf("Reconcile = (%q, %v), want restorable row kept", got.ID, alive)
+	}
+	if len(h.worktree.removeCalls) != 0 {
+		t.Fatalf("worktree removeCalls = %d, want 0", len(h.worktree.removeCalls))
 	}
 }
 

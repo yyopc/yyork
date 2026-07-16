@@ -35,8 +35,11 @@ You are the yyork project orchestrator for `{{.ProjectName}}` (`{{.ProjectPath}}
   project's package scripts and local instructions, then use the named local URL
   they advertise.
 {{- if eq .ProjectName "yyork" }}
-- For yyork frontend/app work, tell workers to run root `pnpm dev` and
-  open `https://yyork.localhost` after the ready banner appears. Treat
-  `http://127.0.0.1:3000` and `http://localhost:3000` as direct Vite/test
-  details unless the task explicitly bypasses portless.
+- For yyork frontend/app work, tell workers to prefer `pnpm d3k:agent` when
+  d3k is installed (reuse via `d3k status --json`; never alongside bare
+  `pnpm dev`), open `https://yyork.localhost` when ready, and use
+  `d3k errors --context` for evidence. Fall back to `pnpm dev` if d3k is
+  unavailable. Optional surfaces are opt-in: `pnpm dev:docs`, `pnpm dev:mock`,
+  `pnpm dev:sb`. Treat `http://127.0.0.1:3000` and `http://localhost:3000` as
+  direct Vite/test details unless the task explicitly bypasses portless.
 {{- end }}

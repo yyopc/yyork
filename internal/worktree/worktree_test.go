@@ -129,6 +129,44 @@ func TestCreateAndRemoveWorktree(t *testing.T) {
 	}
 }
 
+func TestCreateAllowsWorktreeEnvrcWhenDirenvIsAvailable(t *testing.T) {
+	ctx := context.Background()
+	m := worktree.New()
+
+	repo := initRepo(t)
+	if err := os.WriteFile(filepath.Join(repo, ".envrc"), []byte("use flake\n"), 0o644); err != nil {
+		t.Fatalf("write .envrc: %v", err)
+	}
+	runGit(t, repo, "add", ".envrc")
+	runGit(t, repo, "commit", "-m", "add envrc")
+
+	binDir := t.TempDir()
+	logPath := filepath.Join(t.TempDir(), "direnv.log")
+	direnvPath := filepath.Join(binDir, "direnv")
+	script := "#!/bin/sh\nprintf '%s\\n' \"$@\" > " + shellQuote(logPath) + "\n"
+	if err := os.WriteFile(direnvPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write fake direnv: %v", err)
+	}
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	baseRef := "refs/heads/" + currentBranch(t, repo)
+	worktreePath := filepath.Join(t.TempDir(), "worktrees", "01HRENVRCSESSION0000000000")
+	branchName := "yyork/01HRENVRCSESSION0000000000"
+
+	if err := m.Create(ctx, repo, worktreePath, branchName, baseRef); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read fake direnv log: %v", err)
+	}
+	want := "allow\n" + filepath.Join(worktreePath, ".envrc") + "\n"
+	if string(raw) != want {
+		t.Fatalf("direnv args = %q, want %q", string(raw), want)
+	}
+}
+
 func TestRemoveDeletesBranchEvenWithCommits(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -210,7 +248,7 @@ func TestCreateRejectsEmptyArgs(t *testing.T) {
 
 	repo := initRepo(t)
 	cases := []struct {
-		name                                          string
+		name                                           string
 		projectPath, worktreePath, branchName, baseRef string
 	}{
 		{"empty projectPath", "", "/w", "br", "refs/heads/main"},
@@ -277,4 +315,8 @@ func runGit(t *testing.T, cwd string, args ...string) string {
 		t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
 	}
 	return string(out)
+}
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
 }

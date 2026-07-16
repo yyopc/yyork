@@ -130,6 +130,42 @@
             exec "$root/node_modules/.bin/portless" "$@"
           '';
         };
+        devShellInputs = [
+          yyorkDev
+          portlessDev
+          go
+          pkgs.goreleaser
+          pkgs.nodejs_24
+          pkgs.pnpm_10
+        ];
+        devShellHook = ''
+          export GOROOT="${go}/share/go"
+          export GOPATH="$PWD/.go"
+          export GOBIN="$PWD/go-bin"
+          export PNPM_HOME="$PWD/.pnpm"
+          export PATH="$GOBIN:$PNPM_HOME:$PATH"
+        '';
+        zellijOverrideHook = ''
+          export YYORK_ZELLIJ="${pkgs.zellij}/bin/zellij"
+        '';
+        removeZellijFromPathHook = ''
+          _yyork_no_zellij_path=""
+          _yyork_old_ifs="$IFS"
+          IFS=:
+          for _yyork_path_entry in $PATH; do
+            if [ -n "$_yyork_path_entry" ] && [ -x "$_yyork_path_entry/zellij" ]; then
+              continue
+            fi
+            if [ -z "$_yyork_no_zellij_path" ]; then
+              _yyork_no_zellij_path="$_yyork_path_entry"
+            else
+              _yyork_no_zellij_path="$_yyork_no_zellij_path:$_yyork_path_entry"
+            fi
+          done
+          IFS="$_yyork_old_ifs"
+          export PATH="$_yyork_no_zellij_path"
+          unset _yyork_no_zellij_path _yyork_old_ifs _yyork_path_entry
+        '';
       in
       {
         packages = {
@@ -143,22 +179,15 @@
         };
 
         devShells.default = pkgs.mkShell {
-          buildInputs = [
-            yyorkDev
-            portlessDev
-            go
-            pkgs.goreleaser
-            pkgs.nodejs_24
-            pkgs.pnpm_10
-          ];
+          buildInputs = devShellInputs;
 
-          shellHook = ''
-            export GOROOT="${go}/share/go"
-            export GOPATH="$PWD/.go"
-            export GOBIN="$PWD/go-bin"
-            export PNPM_HOME="$PWD/.pnpm"
-            export PATH="$GOBIN:$PNPM_HOME:$PATH"
-          '';
+          shellHook = devShellHook;
+        };
+
+        devShells."no-zellij" = pkgs.mkShell {
+          buildInputs = devShellInputs;
+
+          shellHook = devShellHook + zellijOverrideHook + removeZellijFromPathHook;
         };
       }
     );

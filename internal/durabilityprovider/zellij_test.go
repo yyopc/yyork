@@ -2,9 +2,13 @@ package durabilityprovider
 
 import (
 	"context"
+	"errors"
+	"net"
+	"os"
 	"testing"
 
 	"github.com/yyopc/yyork/internal/session"
+	"github.com/yyopc/yyork/internal/terminalipc"
 )
 
 func TestZellijProviderSendMessagePastesAndSubmits(t *testing.T) {
@@ -34,6 +38,57 @@ func TestZellijProviderSendMessagePastesAndSubmits(t *testing.T) {
 	wantSubmit := []string{"zellij", "--session", "ao-1", "action", "send-keys", "Enter"}
 	if !equalArgs(calls[1], wantSubmit) {
 		t.Errorf("submit call = %v, want %v", calls[1], wantSubmit)
+	}
+}
+
+func TestZellijProviderSendMessagePastesAndSubmitsWhenTerminalHostReachable(t *testing.T) {
+	home, err := os.MkdirTemp("/tmp", "yyork-send-test-*")
+	if err != nil {
+		t.Fatalf("create short test home: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(home) })
+	t.Setenv("HOME", home)
+	socketPath, err := terminalipc.SocketPath("ao-1")
+	if err != nil {
+		t.Fatalf("terminal host socket path: %v", err)
+	}
+	if err := terminalipc.EnsureSocketDir(socketPath); err != nil {
+		t.Fatalf("create terminal host socket dir: %v", err)
+	}
+	listener, err := net.Listen("unix", socketPath)
+	if err != nil {
+		t.Fatalf("listen on terminal host socket: %v", err)
+	}
+	t.Cleanup(func() { _ = listener.Close() })
+
+	provider := &ZellijProvider{
+		path: "zellij",
+		run: func(context.Context, string, ...string) error {
+			return errors.New("zellij must not be used while terminal host is reachable")
+		},
+	}
+
+	if err := provider.SendMessage(context.Background(), session.Session{ZellijSession: "ao-1"}, "hello"); err != nil {
+		t.Fatalf("SendMessage returned error: %v", err)
+	}
+
+	conn, err := listener.Accept()
+	if err != nil {
+		t.Fatalf("accept terminal host connection: %v", err)
+	}
+	defer conn.Close()
+
+	for i, want := range []string{"\x1b[200~hello\x1b[201~", "\r"} {
+		frameType, payload, err := terminalipc.ReadFrame(conn)
+		if err != nil {
+			t.Fatalf("read terminal host frame %d: %v", i+1, err)
+		}
+		if frameType != terminalipc.FrameInput {
+			t.Errorf("frame %d type = %d, want input", i+1, frameType)
+		}
+		if got := string(payload); got != want {
+			t.Errorf("frame %d payload = %q, want %q", i+1, got, want)
+		}
 	}
 }
 

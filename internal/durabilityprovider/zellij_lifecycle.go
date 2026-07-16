@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -198,6 +199,47 @@ func (z *ZellijProvider) ListSessionNames(ctx context.Context) ([]string, error)
 	return names, nil
 }
 
+// SessionAgentReachable reports whether the session's yyork terminal host —
+// the process yyork wraps around the agent pane — is accepting connections
+// on its per-session socket (~/.yyork/terminal/<name>.sock). That socket is
+// the liveness signal for "attaching lands on a yyork-managed agent":
+//
+//   - a healthy yyork session always has terminal-host listening, even when
+//     the agent inside exited and the keep-alive shell holds the pane open
+//     for post-mortem inspection;
+//   - a session that died with the machine has no host process (zellij lists
+//     it as EXITED, or not at all): the dial fails;
+//   - a session blank-resurrected by a plain zellij attach is live in zellij
+//     but its pane runs a bare shell, not terminal-host: the dial fails.
+//
+// Probing the socket instead of parsing zellij state covers all three dead
+// shapes with one version-independent check.
+func (z *ZellijProvider) SessionAgentReachable(ctx context.Context, name string) (bool, error) {
+	if strings.TrimSpace(name) == "" {
+		return false, errors.New("zellij: SessionAgentReachable requires a name")
+	}
+
+	socketPath, err := terminalipc.SocketPath(name)
+	if err != nil {
+		return false, err
+	}
+
+	dialCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	dialer := net.Dialer{}
+	conn, err := dialer.DialContext(dialCtx, "unix", socketPath)
+	if err != nil {
+		// Canceled probes must not read as "host down": callers treat false
+		// as permission to tear the session down and restore it.
+		if ctx.Err() != nil {
+			return false, ctx.Err()
+		}
+		return false, nil
+	}
+	_ = conn.Close()
+	return true, nil
+}
+
 // startZellijClient spawns a `zellij --session NAME --layout L` client
 // attached to a PTY in its own process group. The session, once observed
 // by waitForSessionUp, lives on the server even after this client exits.
@@ -281,7 +323,12 @@ func ensureZellijTerm(env []string) []string {
 		if !ok || key != "TERM" {
 			continue
 		}
-		if strings.TrimSpace(value) == "" {
+		// "dumb" reaches us when the backend (or a yyork CLI verb) runs from
+		// an agent/CI shell — the orchestrator spawning workers does exactly
+		// that. The session is always viewed through yyork's web terminal,
+		// which is a full xterm, so a dumb TERM would only make the agent
+		// TUI degrade for no reason.
+		if trimmed := strings.TrimSpace(value); trimmed == "" || strings.EqualFold(trimmed, "dumb") {
 			env[i] = "TERM=" + defaultZellijTerm
 		}
 		return env

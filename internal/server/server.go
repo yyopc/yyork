@@ -60,6 +60,14 @@ type SessionRestarter interface {
 	Restart(ctx context.Context, req session.RestartRequest) (store.Session, error)
 }
 
+// SessionReviver restores a session whose durable runtime died out from under
+// it — after a machine reboot zellij lists the session as EXITED and attaching
+// would resurrect a blank shell without the agent. The session.Engine
+// satisfies this interface.
+type SessionReviver interface {
+	Revive(ctx context.Context, id string) (store.Session, error)
+}
+
 type Config struct {
 	IDEOpener       IDEOpener
 	Registry        *plugin.Registry
@@ -117,6 +125,11 @@ type Config struct {
 	// Optional — if nil, the endpoint returns 501.
 	Restarter SessionRestarter
 
+	// Reviver restores sessions whose zellij runtime died with the machine
+	// before the terminal-attach and message-send paths touch them. Optional
+	// — if nil, dead sessions surface as blank resurrected shells.
+	Reviver SessionReviver
+
 	// DirectoryChooser opens the native folder picker behind POST
 	// /api/projects/choose-directory. Optional — defaults to the host OS's
 	// native picker (macOS `osascript`).
@@ -162,6 +175,7 @@ type Server struct {
 	orchestrators                OrchestratorEnsurer
 	forker                       SessionForker
 	restarter                    SessionRestarter
+	reviver                      SessionReviver
 	directoryChooser             DirectoryChooser
 	eventBus                     *events.Bus
 	controlToken                 string
@@ -241,6 +255,7 @@ func New(cfg Config) *Server {
 		orchestrators:                cfg.Orchestrators,
 		forker:                       cfg.Forker,
 		restarter:                    cfg.Restarter,
+		reviver:                      cfg.Reviver,
 		directoryChooser:             directoryChooser,
 		eventBus:                     cfg.EventBus,
 		controlToken:                 cfg.ControlToken,
@@ -356,6 +371,14 @@ func (s *Server) handleSessionTerminal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A zellij session that died with the machine still lists as
+	// resurrectable; attaching now would hand the user a blank shell instead
+	// of their agent. Revive restarts the agent from its native transcript
+	// first so the attach below lands on a live conversation. The zellij
+	// session name is stable across the restart, so the attach command and
+	// terminal-host socket resolved from workerSession stay valid.
+	s.reviveSessionBestEffort(r.Context(), workerSession.ID)
+
 	cols := parsePositiveInt(r.URL.Query().Get("cols"), 100)
 	rows := parsePositiveInt(r.URL.Query().Get("rows"), 30)
 	s.terminalManager.ServeWS(w, r, terminal.SessionConfig{
@@ -404,6 +427,20 @@ func (s *Server) handleSessionIDE(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{
 		"cwd": cwd,
 	})
+}
+
+// reviveSessionBestEffort restores a dead-but-resurrectable session before an
+// attach or message delivery. Failures are logged, not surfaced: the caller's
+// own operation proceeds and reports its own error state, and for sessions
+// that cannot be revived the pre-existing behavior (blank resurrected shell)
+// is still the most useful fallback.
+func (s *Server) reviveSessionBestEffort(ctx context.Context, sessionID string) {
+	if s.reviver == nil || sessionID == "" {
+		return
+	}
+	if _, err := s.reviver.Revive(ctx, sessionID); err != nil {
+		slog.Warn("failed to revive session", "session_id", sessionID, "error", err)
+	}
 }
 
 func (s *Server) workspaceForRequest(ctx context.Context) (session.Workspace, error) {

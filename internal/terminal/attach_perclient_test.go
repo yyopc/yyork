@@ -1,6 +1,7 @@
 package terminal
 
 import (
+	"bytes"
 	"context"
 	"net"
 	"net/http"
@@ -216,6 +217,55 @@ func TestPerClientServeWSPipesProcessIO(t *testing.T) {
 	}
 	if string(payload) != "output" {
 		t.Fatalf("expected output, got %q", string(payload))
+	}
+}
+
+func TestPerClientServeWSAcceptsPasteAtIPCMaximum(t *testing.T) {
+	runner := &fakeRunner{}
+	manager := NewManager(ManagerConfig{AttachStrategy: StrategyPerClient, Runner: runner})
+	t.Cleanup(func() {
+		if err := manager.Close(); err != nil {
+			t.Fatalf("close manager: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		manager.ServeWS(w, r, SessionConfig{ID: "session-large-paste"})
+	}))
+	t.Cleanup(server.Close)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	url := "ws" + strings.TrimPrefix(server.URL, "http")
+	conn, _, err := websocket.Dial(ctx, url, nil)
+	if err != nil {
+		t.Fatalf("dial terminal websocket: %v", err)
+	}
+	defer conn.Close(websocket.StatusNormalClosure, "")
+
+	paste := bytes.Repeat([]byte("p"), terminalipc.MaxFramePayload)
+	if err := conn.Write(ctx, websocket.MessageBinary, paste); err != nil {
+		t.Fatalf("write %d-byte paste: %v", len(paste), err)
+	}
+
+	process := waitForLastProcess(t, runner)
+	deadline := time.After(5 * time.Second)
+	tick := time.NewTicker(10 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		process.mu.Lock()
+		got := append([]byte(nil), process.written.Bytes()...)
+		process.mu.Unlock()
+		if bytes.Equal(got, paste) {
+			return
+		}
+
+		select {
+		case <-deadline:
+			t.Fatalf("process received %d paste bytes, want %d", len(got), len(paste))
+		case <-tick.C:
+		}
 	}
 }
 

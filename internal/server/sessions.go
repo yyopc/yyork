@@ -55,7 +55,8 @@ func resolvedSessionTitle(s store.Session) string {
 			return value
 		}
 	}
-	if sessionKind(s.Metadata) == "orchestrator" {
+	switch sessionKind(s.Metadata) {
+	case "orchestrator":
 		return "Orchestrator"
 	}
 	return "New worker agent"
@@ -118,16 +119,21 @@ func (s *Server) handleStopSession(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// displayNameMaxLen caps a user-supplied session name. Names are presented in
-// a narrow sidebar row, so anything longer is noise; the UI truncates anyway.
-const displayNameMaxLen = 120
+const (
+	// displayNameMaxLen caps a user-supplied session name. Names are presented in
+	// a narrow sidebar row, so anything longer is noise; the UI truncates anyway.
+	displayNameMaxLen = 120
+
+	seenWorkerResponseMetadataKey = "seenWorkerResponseAt"
+)
 
 // sessionPatchRequest is the JSON body for PATCH /api/sessions/{sessionID}.
 // displayName is optional so a state-only patch does not clear the existing
 // display name. An explicitly empty displayName still clears the override.
 type sessionPatchRequest struct {
-	DisplayName *string        `json:"displayName"`
-	State       *session.State `json:"state"`
+	DisplayName  *string        `json:"displayName"`
+	SeenResponse *bool          `json:"seenResponse"`
+	State        *session.State `json:"state"`
 }
 
 type sessionForkRequest struct {
@@ -157,8 +163,43 @@ func (s *Server) handlePatchSession(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	fields := map[string]any{}
+	var cachedRow *store.Session
+	loadRow := func() (store.Session, error) {
+		if cachedRow != nil {
+			return *cachedRow, nil
+		}
+		row, err := s.sessions.Get(ctx, sessionID)
+		if err != nil {
+			return store.Session{}, err
+		}
+		cachedRow = &row
+		return row, nil
+	}
+
 	if payload.DisplayName != nil {
 		fields["displayName"] = truncateRunes(strings.TrimSpace(*payload.DisplayName), displayNameMaxLen)
+	}
+	if payload.SeenResponse != nil && *payload.SeenResponse {
+		row, err := loadRow()
+		if errors.Is(err, store.ErrSessionNotFound) {
+			http.Error(w, "session not found", http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if sessionKind(row.Metadata) != string(session.KindWorker) {
+			http.Error(w, "only worker session responses can be marked seen", http.StatusConflict)
+			return
+		}
+
+		deliveredAt := deliveredWorkerResponseAt(row.Metadata)
+		if deliveredAt == "" {
+			http.Error(w, "session has no delivered response to mark seen", http.StatusConflict)
+			return
+		}
+		fields[seenWorkerResponseMetadataKey] = deliveredAt
 	}
 	if payload.State != nil {
 		if *payload.State != session.StateDone {
@@ -166,7 +207,7 @@ func (s *Server) handlePatchSession(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		row, err := s.sessions.Get(ctx, sessionID)
+		row, err := loadRow()
 		if errors.Is(err, store.ErrSessionNotFound) {
 			http.Error(w, "session not found", http.StatusNotFound)
 			return
@@ -227,6 +268,31 @@ func sessionState(metadata map[string]any) session.State {
 	default:
 		return session.StateWorking
 	}
+}
+
+func deliveredWorkerResponseAt(metadata map[string]any) string {
+	if sessionState(metadata) != session.StatePrompt {
+		return ""
+	}
+
+	for _, key := range []string{"lastAssistantMessageAt", "lastActivityAt"} {
+		timestamp := metadataTimestampString(metadata, key)
+		if timestamp != "" {
+			return timestamp
+		}
+	}
+	return ""
+}
+
+func metadataTimestampString(metadata map[string]any, key string) string {
+	timestamp := metadataString(metadata, key)
+	if timestamp == "" {
+		return ""
+	}
+	if _, err := time.Parse(time.RFC3339Nano, timestamp); err != nil {
+		return ""
+	}
+	return timestamp
 }
 
 // handleForkSession creates a new yyork worker in a fresh worktree by forking

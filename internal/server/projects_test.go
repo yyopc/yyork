@@ -105,7 +105,7 @@ func TestHandleCreateProjectPassesAgentPlugins(t *testing.T) {
 	response := postProject(
 		t,
 		server,
-		`{"path":`+jsonString(root)+`,"agentPlugin":"codex","workerAgentPlugin":"claude-code"}`,
+		`{"path":`+jsonString(root)+`,"agentPlugin":"codex","workerAgentPlugin":"claude-code","workerWorkspaceMode":"new-worktree"}`,
 	)
 
 	if response.Code != http.StatusOK {
@@ -119,6 +119,28 @@ func TestHandleCreateProjectPassesAgentPlugins(t *testing.T) {
 	}
 	if settings.gotWorkerAgentPlugin != "claude-code" {
 		t.Fatalf("expected worker agent claude-code, got %q", settings.gotWorkerAgentPlugin)
+	}
+	if settings.gotMode != "new-worktree" {
+		t.Fatalf("expected worker workspace new-worktree, got %q", settings.gotMode)
+	}
+}
+
+func TestHandleCreateProjectRejectsUnknownWorkerWorkspaceMode(t *testing.T) {
+	root := initGitRepo(t)
+	ensurer := &fakeOrchestratorEnsurer{}
+	server := New(Config{Orchestrators: ensurer, ProjectSettings: &fakeProjectSettingsRepo{}})
+
+	response := postProject(
+		t,
+		server,
+		`{"path":`+jsonString(root)+`,"workerWorkspaceMode":"shared"}`,
+	)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", response.Code)
+	}
+	if ensurer.called {
+		t.Fatal("expected invalid workspace mode to be rejected before creating an orchestrator")
 	}
 }
 

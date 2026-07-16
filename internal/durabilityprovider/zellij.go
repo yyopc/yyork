@@ -66,7 +66,7 @@ func (z *ZellijProvider) SendMessage(ctx context.Context, sess session.Session, 
 	message = strings.TrimRight(message, "\n")
 
 	if socketPath, err := terminalipc.SocketPath(name); err == nil {
-		if err := sendToTerminalHost(ctx, socketPath, message+"\r"); err == nil {
+		if err := sendToTerminalHost(ctx, socketPath, message); err == nil {
 			return nil
 		}
 	}
@@ -92,7 +92,7 @@ func (z *ZellijProvider) SendMessage(ctx context.Context, sess session.Session, 
 	return nil
 }
 
-func sendToTerminalHost(ctx context.Context, socketPath string, input string) error {
+func sendToTerminalHost(ctx context.Context, socketPath string, message string) error {
 	dialCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	dialer := net.Dialer{}
@@ -101,7 +101,14 @@ func sendToTerminalHost(ctx context.Context, socketPath string, input string) er
 		return err
 	}
 	defer conn.Close()
-	return terminalipc.WriteFrame(conn, terminalipc.FrameInput, []byte(input))
+
+	// Preserve the same semantic split as `zellij action paste` followed by
+	// `zellij action send-keys Enter`. Bracketed paste keeps multiline content
+	// together, while the separate carriage-return frame is handled as Enter.
+	if err := terminalipc.WriteFrame(conn, terminalipc.FrameInput, []byte("\x1b[200~"+message+"\x1b[201~")); err != nil {
+		return err
+	}
+	return terminalipc.WriteFrame(conn, terminalipc.FrameInput, []byte("\r"))
 }
 
 // resolvePath finds the zellij binary yyork should use for its managed runtime.

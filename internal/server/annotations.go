@@ -61,6 +61,12 @@ func (s *Server) handleAnnotations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A session whose zellij runtime died with the machine would swallow the
+	// paste into a blank resurrected shell (or error). Revive restarts the
+	// agent from its native transcript first; the zellij session name is
+	// stable across the restart, so target stays valid.
+	s.reviveSessionBestEffort(r.Context(), row.ID)
+
 	message := formatAnnotationsMarkdown(payload.Annotations)
 	target := session.Session{ID: row.ID, ZellijSession: row.ZellijSession}
 	if err := durabilityprovider.Send(r.Context(), s.durabilityProviders, target, message); err != nil {

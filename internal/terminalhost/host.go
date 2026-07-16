@@ -1,9 +1,11 @@
 package terminalhost
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"image/color"
 	"io"
 	"net"
 	"os"
@@ -12,6 +14,7 @@ import (
 	"time"
 
 	uv "github.com/charmbracelet/ultraviolet"
+	"github.com/charmbracelet/x/ansi"
 	vt "github.com/charmbracelet/x/vt"
 	"github.com/yyopc/yyork/internal/terminal"
 	"github.com/yyopc/yyork/internal/terminalipc"
@@ -41,16 +44,17 @@ type Options struct {
 }
 
 type Host struct {
-	clients    map[chan []byte]struct{}
-	cols       int
-	done       chan struct{}
-	doneErr    error
-	emulator   *vt.SafeEmulator
-	emulatorOK bool
-	listener   net.Listener
-	mu         sync.Mutex
-	process    terminal.Process
-	rows       int
+	clients            map[chan []byte]struct{}
+	cols               int
+	done               chan struct{}
+	doneErr            error
+	emulator           *vt.SafeEmulator
+	emulatorOK         bool
+	focusEventsEnabled bool
+	listener           net.Listener
+	mu                 sync.Mutex
+	process            terminal.Process
+	rows               int
 }
 
 func Run(ctx context.Context, opts Options) error {
@@ -116,7 +120,12 @@ func newHost(listener net.Listener, process terminal.Process, cols int, rows int
 	}
 	emulator := vt.NewSafeEmulator(cols, rows)
 	emulator.SetScrollbackSize(defaultScrollback)
-	return &Host{
+	// Interactive programs query OSC 10/11 during startup, before a browser can
+	// attach and report its own palette. Match yyork's default light terminal so
+	// those synchronous probes do not inherit x/vt's black-background default.
+	emulator.SetDefaultForegroundColor(color.RGBA{R: 10, G: 10, B: 10, A: 255})
+	emulator.SetDefaultBackgroundColor(color.White)
+	host := &Host{
 		clients:    make(map[chan []byte]struct{}),
 		cols:       cols,
 		done:       make(chan struct{}),
@@ -126,6 +135,29 @@ func newHost(listener net.Listener, process terminal.Process, cols int, rows int
 		process:    process,
 		rows:       rows,
 	}
+	emulator.SetCallbacks(vt.Callbacks{
+		EnableMode: func(mode ansi.Mode) {
+			if mode == ansi.ModeFocusEvent {
+				host.focusEventsEnabled = true
+			}
+		},
+		DisableMode: func(mode ansi.Mode) {
+			if mode == ansi.ModeFocusEvent {
+				host.focusEventsEnabled = false
+			}
+		},
+	})
+	// x/vt supplies a synchronous fallback before any browser can attach. Once
+	// an xterm client is present, let that client answer OSC 10/11 from its live
+	// CSS-derived palette so focus-driven color re-queries track theme changes.
+	emulator.RegisterOscHandler(10, host.browserOwnsDefaultColorQuery)
+	emulator.RegisterOscHandler(11, host.browserOwnsDefaultColorQuery)
+	return host
+}
+
+func (h *Host) browserOwnsDefaultColorQuery(data []byte) bool {
+	parts := bytes.Split(data, []byte{';'})
+	return len(parts) == 2 && bytes.Equal(parts[1], []byte{'?'}) && len(h.clients) > 0
 }
 
 func (h *Host) acceptLoop() error {
@@ -164,6 +196,29 @@ func (h *Host) readLoop() {
 func (h *Host) handleConn(conn net.Conn) {
 	defer conn.Close()
 
+	// Terminal attach clients must announce their geometry before receiving a
+	// repaint. The host otherwise snapshots at the previous client's size and
+	// only resizes afterward, which makes reconnect history geometry-dependent.
+	// Input-only connections (used by `yyork send`) remain valid and deliberately
+	// do not subscribe to output or resize the shared PTY.
+	frameType, payload, err := terminalipc.ReadFrame(conn)
+	if err != nil {
+		return
+	}
+	if frameType == terminalipc.FrameInput {
+		if err := h.handleFrame(frameType, payload); err != nil {
+			return
+		}
+		_ = h.readFromConn(conn)
+		return
+	}
+	if frameType != terminalipc.FrameResize {
+		return
+	}
+	if err := h.handleFrame(frameType, payload); err != nil {
+		return
+	}
+
 	client := make(chan []byte, clientQueueSize)
 	replay := h.addClient(client)
 	defer h.removeClient(client)
@@ -184,7 +239,7 @@ func (h *Host) handleConn(conn net.Conn) {
 
 func (h *Host) writeToConn(conn net.Conn, replay []byte, client <-chan []byte) error {
 	if len(replay) > 0 {
-		if err := terminalipc.WriteFrame(conn, terminalipc.FrameOutput, replay); err != nil {
+		if err := writeOutputFrames(conn, replay); err != nil {
 			return err
 		}
 	}
@@ -194,7 +249,7 @@ func (h *Host) writeToConn(conn net.Conn, replay []byte, client <-chan []byte) e
 			if !ok {
 				return nil
 			}
-			if err := terminalipc.WriteFrame(conn, terminalipc.FrameOutput, chunk); err != nil {
+			if err := writeOutputFrames(conn, chunk); err != nil {
 				return err
 			}
 		case <-h.done:
@@ -203,32 +258,50 @@ func (h *Host) writeToConn(conn net.Conn, replay []byte, client <-chan []byte) e
 	}
 }
 
+func writeOutputFrames(w io.Writer, payload []byte) error {
+	for len(payload) > 0 {
+		chunkSize := min(len(payload), terminalipc.MaxFramePayload)
+		if err := terminalipc.WriteFrame(w, terminalipc.FrameOutput, payload[:chunkSize]); err != nil {
+			return err
+		}
+		payload = payload[chunkSize:]
+	}
+	return nil
+}
+
 func (h *Host) readFromConn(conn net.Conn) error {
 	for {
 		frameType, payload, err := terminalipc.ReadFrame(conn)
 		if err != nil {
 			return err
 		}
-		switch frameType {
-		case terminalipc.FrameInput:
-			if len(payload) == 0 {
-				continue
-			}
-			if _, err := h.process.Write(payload); err != nil {
-				return err
-			}
-		case terminalipc.FrameResize:
-			cols, rows, err := terminalipc.DecodeResize(payload)
-			if err != nil {
-				return err
-			}
-			if err := h.resize(cols, rows); err != nil {
-				return err
-			}
-		default:
-			return fmt.Errorf("unknown terminal host frame type %d", frameType)
+		if err := h.handleFrame(frameType, payload); err != nil {
+			return err
 		}
 	}
+}
+
+func (h *Host) handleFrame(frameType byte, payload []byte) error {
+	switch frameType {
+	case terminalipc.FrameInput:
+		if len(payload) == 0 {
+			return nil
+		}
+		if _, err := h.process.Write(payload); err != nil {
+			return err
+		}
+	case terminalipc.FrameResize:
+		cols, rows, err := terminalipc.DecodeResize(payload)
+		if err != nil {
+			return err
+		}
+		if err := h.resize(cols, rows); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unknown terminal host frame type %d", frameType)
+	}
+	return nil
 }
 
 func (h *Host) pumpResponses() {
@@ -326,6 +399,9 @@ func (h *Host) snapshotLocked() []byte {
 	altScreen := h.emulator.IsAltScreen()
 
 	b.WriteString("\x1b[0m")
+	if h.focusEventsEnabled {
+		b.WriteString(ansi.SetModeFocusEvent)
+	}
 	if altScreen {
 		b.WriteString("\x1b[?1049h")
 	} else {
