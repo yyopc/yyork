@@ -100,6 +100,7 @@ async function main() {
       ],
       {
         cwd: tempDir,
+        detached: process.platform !== 'win32',
         env: verdaccioEnv,
         logPath: resolve(logsDir, 'verdaccio.log'),
       }
