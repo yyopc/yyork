@@ -12,8 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -297,9 +295,7 @@ func runDev(cmd *cobra.Command, runApp appRunner, webFS fs.FS) error {
 	// pnpm alone orphans Vite; signaling the group (negative PID) hits pnpm,
 	// Vite, and any descendants. We send SIGTERM (not the CommandContext
 	// default SIGKILL) for a clean exit, and WaitDelay force-kills if it lingers.
-	vite.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	vite.Cancel = func() error { return syscall.Kill(-vite.Process.Pid, syscall.SIGTERM) }
-	vite.WaitDelay = 5 * time.Second
+	configureDevChildProcess(vite)
 	if err := vite.Start(); err != nil {
 		cancel()
 		<-appErrCh
