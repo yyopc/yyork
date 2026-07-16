@@ -57,7 +57,10 @@ async function main() {
       NPM_CONFIG_CACHE: cacheDir,
       NPM_CONFIG_REGISTRY: registryURL,
       NPM_CONFIG_USERCONFIG: resolve(tempDir, '.npmrc'),
-      USERPROFILE: homeDir,
+      USERPROFILE:
+        process.platform === 'win32'
+          ? (process.env.USERPROFILE ?? homeDir)
+          : homeDir,
       PATH: `${noGoBin}${delimiter}${process.env.PATH ?? ''}`,
       npm_config_cache: cacheDir,
       npm_config_registry: registryURL,
