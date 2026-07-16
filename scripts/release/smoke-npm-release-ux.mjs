@@ -104,6 +104,7 @@ async function main() {
     await waitForURL(registryURL, {
       label: 'Verdaccio registry',
       process: verdaccio,
+      timeoutMs: 180_000,
     });
 
     const tarballs = expectedTarballs();
@@ -391,7 +392,7 @@ async function openPort() {
 
 async function waitForURL(url, optionsForWait) {
   const started = Date.now();
-  const timeoutMs = 60_000;
+  const timeoutMs = optionsForWait.timeoutMs ?? 60_000;
   let lastError;
 
   while (Date.now() - started < timeoutMs) {
