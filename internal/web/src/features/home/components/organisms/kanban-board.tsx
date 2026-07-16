@@ -34,7 +34,6 @@ export function KanbanBoard(
               isLast={index === props.columns.length - 1}
               onSessionSelect={props.onSessionSelect}
               onTerminalSessionDelete={props.onTerminalSessionDelete}
-              onTerminalSessionHide={props.onTerminalSessionHide}
               onTerminalSessionMarkDone={props.onTerminalSessionMarkDone}
               onTerminalSessionOpenDetached={
                 props.onTerminalSessionOpenDetached

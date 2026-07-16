@@ -5,6 +5,14 @@ import { defineConfig } from 'vitest/config';
 
 const resolve = (filePath: string) => path.resolve(__dirname, filePath);
 const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+const isCI = Boolean(process.env.CI);
+
+// Headed-but-background: keep Chromium off-screen so local/agent runs do not
+// steal focus. CI stays headless via browser.headless default (process.env.CI).
+const backgroundHeadedLaunchArgs = [
+  '--window-position=-2400,-2400',
+  '--window-size=1440,900',
+];
 
 export default defineConfig({
   plugins: [react()],
@@ -25,11 +33,19 @@ export default defineConfig({
           name: 'browser',
           browser: {
             enabled: true,
+            // Explicit: headed locally (out of focus via launch args), headless in CI.
+            headless: isCI,
             provider: playwright({
-              launchOptions: chromiumExecutablePath
-                ? { executablePath: chromiumExecutablePath }
-                : undefined,
+              launchOptions: {
+                ...(chromiumExecutablePath
+                  ? { executablePath: chromiumExecutablePath }
+                  : {}),
+                ...(isCI ? {} : { args: backgroundHeadedLaunchArgs }),
+              },
               contextOptions: {
+                // null → follow OS prefers-color-scheme (system theme).
+                // Playwright otherwise defaults to light.
+                colorScheme: null,
                 permissions: ['clipboard-write', 'clipboard-read'],
               },
             }),

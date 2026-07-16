@@ -98,7 +98,6 @@ export const WithSessionContextMenu: Story = {
     card: sampleKanbanCards.codex,
     onSelect: () => {},
     onTerminalSessionDelete: () => {},
-    onTerminalSessionHide: () => {},
     onTerminalSessionPinToggle: () => {},
     onTerminalSessionRename: () => {},
     pinnedTerminalSessionKeys: [sampleKanbanCards.codex.selectionKey],
@@ -124,9 +123,6 @@ export const WithSessionContextMenu: Story = {
       body.getByRole('menuitem', { name: /^Open terminal$/ })
     ).toBeVisible();
     await expect(body.getByRole('menuitem', { name: 'Rename' })).toBeVisible();
-    await expect(
-      body.getByRole('menuitem', { name: 'Hide from sidebar' })
-    ).toBeVisible();
     await expect(
       body.getByRole('menuitem', { name: 'Stop session' })
     ).toBeVisible();

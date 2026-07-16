@@ -25,6 +25,7 @@ function MainTopbarShortcutHarness(props: {
     canvasResizing: false,
     canvasTab: props.canvasTab ?? 'files',
     canvasTarget: {},
+    confirmBeforeStoppingSessions: true,
     firstRunProjectSetupPhase: 'empty',
     firstRunProjectSetupSelection: {
       orchestratorHarnessId: 'codex',
@@ -43,6 +44,7 @@ function MainTopbarShortcutHarness(props: {
     onCanvasSelectedFilePathChange: () => {},
     onCanvasTabChange: () => {},
     onChangeStagedProject: () => {},
+    onConfirmBeforeStoppingSessionsChange: () => {},
     onFirstRunProjectSetupSelectionChange: () => {},
     onStartProjectSetup: () => {},
     onWorkerSessionSelect: () => {},
@@ -80,6 +82,7 @@ function MainTopbarWorkspaceHarness(props: {
     canvasResizing: false,
     canvasTab: 'files',
     canvasTarget: {},
+    confirmBeforeStoppingSessions: true,
     firstRunProjectSetupPhase: 'empty',
     firstRunProjectSetupSelection: {
       orchestratorHarnessId: 'codex',
@@ -98,6 +101,7 @@ function MainTopbarWorkspaceHarness(props: {
     onCanvasSelectedFilePathChange: () => {},
     onCanvasTabChange: () => {},
     onChangeStagedProject: () => {},
+    onConfirmBeforeStoppingSessionsChange: () => {},
     onFirstRunProjectSetupSelectionChange: () => {},
     onStartProjectSetup: () => {},
     onWorkerSessionSelect: () => {},

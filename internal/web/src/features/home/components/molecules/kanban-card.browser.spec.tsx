@@ -18,7 +18,6 @@ test('opens the shared session context menu on right click', async () => {
       card={card}
       onSelect={onSelect}
       onTerminalSessionDelete={() => {}}
-      onTerminalSessionHide={() => {}}
       onTerminalSessionMarkDone={onMarkDone}
       onTerminalSessionOpenDetached={onOpenDetached}
       onTerminalSessionPinToggle={() => {}}
@@ -79,7 +78,7 @@ test('opens the shared session context menu on right click', async () => {
     .toBeVisible();
   await expect
     .element(page.getByRole('menuitem', { name: 'Hide from sidebar' }))
-    .toBeVisible();
+    .not.toBeInTheDocument();
   const stopSessionItem = page.getByRole('menuitem', {
     name: 'Stop session',
   });

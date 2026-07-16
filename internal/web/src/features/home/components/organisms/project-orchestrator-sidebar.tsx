@@ -1,20 +1,17 @@
+import { Link } from '@tanstack/react-router';
 import {
-  CheckIcon,
   ChevronDownIcon,
   EllipsisIcon,
   FolderIcon,
   FolderOpenIcon,
-  MoonIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   PencilIcon,
   PinIcon,
   PinOffIcon,
   PlusIcon,
-  Settings2Icon,
+  SettingsIcon,
   SquareKanbanIcon,
-  SunIcon,
-  SunMoonIcon,
   Trash2Icon,
 } from 'lucide-react';
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
@@ -24,8 +21,6 @@ import {
   sidebarShortcutPreviewIds,
 } from '@/lib/app-hotkeys';
 import { cn } from '@/lib/tailwind/utils';
-import { useTheme } from '@/lib/theme/provider';
-import { useHydrated } from '@/hooks/use-hydrated';
 
 import {
   Collapsible,
@@ -46,10 +41,8 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -80,6 +73,7 @@ import { ShortcutHintRow } from '@/features/home/components/molecules/app-shortc
 import { HistoryNavigationButtons } from '@/features/home/components/molecules/history-navigation-buttons';
 import { SessionContextMenu } from '@/features/home/components/molecules/session-context-menu';
 import { WorkerResponseAttentionIndicator } from '@/features/home/components/molecules/worker-response-attention-indicator';
+import type { OpenWorkerSessionGroupIdsByProject } from '@/features/home/data/workspace-preferences';
 import {
   ADD_PROJECT_ANCHOR_ATTR,
   type AddProjectSource,
@@ -93,12 +87,7 @@ import {
   type WorkerSessionState,
 } from '@/features/home/domain/session-workspace';
 import type { WorkerResponseAttention } from '@/features/home/domain/worker-response-attention';
-
-const themeOptions = [
-  { icon: SunMoonIcon, label: 'System', value: 'system' },
-  { icon: SunIcon, label: 'Light', value: 'light' },
-  { icon: MoonIcon, label: 'Dark', value: 'dark' },
-] as const;
+import { ThemeSelect } from '@/features/settings/components/molecules/theme-select';
 
 const projectSidebarScrollContextClassName =
   '[--project-sidebar-sticky-row-height:calc(var(--spacing)*7)]';
@@ -128,15 +117,14 @@ export function ProjectOrchestratorSidebar(props: {
   onProjectPinToggle?: (projectId: string) => void;
   onProjectOpenChange: (projectId: string, open: boolean) => void;
   onProjectRename?: (projectId: string) => void;
-  onSettingsOpen?: () => void;
   onTerminalSessionDelete?: (selectionKey: string, label: string) => void;
-  onTerminalSessionHide?: (selectionKey: string, label: string) => void;
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
   onTerminalSessionOpenDetached?: (selectionKey: string) => void;
   onTerminalSessionPinToggle?: (selectionKey: string) => void;
   onTerminalSessionRename?: (selectionKey: string, label: string) => void;
   onTerminalSessionRestart?: (selectionKey: string, label: string) => void;
   onWorkerSessionGroupOpenChange: (
+    projectId: string,
     groupId: WorkerSessionState,
     open: boolean
   ) => void;
@@ -144,7 +132,7 @@ export function ProjectOrchestratorSidebar(props: {
   pinnedProjectIds?: string[];
   pinnedTerminalSessionKeys?: string[];
   openProjectIds?: string[];
-  openWorkerSessionGroupIds?: WorkerSessionState[];
+  openWorkerSessionGroupIdsByProject?: OpenWorkerSessionGroupIdsByProject;
   orchestrators: WorkerSession[];
   projects: ProjectOrchestrator[];
   selectedProjectId: string;
@@ -171,7 +159,6 @@ export function ProjectOrchestratorSidebar(props: {
           onProjectOpenChange={props.onProjectOpenChange}
           onProjectPinToggle={props.onProjectPinToggle}
           onTerminalSessionDelete={props.onTerminalSessionDelete}
-          onTerminalSessionHide={props.onTerminalSessionHide}
           onTerminalSessionMarkDone={props.onTerminalSessionMarkDone}
           onTerminalSessionOpenDetached={props.onTerminalSessionOpenDetached}
           onTerminalSessionPinToggle={props.onTerminalSessionPinToggle}
@@ -245,7 +232,6 @@ export function ProjectOrchestratorSidebar(props: {
                   onProjectIdeOpen={props.onProjectIdeOpen}
                   onProjectRename={props.onProjectRename}
                   onTerminalSessionDelete={props.onTerminalSessionDelete}
-                  onTerminalSessionHide={props.onTerminalSessionHide}
                   onTerminalSessionMarkDone={props.onTerminalSessionMarkDone}
                   onTerminalSessionOpenDetached={
                     props.onTerminalSessionOpenDetached
@@ -259,9 +245,15 @@ export function ProjectOrchestratorSidebar(props: {
                     props.onOrchestratorSessionSelect
                   }
                   pinnedTerminalSessionKeys={pinnedTerminalSessionKeys}
-                  openWorkerSessionGroupIds={props.openWorkerSessionGroupIds}
-                  onWorkerSessionGroupOpenChange={
-                    props.onWorkerSessionGroupOpenChange
+                  openWorkerSessionGroupIds={
+                    props.openWorkerSessionGroupIdsByProject?.[project.id]
+                  }
+                  onWorkerSessionGroupOpenChange={(groupId, open) =>
+                    props.onWorkerSessionGroupOpenChange(
+                      project.id,
+                      groupId,
+                      open
+                    )
                   }
                   onWorkerSessionSelect={props.onWorkerSessionSelect}
                   tooltipDevtoolActionsVisible={
@@ -284,7 +276,7 @@ export function ProjectOrchestratorSidebar(props: {
       >
         <SidebarMenu className="min-w-0">
           <SidebarMenuItem>
-            <SettingsMenu onSettingsOpen={props.onSettingsOpen} />
+            <SettingsMenu />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
@@ -302,7 +294,6 @@ function PinnedSidebarGroup(props: {
   onProjectOpenChange: (projectId: string, open: boolean) => void;
   onProjectPinToggle?: (projectId: string) => void;
   onTerminalSessionDelete?: (selectionKey: string, label: string) => void;
-  onTerminalSessionHide?: (selectionKey: string, label: string) => void;
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
   onTerminalSessionOpenDetached?: (selectionKey: string) => void;
   onTerminalSessionPinToggle?: (selectionKey: string) => void;
@@ -383,7 +374,6 @@ function PinnedSidebarGroup(props: {
               key={session.selectionKey}
               onOrchestratorSessionSelect={props.onOrchestratorSessionSelect}
               onTerminalSessionDelete={props.onTerminalSessionDelete}
-              onTerminalSessionHide={props.onTerminalSessionHide}
               onTerminalSessionMarkDone={props.onTerminalSessionMarkDone}
               onTerminalSessionOpenDetached={
                 props.onTerminalSessionOpenDetached
@@ -406,7 +396,6 @@ function PinnedSidebarGroup(props: {
 function PinnedTerminalSessionNavItem(props: {
   onOrchestratorSessionSelect: (selectionKey: string) => void;
   onTerminalSessionDelete?: (selectionKey: string, label: string) => void;
-  onTerminalSessionHide?: (selectionKey: string, label: string) => void;
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
   onTerminalSessionOpenDetached?: (selectionKey: string) => void;
   onTerminalSessionPinToggle?: (selectionKey: string) => void;
@@ -460,15 +449,6 @@ function PinnedTerminalSessionNavItem(props: {
           props.onTerminalSessionDelete
             ? () =>
                 props.onTerminalSessionDelete?.(
-                  session.selectionKey,
-                  session.label
-                )
-            : undefined
-        }
-        onHide={
-          props.onTerminalSessionHide
-            ? () =>
-                props.onTerminalSessionHide?.(
                   session.selectionKey,
                   session.label
                 )
@@ -540,11 +520,7 @@ function PinnedTerminalSessionNavItem(props: {
   );
 }
 
-function SettingsMenu(props: { onSettingsOpen?: () => void }) {
-  const { setTheme, theme } = useTheme();
-  const hydrated = useHydrated();
-  const selectedTheme = hydrated ? theme : undefined;
-
+function SettingsMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -552,55 +528,32 @@ function SettingsMenu(props: { onSettingsOpen?: () => void }) {
           <SidebarMenuButton
             render={<button type="button" aria-label="Settings" />}
             className="h-9 rounded-sm border border-sidebar-border bg-sidebar text-sm leading-5 text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-sidebar-foreground"
-            onClick={props.onSettingsOpen}
           />
         }
       >
-        <Settings2Icon aria-hidden="true" />
+        <SettingsIcon aria-hidden="true" />
         <span>Settings</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        side="top"
         align="start"
+        side="top"
         className="w-(--anchor-width) min-w-(--anchor-width)"
       >
-        <DropdownMenuItem disabled>
-          <Settings2Icon aria-hidden="true" />
-          <span>Settings</span>
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuItem
+            render={<Link data-testid="settings-menu-link" to="/settings" />}
+          >
+            <SettingsIcon aria-hidden="true" />
+            <span>Settings</span>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
-            <SunMoonIcon aria-hidden="true" />
-            <span>Theme</span>
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="min-w-36">
-            {themeOptions.map((option) => {
-              const ThemeIcon = option.icon;
-
-              return (
-                <DropdownMenuItem
-                  key={option.value}
-                  onClick={() => {
-                    setTheme(option.value);
-                  }}
-                >
-                  <CheckIcon
-                    aria-hidden="true"
-                    className={cn(
-                      'size-4',
-                      selectedTheme === option.value
-                        ? 'opacity-100'
-                        : 'opacity-0'
-                    )}
-                  />
-                  <ThemeIcon aria-hidden="true" />
-                  <span>{option.label}</span>
-                </DropdownMenuItem>
-              );
-            })}
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Theme</DropdownMenuLabel>
+          <div className="px-1 pb-1">
+            <ThemeSelect />
+          </div>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -695,7 +648,6 @@ function ProjectNavItem(props: {
   onOpenChange: (open: boolean) => void;
   onProjectRename?: (projectId: string) => void;
   onTerminalSessionDelete?: (selectionKey: string, label: string) => void;
-  onTerminalSessionHide?: (selectionKey: string, label: string) => void;
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
   onTerminalSessionOpenDetached?: (selectionKey: string) => void;
   onTerminalSessionPinToggle?: (selectionKey: string) => void;
@@ -792,7 +744,6 @@ function ProjectNavItem(props: {
             pinnedTerminalSessionKeys={props.pinnedTerminalSessionKeys}
             selectedTerminalSessionKey={props.selectedTerminalSessionKey}
             onTerminalSessionDelete={props.onTerminalSessionDelete}
-            onTerminalSessionHide={props.onTerminalSessionHide}
             onTerminalSessionMarkDone={props.onTerminalSessionMarkDone}
             onTerminalSessionOpenDetached={props.onTerminalSessionOpenDetached}
             onTerminalSessionPinToggle={props.onTerminalSessionPinToggle}
@@ -811,7 +762,6 @@ function ProjectWorkerSessionTree(props: {
   groups: WorkerSessionGroupData[];
   onOrchestratorSessionSelect: (selectionKey: string) => void;
   onTerminalSessionDelete?: (selectionKey: string, label: string) => void;
-  onTerminalSessionHide?: (selectionKey: string, label: string) => void;
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
   onTerminalSessionOpenDetached?: (selectionKey: string) => void;
   onTerminalSessionPinToggle?: (selectionKey: string) => void;
@@ -910,15 +860,6 @@ function ProjectWorkerSessionTree(props: {
                       )
                   : undefined
               }
-              onHide={
-                props.onTerminalSessionHide
-                  ? () =>
-                      props.onTerminalSessionHide?.(
-                        selectionKey,
-                        orchestratorLabel
-                      )
-                  : undefined
-              }
               onRestart={
                 props.onTerminalSessionRestart
                   ? () =>
@@ -990,7 +931,6 @@ function ProjectWorkerSessionTree(props: {
             props.onWorkerSessionGroupOpenChange(group.id, open)
           }
           onTerminalSessionDelete={props.onTerminalSessionDelete}
-          onTerminalSessionHide={props.onTerminalSessionHide}
           onTerminalSessionMarkDone={props.onTerminalSessionMarkDone}
           onTerminalSessionOpenDetached={props.onTerminalSessionOpenDetached}
           onTerminalSessionPinToggle={props.onTerminalSessionPinToggle}
@@ -1010,7 +950,6 @@ function ProjectWorkerSessionGroup(props: {
   group: WorkerSessionGroupData;
   onOpenChange: (open: boolean) => void;
   onTerminalSessionDelete?: (selectionKey: string, label: string) => void;
-  onTerminalSessionHide?: (selectionKey: string, label: string) => void;
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
   onTerminalSessionOpenDetached?: (selectionKey: string) => void;
   onTerminalSessionPinToggle?: (selectionKey: string) => void;
@@ -1117,15 +1056,6 @@ function ProjectWorkerSessionGroup(props: {
                       props.onTerminalSessionDelete
                         ? () =>
                             props.onTerminalSessionDelete?.(
-                              session.selectionKey,
-                              sessionLabel
-                            )
-                        : undefined
-                    }
-                    onHide={
-                      props.onTerminalSessionHide
-                        ? () =>
-                            props.onTerminalSessionHide?.(
                               session.selectionKey,
                               sessionLabel
                             )

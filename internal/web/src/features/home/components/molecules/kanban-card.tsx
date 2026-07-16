@@ -17,7 +17,6 @@ const agentIconUrls: Record<string, string> = {
 
 export interface KanbanSessionActionProps {
   onTerminalSessionDelete?: (selectionKey: string, label: string) => void;
-  onTerminalSessionHide?: (selectionKey: string, label: string) => void;
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
   onTerminalSessionOpenDetached?: (selectionKey: string) => void;
   onTerminalSessionPinToggle?: (selectionKey: string) => void;
@@ -166,11 +165,6 @@ export function KanbanCard(
         props.onTerminalSessionMarkDone && card.state === 'prompt'
           ? () =>
               props.onTerminalSessionMarkDone?.(card.selectionKey, sessionLabel)
-          : undefined
-      }
-      onHide={
-        props.onTerminalSessionHide
-          ? () => props.onTerminalSessionHide?.(card.selectionKey, sessionLabel)
           : undefined
       }
       onDelete={

@@ -13,18 +13,21 @@ const homeWorkspacePreferencesVersion = 1;
 export const homeWorkspaceCanvasMinPercent = 22;
 export const homeWorkspaceCanvasMaxPercent = 70;
 
+export type OpenWorkerSessionGroupIdsByProject = Partial<
+  Record<string, WorkerSessionState[]>
+>;
+
 export interface HomeWorkspacePreferences {
   canvasLayout?: HomeWorkspaceCanvasLayout;
-  canvasOpen: boolean;
+  canvasOpenTargetKeys?: string[];
   canvasPreviewUrls?: Record<string, string>;
   canvasPreviewUrl?: string;
   canvasReview?: HomeWorkspaceCanvasReviewPreferences;
   canvasSelectedFilePaths?: Record<string, string>;
   canvasTab?: CanvasTab;
   hiddenProjectIds?: string[];
-  hiddenTerminalSessionKeys?: string[];
   openProjectIds?: string[];
-  openWorkerSessionGroupIds?: WorkerSessionState[];
+  openWorkerSessionGroupIdsByProject?: OpenWorkerSessionGroupIdsByProject;
   pinnedProjectIds?: string[];
   pinnedTerminalSessionKeys?: string[];
   projectNameOverrides?: Record<string, string>;
@@ -53,11 +56,12 @@ export type CanvasPreviewTargetSummary = {
 };
 
 interface StoredHomeWorkspacePreferences extends Partial<HomeWorkspacePreferences> {
+  canvasOpen?: unknown;
+  openWorkerSessionGroupIds?: unknown;
   version?: number;
 }
 
 export const defaultHomeWorkspacePreferences: HomeWorkspacePreferences = {
-  canvasOpen: false,
   sidebarOpen: false,
 };
 
@@ -111,6 +115,34 @@ export function getCanvasPreviewTargetKey(target: CanvasPreviewTargetSummary) {
   }
 
   return 'global';
+}
+
+export function getCanvasOpenForTarget(
+  preferences: Pick<HomeWorkspacePreferences, 'canvasOpenTargetKeys'>,
+  targetKey: string | undefined
+) {
+  return Boolean(
+    targetKey && preferences.canvasOpenTargetKeys?.includes(targetKey)
+  );
+}
+
+export function getCanvasOpenPreferenceUpdate(
+  preferences: Pick<HomeWorkspacePreferences, 'canvasOpenTargetKeys'>,
+  targetKey: string,
+  open: boolean
+): Pick<HomeWorkspacePreferences, 'canvasOpenTargetKeys'> {
+  const nextTargetKeys = new Set(preferences.canvasOpenTargetKeys);
+
+  if (open) {
+    nextTargetKeys.add(targetKey);
+  } else {
+    nextTargetKeys.delete(targetKey);
+  }
+
+  return {
+    canvasOpenTargetKeys:
+      nextTargetKeys.size > 0 ? Array.from(nextTargetKeys) : undefined,
+  };
 }
 
 export function getCanvasPreviewUrlForTarget(
@@ -196,13 +228,11 @@ function normalizeHomeWorkspacePreferences(
 
   return {
     hiddenProjectIds: normalizeStringList(preferences.hiddenProjectIds),
-    hiddenTerminalSessionKeys: normalizeStringList(
-      preferences.hiddenTerminalSessionKeys
-    ),
     openProjectIds: normalizeStringList(preferences.openProjectIds),
-    openWorkerSessionGroupIds: normalizeWorkerSessionStateList(
-      preferences.openWorkerSessionGroupIds
-    ),
+    openWorkerSessionGroupIdsByProject:
+      normalizeOpenWorkerSessionGroupIdsByProject(
+        preferences.openWorkerSessionGroupIdsByProject
+      ),
     pinnedProjectIds: normalizeStringList(preferences.pinnedProjectIds),
     pinnedTerminalSessionKeys: normalizeStringList(
       preferences.pinnedTerminalSessionKeys
@@ -223,10 +253,11 @@ function normalizeHomeWorkspacePreferences(
         : false,
     sidebarWidth: normalizeSidebarWidth(preferences.sidebarWidth),
     canvasLayout: normalizeCanvasLayout(preferences.canvasLayout),
-    canvasOpen:
-      typeof preferences.canvasOpen === 'boolean'
-        ? preferences.canvasOpen
-        : false,
+    // Legacy canvasOpen was global and cannot be attributed to a session.
+    // Ignore it so every target without an explicit scoped entry starts closed.
+    canvasOpenTargetKeys: normalizeCanvasOpenTargetKeys(
+      preferences.canvasOpenTargetKeys
+    ),
     canvasPreviewUrl: normalizeCanvasPreviewUrl(preferences.canvasPreviewUrl),
     canvasPreviewUrls: normalizeCanvasPreviewUrlRecord(
       preferences.canvasPreviewUrls
@@ -329,6 +360,27 @@ function normalizeStringList(value: unknown) {
   return values.length > 0 ? Array.from(new Set(values)) : [];
 }
 
+function normalizeCanvasOpenTargetKeys(value: unknown) {
+  const targetKeys = normalizeStringList(value);
+
+  if (!targetKeys) {
+    return undefined;
+  }
+
+  const sessionTargetKeys = targetKeys.filter((targetKey) => {
+    const [scope, projectId, sessionId, ...rest] = targetKey.split(':');
+
+    return (
+      scope === 'session' &&
+      Boolean(projectId) &&
+      Boolean(sessionId) &&
+      rest.length === 0
+    );
+  });
+
+  return sessionTargetKeys.length > 0 ? sessionTargetKeys : undefined;
+}
+
 function normalizeString(value: unknown) {
   if (typeof value !== 'string') {
     return undefined;
@@ -394,4 +446,33 @@ function normalizeWorkerSessionStateList(value: unknown) {
   return values.filter((value): value is WorkerSessionState =>
     workerSessionStates.some((state) => state === value)
   );
+}
+
+function normalizeOpenWorkerSessionGroupIdsByProject(
+  value: unknown
+): OpenWorkerSessionGroupIdsByProject | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const entries = Object.entries(value).flatMap(
+    ([projectId, groupIds]): [string, WorkerSessionState[]][] => {
+      if (projectId.trim().length === 0 || !Array.isArray(groupIds)) {
+        return [];
+      }
+
+      const normalizedGroupIds = normalizeWorkerSessionStateList(groupIds);
+
+      if (
+        normalizedGroupIds === undefined ||
+        (groupIds.length > 0 && normalizedGroupIds.length === 0)
+      ) {
+        return [];
+      }
+
+      return [[projectId, normalizedGroupIds]];
+    }
+  );
+
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
 }

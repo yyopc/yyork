@@ -36,15 +36,21 @@ export function getWorkerSessionResponseAttention(
   selectionKey: string,
   seenResponses: SeenWorkerSessionResponses | undefined
 ): WorkerResponseAttention | undefined {
+  const metadata = parseWorkerSessionMetadata(session.metadata);
   const deliveredAt = getWorkerSessionResponseDeliveredAt(session);
   const deliveredMs = parseTimestamp(deliveredAt);
   if (deliveredAt === undefined || deliveredMs === undefined) {
     return undefined;
   }
 
-  const seenMs = parseTimestamp(seenResponses?.[selectionKey]);
+  const seenMs = Math.max(
+    parseTimestamp(
+      readMetadataTimestampString(metadata, 'seenWorkerResponseAt')
+    ) ?? 0,
+    parseTimestamp(seenResponses?.[selectionKey]) ?? 0
+  );
   const status: WorkerResponseAttentionStatus =
-    seenMs !== undefined && seenMs >= deliveredMs ? 'seen' : 'delivered';
+    seenMs >= deliveredMs ? 'seen' : 'delivered';
 
   return {
     deliveredAt,

@@ -1,4 +1,9 @@
-import { type FileDiffMetadata,getSingularPatch } from '@pierre/diffs';
+import {
+  type CodeViewLineSelection,
+  type FileDiffMetadata,
+  getSingularPatch,
+  type SelectionSide,
+} from '@pierre/diffs';
 import type {
   CodeViewHandle,
   CodeViewItem,
@@ -7,15 +12,17 @@ import type {
 import { CodeView } from '@pierre/diffs/react';
 import type { FileTree as FileTreeModel, GitStatusEntry } from '@pierre/trees';
 import { FileTree as PierreFileTree, useFileTree } from '@pierre/trees/react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   Columns2Icon,
   FileDiffIcon,
   RefreshCwIcon,
   Rows3Icon,
+  Trash2Icon,
   WrapTextIcon,
 } from 'lucide-react';
-import { type ReactNode, useRef, useState } from 'react';
+import { type ReactNode, useReducer, useRef } from 'react';
+import { toast } from 'sonner';
 
 import { cn } from '@/lib/tailwind/utils';
 
@@ -27,6 +34,7 @@ import {
   ResizablePanelGroup,
 } from '@/components/ui/resizable';
 import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
 import { Toggle } from '@/components/ui/toggle';
 import {
   Tooltip,
@@ -42,6 +50,10 @@ import {
   useFileTreeExpansionState,
 } from '@/features/home/components/molecules/canvas-file-tree-controls';
 import {
+  type AnnotationPayload,
+  sendAnnotationsMutationOptions,
+} from '@/features/home/data/annotations';
+import {
   type CanvasDiffSnapshot,
   sessionCanvasDiffQueryOptions,
 } from '@/features/home/data/canvas-diff';
@@ -51,8 +63,130 @@ import type {
 } from '@/features/home/data/workspace-preferences';
 
 type CanvasDiffLayout = HomeWorkspaceCanvasReviewDiffLayout;
-type CanvasCodeViewOptions = NonNullable<CodeViewProps<undefined>['options']>;
+type CanvasCodeViewOptions = NonNullable<
+  CodeViewProps<CanvasDiffAnnotation>['options']
+>;
 type CanvasDiffFile = CanvasDiffSnapshot['files'][number];
+
+interface CanvasDiffAnnotation {
+  body?: string;
+  filePath: string;
+  id: string;
+  kind: 'comment' | 'draft';
+  lineLabel: string;
+  lineNumber: number;
+  patchKey: string;
+  side: 'additions' | 'deletions';
+}
+
+interface CanvasDiffReviewState {
+  annotationDraft: string;
+  annotationRevision: number;
+  annotations: CanvasDiffAnnotation[];
+  fileTreeOpen: boolean;
+  selectedLines: CodeViewLineSelection | null;
+  viewedPatchKeys: ReadonlySet<string>;
+}
+
+type CanvasDiffReviewAction =
+  | {
+      type: 'addAnnotation';
+      annotation: CanvasDiffAnnotation;
+    }
+  | {
+      type: 'cancelAnnotation';
+    }
+  | {
+      type: 'deleteAnnotation';
+      annotationId: string;
+    }
+  | {
+      type: 'setAnnotationDraft';
+      draft: string;
+    }
+  | {
+      type: 'setFileTreeOpen';
+      open: boolean;
+    }
+  | {
+      type: 'setPatchViewed';
+      patchKey: string;
+      viewed: boolean;
+    }
+  | {
+      type: 'setSelectedLines';
+      selection: CodeViewLineSelection | null;
+    };
+
+function createCanvasDiffReviewState(): CanvasDiffReviewState {
+  return {
+    annotationDraft: '',
+    annotationRevision: 0,
+    annotations: [],
+    fileTreeOpen: true,
+    selectedLines: null,
+    viewedPatchKeys: new Set(),
+  };
+}
+
+function canvasDiffReviewReducer(
+  state: CanvasDiffReviewState,
+  action: CanvasDiffReviewAction
+): CanvasDiffReviewState {
+  switch (action.type) {
+    case 'addAnnotation':
+      return {
+        ...state,
+        annotationDraft: '',
+        annotationRevision: state.annotationRevision + 1,
+        annotations: [...state.annotations, action.annotation],
+        selectedLines: null,
+      };
+    case 'cancelAnnotation':
+      return {
+        ...state,
+        annotationDraft: '',
+        selectedLines: null,
+      };
+    case 'deleteAnnotation':
+      return {
+        ...state,
+        annotationRevision: state.annotationRevision + 1,
+        annotations: state.annotations.filter(
+          (annotation) => annotation.id !== action.annotationId
+        ),
+      };
+    case 'setAnnotationDraft':
+      return {
+        ...state,
+        annotationDraft: action.draft,
+      };
+    case 'setFileTreeOpen':
+      return {
+        ...state,
+        fileTreeOpen: action.open,
+      };
+    case 'setPatchViewed': {
+      const viewedPatchKeys = new Set(state.viewedPatchKeys);
+      if (action.viewed) {
+        viewedPatchKeys.add(action.patchKey);
+      } else {
+        viewedPatchKeys.delete(action.patchKey);
+      }
+      return {
+        ...state,
+        viewedPatchKeys,
+      };
+    }
+    case 'setSelectedLines':
+      return {
+        ...state,
+        annotationDraft: '',
+        annotationRevision: state.annotationRevision + 1,
+        selectedLines: action.selection,
+      };
+  }
+}
 
 const REVIEW_DIFF_PANEL_ID = 'review-diff';
 const REVIEW_FILE_TREE_PANEL_ID = 'review-file-tree';
@@ -106,7 +240,9 @@ export function CanvasDiffView(props: {
     collapsedContextThreshold: 3,
     diffIndicators: 'bars',
     diffStyle: layout === 'split' ? 'split' : 'unified',
+    enableLineSelection: true,
     hunkSeparators: 'line-info',
+    lineHoverHighlight: 'number',
     lineDiffType: 'word',
     overflow: wrapLines ? 'wrap' : 'scroll',
     stickyHeaders: true,
@@ -228,6 +364,7 @@ export function CanvasDiffView(props: {
       filePatches={filePatches}
       layout={layout}
       snapshot={diffSnapshot}
+      target={props.target}
       wrapLines={wrapLines}
       isRefreshing={diffIsFetching}
       onLayoutChange={handleLayoutChange}
@@ -315,12 +452,87 @@ function getCanvasDiffGitStatus(
   return gitStatus;
 }
 
+function getCanvasDiffCodeViewItems(input: {
+  annotationRevision: number;
+  annotations: CanvasDiffAnnotation[];
+  filePatches: CanvasDiffFilePatch[];
+  selectedLines: CodeViewLineSelection | null;
+  viewedPatchKeys: ReadonlySet<string>;
+}): CodeViewItem<CanvasDiffAnnotation>[] {
+  const annotationsByPatchKey = new Map<string, CanvasDiffAnnotation[]>();
+  for (const annotation of input.annotations) {
+    const patchAnnotations = annotationsByPatchKey.get(annotation.patchKey);
+    if (patchAnnotations) {
+      patchAnnotations.push(annotation);
+    } else {
+      annotationsByPatchKey.set(annotation.patchKey, [annotation]);
+    }
+  }
+  if (input.selectedLines) {
+    const draftAnnotation = getCanvasDiffDraftAnnotation(
+      input.filePatches,
+      input.selectedLines
+    );
+    if (draftAnnotation) {
+      const patchAnnotations = annotationsByPatchKey.get(
+        draftAnnotation.patchKey
+      );
+      if (patchAnnotations) {
+        patchAnnotations.push(draftAnnotation);
+      } else {
+        annotationsByPatchKey.set(draftAnnotation.patchKey, [draftAnnotation]);
+      }
+    }
+  }
+
+  return input.filePatches.map((filePatch) => {
+    const viewed = input.viewedPatchKeys.has(filePatch.key);
+    return {
+      annotations: annotationsByPatchKey
+        .get(filePatch.key)
+        ?.map((annotation) => ({
+          lineNumber: annotation.lineNumber,
+          metadata: annotation,
+          side: annotation.side,
+        })),
+      collapsed: viewed,
+      fileDiff: filePatch.fileDiff,
+      id: filePatch.key,
+      type: 'diff',
+      version: (viewed ? 1 : 0) + input.annotationRevision * 2,
+    };
+  });
+}
+
+function getCanvasDiffDraftAnnotation(
+  filePatches: CanvasDiffFilePatch[],
+  selection: CodeViewLineSelection
+): CanvasDiffAnnotation | null {
+  const filePatch = filePatches.find((patch) => patch.key === selection.id);
+  if (!filePatch) {
+    return null;
+  }
+
+  const side = getAnnotationSelectionSide(selection);
+  const lineNumber = selection.range.end;
+  return {
+    filePath: filePatch.path,
+    id: `draft:${selection.id}:${side}:${lineNumber}`,
+    kind: 'draft',
+    lineLabel: getAnnotationLineLabel(filePatch.path, selection),
+    lineNumber,
+    patchKey: selection.id,
+    side,
+  };
+}
+
 function CanvasDiffReviewShell(props: {
   diffOptions: CanvasCodeViewOptions;
   filePatches: CanvasDiffFilePatch[];
   isRefreshing: boolean;
   layout: CanvasDiffLayout;
   snapshot: CanvasDiffSnapshot;
+  target: CanvasDiffTarget;
   wrapLines: boolean;
   onLayoutChange: (layout: CanvasDiffLayout) => void;
   onRefresh: () => void;
@@ -329,11 +541,14 @@ function CanvasDiffReviewShell(props: {
   const treePaths = getCanvasDiffTreePaths(props.filePatches);
   const directoryPaths = getFileTreeDirectoryPaths(treePaths);
   const canShowFileTree = treePaths.length > 0;
-  const [fileTreeOpen, setFileTreeOpen] = useState(true);
-  const [viewedPatchKeys, setViewedPatchKeys] = useState<ReadonlySet<string>>(
-    () => new Set()
+  const [reviewState, dispatchReviewState] = useReducer(
+    canvasDiffReviewReducer,
+    undefined,
+    createCanvasDiffReviewState
   );
-  const codeViewRef = useRef<CodeViewHandle<undefined>>(null);
+  const codeViewRef = useRef<CodeViewHandle<CanvasDiffAnnotation>>(null);
+  const annotationIdCounterRef = useRef(0);
+  const sendAnnotationMutation = useMutation(sendAnnotationsMutationOptions());
   const filePatchesByTreePath = new Map<string, CanvasDiffFilePatch>();
   for (const filePatch of props.filePatches) {
     if (filePatch.treePath) {
@@ -343,18 +558,26 @@ function CanvasDiffReviewShell(props: {
   const filePatchesByKey = new Map(
     props.filePatches.map((filePatch) => [filePatch.key, filePatch] as const)
   );
-  const codeViewItems: CodeViewItem<undefined>[] = props.filePatches.map(
-    (filePatch) => {
-      const viewed = viewedPatchKeys.has(filePatch.key);
-      return {
-        collapsed: viewed,
-        fileDiff: filePatch.fileDiff,
-        id: filePatch.key,
-        type: 'diff',
-        version: viewed ? 1 : 0,
-      };
-    }
-  );
+  const codeViewItems = getCanvasDiffCodeViewItems({
+    annotationRevision: reviewState.annotationRevision,
+    annotations: reviewState.annotations,
+    filePatches: props.filePatches,
+    selectedLines: reviewState.selectedLines,
+    viewedPatchKeys: reviewState.viewedPatchKeys,
+  });
+  const codeViewOptions: CanvasCodeViewOptions = {
+    ...props.diffOptions,
+    enableGutterUtility: true,
+    onGutterUtilityClick: (range, context) => {
+      dispatchReviewState({
+        selection: {
+          id: context.item.id,
+          range,
+        },
+        type: 'setSelectedLines',
+      });
+    },
+  };
   const handleFileSelect = (path: string) => {
     const filePatch = filePatchesByTreePath.get(path);
     if (!filePatch) {
@@ -369,15 +592,98 @@ function CanvasDiffReviewShell(props: {
     });
   };
   const handlePatchViewedChange = (patchKey: string, viewed: boolean) => {
-    setViewedPatchKeys((currentViewedPatchKeys) => {
-      const nextViewedPatchKeys = new Set(currentViewedPatchKeys);
-      if (viewed) {
-        nextViewedPatchKeys.add(patchKey);
-      } else {
-        nextViewedPatchKeys.delete(patchKey);
-      }
-      return nextViewedPatchKeys;
+    dispatchReviewState({
+      patchKey,
+      type: 'setPatchViewed',
+      viewed,
     });
+  };
+  const handleSelectedLinesChange = (
+    selection: CodeViewLineSelection | null
+  ) => {
+    dispatchReviewState({
+      selection,
+      type: 'setSelectedLines',
+    });
+  };
+  const handleAnnotationSubmit = () => {
+    const body = reviewState.annotationDraft.trim();
+    if (!body || !reviewState.selectedLines) {
+      return;
+    }
+
+    const filePatch = filePatchesByKey.get(reviewState.selectedLines.id);
+    if (!filePatch) {
+      return;
+    }
+
+    const side = getAnnotationSelectionSide(reviewState.selectedLines);
+    const lineNumber = reviewState.selectedLines.range.end;
+    annotationIdCounterRef.current += 1;
+    const annotationId = [
+      reviewState.selectedLines.id,
+      side,
+      lineNumber,
+      annotationIdCounterRef.current,
+    ].join(':');
+    const lineLabel = getAnnotationLineLabel(
+      filePatch.path,
+      reviewState.selectedLines
+    );
+    const annotation: CanvasDiffAnnotation = {
+      body,
+      filePath: filePatch.path,
+      id: annotationId,
+      kind: 'comment',
+      lineLabel,
+      lineNumber,
+      patchKey: reviewState.selectedLines.id,
+      side,
+    };
+    dispatchReviewState({
+      annotation,
+      type: 'addAnnotation',
+    });
+    codeViewRef.current?.clearSelectedLines();
+    sendAnnotationToAgent(annotation);
+  };
+  const handleAnnotationCancel = () => {
+    dispatchReviewState({ type: 'cancelAnnotation' });
+    codeViewRef.current?.clearSelectedLines();
+  };
+  const handleAnnotationDelete = (annotationId: string) => {
+    dispatchReviewState({
+      annotationId,
+      type: 'deleteAnnotation',
+    });
+  };
+  const sendAnnotationToAgent = (annotation: CanvasDiffAnnotation) => {
+    if (!props.target.sessionId) {
+      toast.error('Select a worker session to send annotations.');
+      return;
+    }
+
+    sendAnnotationMutation.mutate(
+      {
+        annotations: [toCanvasDiffAnnotationPayload(annotation)],
+        projectId: props.target.projectId,
+        sessionId: props.target.sessionId,
+      },
+      {
+        onError: (errorValue) => {
+          toast.error(
+            errorValue instanceof Error
+              ? errorValue.message
+              : 'Failed to send annotation.'
+          );
+        },
+        onSuccess: (result) => {
+          toast.success(
+            `Sent ${result.delivered} code annotation${result.delivered === 1 ? '' : 's'} to the agent.`
+          );
+        },
+      }
+    );
   };
   const { model } = useFileTree({
     dragAndDrop: false,
@@ -408,10 +714,15 @@ function CanvasDiffReviewShell(props: {
       wrapLines={props.wrapLines}
       isRefreshing={props.isRefreshing}
       toolbarEnd={
-        canShowFileTree && !fileTreeOpen ? (
+        canShowFileTree && !reviewState.fileTreeOpen ? (
           <FileTreeSidebarToggle
-            fileTreeOpen={fileTreeOpen}
-            onFileTreeOpenChange={setFileTreeOpen}
+            fileTreeOpen={reviewState.fileTreeOpen}
+            onFileTreeOpenChange={(open) =>
+              dispatchReviewState({
+                open,
+                type: 'setFileTreeOpen',
+              })
+            }
           />
         ) : null
       }
@@ -423,7 +734,38 @@ function CanvasDiffReviewShell(props: {
         ref={codeViewRef}
         className="yyork-diff-code-view min-h-0 flex-1 overflow-auto"
         items={codeViewItems}
-        options={props.diffOptions}
+        options={codeViewOptions}
+        selectedLines={reviewState.selectedLines}
+        onSelectedLinesChange={handleSelectedLinesChange}
+        renderAnnotation={(annotation) => {
+          if (!annotation.metadata) {
+            return null;
+          }
+
+          if (annotation.metadata.kind === 'draft') {
+            return (
+              <CanvasDiffAnnotationComposer
+                draft={reviewState.annotationDraft}
+                lineLabel={annotation.metadata.lineLabel}
+                onCancel={handleAnnotationCancel}
+                onDraftChange={(draft) =>
+                  dispatchReviewState({
+                    draft,
+                    type: 'setAnnotationDraft',
+                  })
+                }
+                onSubmit={handleAnnotationSubmit}
+              />
+            );
+          }
+
+          return (
+            <CanvasDiffAnnotationCard
+              annotation={annotation.metadata}
+              onDelete={handleAnnotationDelete}
+            />
+          );
+        }}
         renderHeaderMetadata={(item) => {
           const filePatch = filePatchesByKey.get(item.id);
           if (!filePatch) {
@@ -433,7 +775,7 @@ function CanvasDiffReviewShell(props: {
           return (
             <CanvasDiffViewedToggle
               filePatch={filePatch}
-              viewed={viewedPatchKeys.has(filePatch.key)}
+              viewed={reviewState.viewedPatchKeys.has(filePatch.key)}
               onViewedChange={handlePatchViewedChange}
             />
           );
@@ -442,10 +784,37 @@ function CanvasDiffReviewShell(props: {
     </CanvasDiffShell>
   );
 
-  if (!canShowFileTree || !fileTreeOpen) {
+  return (
+    <CanvasDiffReviewWorkspace
+      canShowFileTree={canShowFileTree}
+      diffPane={diffPane}
+      directoryPaths={directoryPaths}
+      expansionState={expansionState}
+      fileTreeOpen={reviewState.fileTreeOpen}
+      model={model}
+      onFileTreeOpenChange={(open) =>
+        dispatchReviewState({
+          open,
+          type: 'setFileTreeOpen',
+        })
+      }
+    />
+  );
+}
+
+function CanvasDiffReviewWorkspace(props: {
+  canShowFileTree: boolean;
+  diffPane: ReactNode;
+  directoryPaths: string[];
+  expansionState: ReturnType<typeof useFileTreeExpansionState>;
+  fileTreeOpen: boolean;
+  model: FileTreeModel;
+  onFileTreeOpenChange: (open: boolean) => void;
+}) {
+  if (!props.canShowFileTree || !props.fileTreeOpen) {
     return (
       <div className="yyork-diff-review-workspace yyork-diff-review-workspace--collapsed">
-        {diffPane}
+        {props.diffPane}
       </div>
     );
   }
@@ -461,7 +830,7 @@ function CanvasDiffReviewShell(props: {
         id={REVIEW_DIFF_PANEL_ID}
         minSize={REVIEW_DIFF_MIN_SIZE}
       >
-        {diffPane}
+        {props.diffPane}
       </ResizablePanel>
       <ResizableHandle className="yyork-file-tree-resize-handle" withHandle />
       <ResizablePanel
@@ -472,14 +841,102 @@ function CanvasDiffReviewShell(props: {
         minSize={REVIEW_FILE_TREE_MIN_SIZE}
       >
         <CanvasChangedFileTree
-          directoryPaths={directoryPaths}
-          expansionState={expansionState}
-          fileTreeOpen={fileTreeOpen}
-          model={model}
-          onFileTreeOpenChange={setFileTreeOpen}
+          directoryPaths={props.directoryPaths}
+          expansionState={props.expansionState}
+          fileTreeOpen={props.fileTreeOpen}
+          model={props.model}
+          onFileTreeOpenChange={props.onFileTreeOpenChange}
         />
       </ResizablePanel>
     </ResizablePanelGroup>
+  );
+}
+
+function CanvasDiffAnnotationComposer(props: {
+  draft: string;
+  lineLabel: string;
+  onCancel: () => void;
+  onDraftChange: (draft: string) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <form
+      aria-label="Code annotation"
+      className="yyork-diff-annotation-composer"
+      onSubmit={(event) => {
+        event.preventDefault();
+        props.onSubmit();
+      }}
+    >
+      <div className="w-full min-w-0">
+        <Textarea
+          aria-label={`Annotation for ${props.lineLabel}`}
+          autoFocus
+          className="yyork-diff-annotation-textarea focus-visible:ring-0"
+          placeholder="Requested change"
+          rows={2}
+          value={props.draft}
+          onChange={(event) => props.onDraftChange(event.currentTarget.value)}
+        />
+      </div>
+      <div className="flex w-full shrink-0 items-center justify-end gap-1.5">
+        <Button
+          disabled={props.draft.trim() === ''}
+          size="xs"
+          type="submit"
+          variant="default"
+        >
+          Add annotation
+        </Button>
+        <Button
+          size="xs"
+          type="button"
+          variant="ghost"
+          onClick={props.onCancel}
+        >
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function CanvasDiffAnnotationCard(props: {
+  annotation: CanvasDiffAnnotation;
+  onDelete: (annotationId: string) => void;
+}) {
+  return (
+    <article
+      aria-label={`Annotation on ${props.annotation.lineLabel}`}
+      className="yyork-diff-annotation-card"
+    >
+      <div className="flex min-w-0 items-start gap-2">
+        <div
+          aria-hidden="true"
+          className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-2xs font-medium text-primary-foreground"
+        >
+          Y
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs leading-4 font-medium text-foreground">
+            You
+          </p>
+          <p className="mt-1 text-xs leading-5 whitespace-pre-wrap text-foreground">
+            {props.annotation.body ?? ''}
+          </p>
+        </div>
+        <Button
+          aria-label="Delete annotation"
+          className="size-6 rounded-sm text-muted-foreground"
+          size="icon-xs"
+          type="button"
+          variant="ghost"
+          onClick={() => props.onDelete(props.annotation.id)}
+        >
+          <Trash2Icon aria-hidden="true" />
+        </Button>
+      </div>
+    </article>
   );
 }
 
@@ -508,6 +965,47 @@ function CanvasDiffViewedToggle(props: {
       <span aria-hidden="true">Viewed</span>
     </Checkbox>
   );
+}
+
+function normalizeAnnotationSide(
+  side?: SelectionSide
+): 'additions' | 'deletions' {
+  return side === 'deletions' ? 'deletions' : 'additions';
+}
+
+function getAnnotationSelectionSide(
+  selection: CodeViewLineSelection
+): 'additions' | 'deletions' {
+  return normalizeAnnotationSide(
+    selection.range.endSide ?? selection.range.side
+  );
+}
+
+function getAnnotationLineLabel(
+  filePath: string,
+  selection: CodeViewLineSelection
+): string {
+  const side = getAnnotationSelectionSide(selection);
+  const sideLabel = side === 'additions' ? 'added' : 'removed';
+  const lineStart = Math.min(selection.range.start, selection.range.end);
+  const lineEnd = Math.max(selection.range.start, selection.range.end);
+  const lineLabel =
+    lineStart === lineEnd ? `line ${lineEnd}` : `lines ${lineStart}-${lineEnd}`;
+
+  return `${filePath} · ${sideLabel} ${lineLabel}`;
+}
+
+function toCanvasDiffAnnotationPayload(
+  annotation: CanvasDiffAnnotation
+): AnnotationPayload {
+  return {
+    comment: annotation.body ?? '',
+    element: 'review diff',
+    elementPath: annotation.lineLabel,
+    id: annotation.id,
+    intent: 'code-review',
+    selectedText: annotation.lineLabel,
+  };
 }
 
 function CanvasChangedFileTree(props: {

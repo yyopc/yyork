@@ -69,6 +69,7 @@ import {
   homeWorkspaceQueryKey,
   homeWorkspaceQueryOptions,
   markSessionDoneMutationOptions,
+  markSessionResponseSeenMutationOptions,
   patchWorkspaceWithAddedProject,
   patchWorkspaceWithRemovedProject,
   removeProjectMutationOptions,
@@ -78,6 +79,8 @@ import {
   updateProjectWorkerWorkspaceMutationOptions,
 } from '@/features/home/data/workspace';
 import {
+  getCanvasOpenForTarget,
+  getCanvasOpenPreferenceUpdate,
   getCanvasPreviewTargetKey,
   getCanvasPreviewUrlForTarget,
   getCanvasPreviewUrlPreferenceUpdate,
@@ -127,6 +130,7 @@ import {
   type WorkspaceContextValue,
 } from '@/features/home/pages/workspace-context';
 import { OrchestratorWorkspaceTemplate } from '@/features/home/templates/orchestrator-workspace-template';
+import { readSettingsPreferences } from '@/features/settings/data/settings-preferences';
 
 interface PendingSessionStop {
   label: string;
@@ -136,6 +140,12 @@ interface PendingSessionStop {
 interface TerminalRouteSearch {
   detached?: '1';
   project?: string;
+}
+
+interface CommandTerminalSessionItemData {
+  label: string;
+  selectionKey: string;
+  session: WorkerSession;
 }
 
 interface WorkspaceLayoutState {
@@ -278,6 +288,7 @@ function useWorkspaceLayout() {
     parsedSearch.detached === 1;
   const boardProjectIdParam = params.projectId;
   const isTerminalRoute = Boolean(terminalRouteTarget);
+  const isSettingsRoute = location.pathname === '/settings';
   const [layoutState, dispatchLayout] = useReducer(
     workspaceLayoutReducer,
     undefined,
@@ -292,10 +303,8 @@ function useWorkspaceLayout() {
   } = layoutState;
   const {
     canvasLayout,
-    canvasOpen,
-    hiddenTerminalSessionKeys,
     openProjectIds,
-    openWorkerSessionGroupIds,
+    openWorkerSessionGroupIdsByProject,
     pinnedProjectIds,
     pinnedTerminalSessionKeys,
     projectNameOverrides,
@@ -329,6 +338,9 @@ function useWorkspaceLayout() {
   const { mutateAsync: markSessionDone } = useMutation(
     markSessionDoneMutationOptions()
   );
+  const { mutate: markSessionResponseSeen } = useMutation(
+    markSessionResponseSeenMutationOptions()
+  );
   const { mutateAsync: createProject } = useMutation(
     createProjectMutationOptions()
   );
@@ -352,16 +364,11 @@ function useWorkspaceLayout() {
   }));
 
   const projectIds = new Set(projects.map((project) => project.id));
-  const hiddenTerminalSessionKeySet = new Set(hiddenTerminalSessionKeys ?? []);
-  const workspaceSessions = workspace.sessions.filter(
-    (session) =>
-      projectIds.has(session.project) &&
-      !hiddenTerminalSessionKeySet.has(getWorkerSessionSelectionKey(session))
+  const workspaceSessions = workspace.sessions.filter((session) =>
+    projectIds.has(session.project)
   );
   const workspaceOrchestrators = (workspace.orchestrators ?? []).filter(
-    (session) =>
-      projectIds.has(session.project) &&
-      !hiddenTerminalSessionKeySet.has(getWorkerSessionSelectionKey(session))
+    (session) => projectIds.has(session.project)
   );
   const routeSelectedWorkerSession = getTerminalSessionForRoute(
     workspaceSessions,
@@ -445,6 +452,16 @@ function useWorkspaceLayout() {
         projectName: selectedProject?.name,
       };
   const canvasPreviewTargetKey = getCanvasPreviewTargetKey(canvasTarget);
+  const canvasVisibilityTargetKey = routeTerminalSession
+    ? getCanvasPreviewTargetKey({
+        projectId: routeTerminalSession.project,
+        sessionId: routeTerminalSession.id,
+      })
+    : undefined;
+  const canvasOpen = getCanvasOpenForTarget(
+    homeWorkspacePreferences,
+    canvasVisibilityTargetKey
+  );
   const canvasPreviewUrl = getCanvasPreviewUrlForTarget(
     homeWorkspacePreferences,
     canvasPreviewTargetKey
@@ -512,6 +529,7 @@ function useWorkspaceLayout() {
   useEffect(() => {
     if (
       isTerminalRoute ||
+      isSettingsRoute ||
       boardProjectIdParam ||
       !defaultOrchestratorSession ||
       workspaceQueryIsPending ||
@@ -532,6 +550,7 @@ function useWorkspaceLayout() {
     defaultOrchestratorSession,
     defaultOrchestratorSessionRouteProject,
     isTerminalRoute,
+    isSettingsRoute,
     navigate,
     workspaceQueryIsError,
     workspaceQueryIsPending,
@@ -593,7 +612,17 @@ function useWorkspaceLayout() {
   };
 
   const handleCanvasOpenChange = (open: boolean) => {
-    updateHomeWorkspacePreferences({ canvasOpen: open });
+    if (!canvasVisibilityTargetKey) {
+      return;
+    }
+
+    updateHomeWorkspacePreferences(
+      getCanvasOpenPreferenceUpdate(
+        homeWorkspacePreferences,
+        canvasVisibilityTargetKey,
+        open
+      )
+    );
   };
 
   const handleCanvasLayoutChange = (layout: HomeWorkspaceCanvasLayout) => {
@@ -629,6 +658,12 @@ function useWorkspaceLayout() {
     preferences: HomeWorkspaceCanvasReviewPreferences
   ) => {
     updateHomeWorkspacePreferences({ canvasReview: preferences });
+  };
+
+  const handleConfirmBeforeStoppingSessionsChange = (confirm: boolean) => {
+    updateHomeWorkspacePreferences({
+      skipStopSessionConfirmation: !confirm,
+    });
   };
 
   const handleWorkerWorkspaceModeChange = (mode: WorkerWorkspaceMode) => {
@@ -706,16 +741,20 @@ function useWorkspaceLayout() {
   };
 
   const handleWorkerSessionGroupOpenChange = (
+    projectId: string,
     groupId: WorkerSessionState,
     open: boolean
   ) => {
     updateHomeWorkspacePreferences({
-      openWorkerSessionGroupIds: updateOpenIds(
-        openWorkerSessionGroupIds,
-        groupId,
-        open,
-        workerSessionStates
-      ),
+      openWorkerSessionGroupIdsByProject: {
+        ...openWorkerSessionGroupIdsByProject,
+        [projectId]: updateOpenIds(
+          openWorkerSessionGroupIdsByProject?.[projectId],
+          groupId,
+          open,
+          workerSessionStates
+        ),
+      },
     });
   };
 
@@ -893,30 +932,6 @@ function useWorkspaceLayout() {
     dispatchLayout({ pendingSessionStop: null, type: 'pending-stop' });
   };
 
-  const handleTerminalSessionHide = (
-    selectionKey: string,
-    currentLabel: string
-  ) => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    if (!window.confirm(`Hide ${currentLabel} from sidebar?`)) {
-      return;
-    }
-
-    updateHomeWorkspacePreferences({
-      hiddenTerminalSessionKeys: addId(hiddenTerminalSessionKeys, selectionKey),
-      pinnedTerminalSessionKeys: (pinnedTerminalSessionKeys ?? []).filter(
-        (key) => key !== selectionKey
-      ),
-    });
-
-    if (selectedTerminalSessionKey === selectionKey) {
-      void navigate({ to: '/' });
-    }
-  };
-
   const commitAddedProject = (result: CreateProjectResult) => {
     updateHomeWorkspacePreferences({
       openProjectIds: updateOpenIds(
@@ -1015,6 +1030,8 @@ function useWorkspaceLayout() {
         path: stagedProjectPath,
         agentPlugin: selection.orchestratorHarnessId,
         workerAgentPlugin: selection.workerHarnessId,
+        workerWorkspaceMode:
+          readSettingsPreferences().defaultWorkerWorkspaceMode,
       });
 
       if (
@@ -1082,9 +1099,6 @@ function useWorkspaceLayout() {
     const projectSelectionKeyPrefix = `${encodeURIComponent(projectId)}:`;
 
     updateHomeWorkspacePreferences({
-      hiddenTerminalSessionKeys: (hiddenTerminalSessionKeys ?? []).filter(
-        (selectionKey) => !selectionKey.startsWith(projectSelectionKeyPrefix)
-      ),
       openProjectIds: (openProjectIds ?? defaultOpenProjectIds).filter(
         (openProjectId) => openProjectId !== projectId
       ),
@@ -1231,16 +1245,24 @@ function useWorkspaceLayout() {
     }
 
     if (targetSession && targetSession.kind !== 'orchestrator') {
+      const deliveredAt = getWorkerSessionResponseDeliveredAt(targetSession);
       const nextSeenWorkerSessionResponses =
         getSeenWorkerSessionResponsesUpdate(
           seenWorkerSessionResponses,
           selectionKey,
-          getWorkerSessionResponseDeliveredAt(targetSession)
+          deliveredAt
         );
 
       if (nextSeenWorkerSessionResponses !== seenWorkerSessionResponses) {
         preferenceUpdate.seenWorkerSessionResponses =
           nextSeenWorkerSessionResponses;
+      }
+
+      if (deliveredAt) {
+        markSessionResponseSeen({
+          projectId: targetProjectId,
+          sessionId: targetSessionId,
+        });
       }
     }
 
@@ -1368,6 +1390,7 @@ function useWorkspaceLayout() {
     canvasSelectedFilePath,
     canvasTab,
     canvasTarget,
+    confirmBeforeStoppingSessions: skipStopSessionConfirmation !== true,
     hasProjects: projects.length > 0,
     kanbanColumns,
     onCanvasLayoutChange: handleCanvasLayoutChange,
@@ -1380,6 +1403,8 @@ function useWorkspaceLayout() {
     onCanvasTabChange: handleCanvasTabChange,
     onAddProject: handleAddProject,
     onChangeStagedProject: handleChangeStagedProject,
+    onConfirmBeforeStoppingSessionsChange:
+      handleConfirmBeforeStoppingSessionsChange,
     onStartProjectSetup: handleStartProjectSetup,
     firstRunProjectSetupPhase: effectiveFirstRunProjectSetupPhase,
     firstRunProjectSetupSelection,
@@ -1392,7 +1417,6 @@ function useWorkspaceLayout() {
     onTerminalSessionDelete: handleTerminalSessionDelete,
     onTerminalSessionFocusDetached:
       detachedTerminalWindows.focusDetachedTerminalWindow,
-    onTerminalSessionHide: handleTerminalSessionHide,
     onTerminalSessionMarkDone: handleTerminalSessionMarkDone,
     onTerminalSessionOpenDetached: handleTerminalSessionOpenDetached,
     onTerminalSessionPinToggle: handleTerminalSessionPinToggle,
@@ -1434,7 +1458,6 @@ function useWorkspaceLayout() {
     handleSidebarOpenChange,
     handleSidebarWidthChange,
     handleTerminalSessionDelete,
-    handleTerminalSessionHide,
     handleTerminalSessionMarkDone,
     handleTerminalSessionAttachDetached,
     handleTerminalSessionOpen,
@@ -1443,9 +1466,10 @@ function useWorkspaceLayout() {
     handleTerminalSessionRename,
     handleTerminalSessionRestart,
     handleWorkerSessionGroupOpenChange,
+    isSettingsRoute,
     isTerminalRoute,
     openProjectIds,
-    openWorkerSessionGroupIds,
+    openWorkerSessionGroupIdsByProject,
     pendingSessionStop,
     pinnedProjectIds,
     pinnedTerminalSessionKeys,
@@ -1472,6 +1496,24 @@ function WorkspaceLayoutView(props: ReturnType<typeof useWorkspaceLayout>) {
   const selectedProject = props.projects.find(
     (project) => project.id === props.selectedProjectId
   );
+  const pinnedTerminalSessionKeys = props.pinnedTerminalSessionKeys ?? [];
+  const pinnedTerminalSessionKeySet = new Set(pinnedTerminalSessionKeys);
+  const commandTerminalSessionItems = getCommandTerminalSessionItems({
+    projects: props.projects,
+    terminalSessions: props.terminalSessions,
+  });
+  const commandTerminalSessionItemsByKey = new Map(
+    commandTerminalSessionItems.map((item) => [item.selectionKey, item])
+  );
+  const pinnedCommandTerminalSessionItems = pinnedTerminalSessionKeys
+    .map((selectionKey) => commandTerminalSessionItemsByKey.get(selectionKey))
+    .filter(
+      (item): item is CommandTerminalSessionItemData => item !== undefined
+    );
+  const unpinnedCommandTerminalSessionItems =
+    commandTerminalSessionItems.filter(
+      (item) => !pinnedTerminalSessionKeySet.has(item.selectionKey)
+    );
   const showProjectSetupDialog =
     props.workspaceContextValue.projectSetupUsesDialog &&
     props.workspaceContextValue.firstRunProjectSetupPhase === 'agents' &&
@@ -1506,7 +1548,6 @@ function WorkspaceLayoutView(props: ReturnType<typeof useWorkspaceLayout>) {
             onProjectOpenChange={props.handleProjectOpenChange}
             onProjectRename={props.handleProjectRename}
             onTerminalSessionDelete={props.handleTerminalSessionDelete}
-            onTerminalSessionHide={props.handleTerminalSessionHide}
             onTerminalSessionMarkDone={props.handleTerminalSessionMarkDone}
             onTerminalSessionOpenDetached={
               props.handleTerminalSessionOpenDetached
@@ -1523,13 +1564,15 @@ function WorkspaceLayoutView(props: ReturnType<typeof useWorkspaceLayout>) {
             selectedProjectId={props.selectedProjectId ?? ''}
             selectedTerminalSessionKey={props.selectedTerminalSessionKey}
             openProjectIds={props.openProjectIds}
-            openWorkerSessionGroupIds={props.openWorkerSessionGroupIds}
+            openWorkerSessionGroupIdsByProject={
+              props.openWorkerSessionGroupIdsByProject
+            }
             onWorkerSessionSelect={props.handleTerminalSessionOpen}
             orchestrators={props.workspaceOrchestrators}
             workerSessionGroups={props.workerSessionGroups}
           />
         }
-        topbar={<MainTopbar />}
+        topbar={<MainTopbar minimal={props.isSettingsRoute} />}
         main={<Outlet />}
       />
       <StopSessionConfirmDialog
@@ -1569,6 +1612,22 @@ function WorkspaceLayoutView(props: ReturnType<typeof useWorkspaceLayout>) {
         <CommandInput placeholder="Search boards, sessions, actions..." />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
+          {pinnedCommandTerminalSessionItems.length > 0 ? (
+            <>
+              <CommandGroup heading="Pinned sessions">
+                {pinnedCommandTerminalSessionItems.map((item) => (
+                  <CommandTerminalSessionItem
+                    key={item.selectionKey}
+                    item={item}
+                    valuePrefix="pinned session"
+                    onOpen={props.handleTerminalSessionOpen}
+                    onClose={() => props.setCommandPaletteOpen(false)}
+                  />
+                ))}
+              </CommandGroup>
+              <CommandSeparator className="my-1" />
+            </>
+          ) : null}
           <CommandGroup heading="Boards">
             {props.projects.map((project) => (
               <CommandItem
@@ -1584,34 +1643,21 @@ function WorkspaceLayoutView(props: ReturnType<typeof useWorkspaceLayout>) {
               </CommandItem>
             ))}
           </CommandGroup>
-          <CommandSeparator className="my-1" />
-          <CommandGroup heading="Sessions">
-            {props.terminalSessions.map((session) => {
-              const selectionKey = getWorkerSessionSelectionKey(session);
-              const projectName =
-                props.projects.find((project) => project.id === session.project)
-                  ?.name ?? session.project;
-              const sessionSuffix =
-                session.kind === 'orchestrator'
-                  ? 'orchestrator'
-                  : getWorkerSessionNavLabel(session);
-              const label = `${projectName} / ${sessionSuffix}`;
-
-              return (
-                <CommandItem
-                  key={selectionKey}
-                  value={`session ${label} ${session.workerId} ${session.issue}`}
-                  onSelect={() => {
-                    props.handleTerminalSessionOpen(selectionKey);
-                    props.setCommandPaletteOpen(false);
-                  }}
-                >
-                  <TerminalIcon aria-hidden="true" />
-                  <span className="min-w-0 flex-1 truncate">{label}</span>
-                </CommandItem>
-              );
-            })}
-          </CommandGroup>
+          {unpinnedCommandTerminalSessionItems.length > 0 ? (
+            <>
+              <CommandSeparator className="my-1" />
+              <CommandGroup heading="Sessions">
+                {unpinnedCommandTerminalSessionItems.map((item) => (
+                  <CommandTerminalSessionItem
+                    key={item.selectionKey}
+                    item={item}
+                    onOpen={props.handleTerminalSessionOpen}
+                    onClose={() => props.setCommandPaletteOpen(false)}
+                  />
+                ))}
+              </CommandGroup>
+            </>
+          ) : null}
           <CommandSeparator className="my-1" />
           <CommandGroup heading="Actions">
             <CommandItem
@@ -1674,6 +1720,52 @@ function WorkspaceLayoutView(props: ReturnType<typeof useWorkspaceLayout>) {
       </CommandDialog>
     </WorkspaceContext>
   );
+}
+
+function CommandTerminalSessionItem(props: {
+  item: CommandTerminalSessionItemData;
+  onClose: () => void;
+  onOpen: (selectionKey: string) => void;
+  valuePrefix?: string;
+}) {
+  return (
+    <CommandItem
+      value={`${props.valuePrefix ?? 'session'} ${props.item.label} ${
+        props.item.session.workerId
+      } ${props.item.session.issue}`}
+      onSelect={() => {
+        props.onOpen(props.item.selectionKey);
+        props.onClose();
+      }}
+    >
+      <TerminalIcon aria-hidden="true" />
+      <span className="min-w-0 flex-1 truncate">{props.item.label}</span>
+    </CommandItem>
+  );
+}
+
+function getCommandTerminalSessionItems(props: {
+  projects: ProjectOrchestrator[];
+  terminalSessions: WorkerSession[];
+}) {
+  const projectNames = new Map(
+    props.projects.map((project) => [project.id, project.name])
+  );
+
+  return props.terminalSessions.map((session) => {
+    const selectionKey = getWorkerSessionSelectionKey(session);
+    const projectName = projectNames.get(session.project) ?? session.project;
+    const sessionSuffix =
+      session.kind === 'orchestrator'
+        ? 'orchestrator'
+        : getWorkerSessionNavLabel(session);
+
+    return {
+      label: `${projectName} / ${sessionSuffix}`,
+      selectionKey,
+      session,
+    } satisfies CommandTerminalSessionItemData;
+  });
 }
 
 function addId(currentIds: string[] | undefined, targetId: string) {

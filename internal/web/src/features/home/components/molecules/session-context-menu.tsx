@@ -1,6 +1,5 @@
 import {
   CheckIcon,
-  EyeOffIcon,
   PencilIcon,
   PinIcon,
   PinOffIcon,
@@ -23,7 +22,6 @@ export function SessionContextMenu(props: {
   children: ReactNode;
   isPinned?: boolean;
   onDelete?: () => void;
-  onHide?: () => void;
   onMarkDone?: () => void;
   onOpen: () => void;
   onOpenDetached?: () => void;
@@ -72,10 +70,6 @@ export function SessionContextMenu(props: {
         <ContextMenuItem disabled={!props.onRestart} onClick={props.onRestart}>
           <RotateCcwIcon aria-hidden="true" />
           <span>Restart from transcript</span>
-        </ContextMenuItem>
-        <ContextMenuItem disabled={!props.onHide} onClick={props.onHide}>
-          <EyeOffIcon aria-hidden="true" />
-          <span>Hide from sidebar</span>
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem

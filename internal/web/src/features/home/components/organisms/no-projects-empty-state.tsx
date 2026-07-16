@@ -156,7 +156,7 @@ function AppPreview(props: {
         </div>
 
         <PointerCursor className="pointer-events-none absolute top-[130px] left-[172px]" />
-        <AddProjectCallout className="pointer-events-none absolute top-[150px] left-14" />
+        <AddProjectCallout className="pointer-events-none absolute top-[115px] left-[192px]" />
       </div>
     </div>
   );
@@ -205,20 +205,15 @@ function AddProjectCallout(props: { className?: string }) {
   return (
     <div
       aria-hidden="true"
+      data-slot="tooltip-content"
       className={cn(
-        'relative flex items-center gap-2 rounded-lg bg-neutral-900 py-1.5 pr-[9px] pl-[11px] shadow-[0_10px_24px_rgba(10,10,10,0.28)] dark:border dark:border-neutral-700 dark:bg-neutral-800',
+        'relative z-50 inline-flex w-fit max-w-xs origin-top-left scale-[0.87] items-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-xs text-background has-data-[slot=kbd]:pr-1.5 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-sm',
         props.className
       )}
     >
-      <span className="absolute -top-[3px] left-[120px] size-2 rotate-45 rounded-[1px] bg-neutral-900 dark:bg-neutral-800" />
-      <span className="text-xs leading-4 font-medium text-neutral-50">
-        Add project
-      </span>
-      <ShortcutKbdGroup
-        hotkey={appHotkeys.addProject}
-        className="flex items-center gap-[3px]"
-        kbdClassName="h-[18px] min-w-[18px] rounded-[5px] bg-white/10 text-neutral-200"
-      />
+      <span className="absolute top-1/2 -left-1 size-2.5 -translate-y-1/2 rotate-45 rounded-[2px] bg-foreground" />
+      <span className="leading-4 font-medium">Add project</span>
+      <ShortcutKbdGroup hotkey={appHotkeys.addProject} />
     </div>
   );
 }

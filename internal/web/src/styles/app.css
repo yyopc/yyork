@@ -204,9 +204,15 @@
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
   --terminal-background: #ffffff;
+  --terminal-codex-user-background: #f4f4f4;
   --terminal-foreground: #0a0a0a;
   --terminal-cursor: #0a0a0a;
   --terminal-selection: rgba(10, 10, 10, 0.2);
+  --terminal-selection-inactive: rgba(10, 10, 10, 0.1);
+  --terminal-scrollbar-slider: rgba(100, 100, 100, 0.4);
+  --terminal-scrollbar-slider-hover: rgba(100, 100, 100, 0.7);
+  --terminal-scrollbar-slider-active: rgba(0, 0, 0, 0.6);
+  --terminal-scrollbar-width: 14px;
   /* A first-class ANSI palette tuned for the light (white) background, matching
      VS Code's "Default Light" terminal colors. We deliberately do NOT borrow
      UI/chart tokens here — those are tuned as quiet surface accents and render
@@ -279,9 +285,14 @@
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
   --terminal-background: #0a0a0a;
+  --terminal-codex-user-background: #272727;
   --terminal-foreground: #fafafa;
   --terminal-cursor: #fafafa;
   --terminal-selection: rgba(250, 250, 250, 0.2);
+  --terminal-selection-inactive: rgba(250, 250, 250, 0.1);
+  --terminal-scrollbar-slider: rgba(121, 121, 121, 0.4);
+  --terminal-scrollbar-slider-hover: rgba(100, 100, 100, 0.7);
+  --terminal-scrollbar-slider-active: rgba(191, 191, 191, 0.4);
   /* ANSI palette for the dark (near-black) background — VS Code's "Default
      Dark" terminal colors. */
   --terminal-color-0: #000000;
@@ -803,6 +814,43 @@
   max-width: 100%;
   background: var(--background);
   scrollbar-gutter: stable;
+}
+
+.yyork-diff-annotation-composer {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: min(44rem, calc(100% - 5rem));
+  align-items: stretch;
+  gap: 0.625rem;
+  margin: 0.5rem 1rem 0.75rem 4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in oklch, var(--card) 88%, var(--muted));
+  padding: 0.75rem;
+  box-shadow: var(--shadow-xs);
+}
+
+.yyork-diff-annotation-textarea {
+  min-height: 3rem;
+  resize: vertical;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+}
+
+.yyork-diff-annotation-card {
+  max-width: min(44rem, calc(100% - 5rem));
+  margin: 0.5rem 1rem 0.75rem 4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in oklch, var(--card) 88%, var(--background));
+  padding: 0.75rem;
+  box-shadow: var(--shadow-xs);
+}
+
+.yyork-diff-review-workspace--collapsed .yyork-diff-annotation-composer,
+.yyork-diff-review-workspace--collapsed .yyork-diff-annotation-card {
+  max-width: calc(100% - 5rem);
 }
 
 .yyork-diff-viewer {

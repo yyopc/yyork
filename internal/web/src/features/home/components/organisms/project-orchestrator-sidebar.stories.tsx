@@ -323,8 +323,11 @@ export const TemporaryTooltipDevtool: Story = {
   args: {
     ...sidebarStoryArgs,
     openProjectIds: demoHomeWorkspace.projects.map((project) => project.id),
-    openWorkerSessionGroupIds: sampleWorkerSessionGroups.map(
-      (group) => group.id
+    openWorkerSessionGroupIdsByProject: Object.fromEntries(
+      demoHomeWorkspace.projects.map((project) => [
+        project.id,
+        sampleWorkerSessionGroups.map((group) => group.id),
+      ])
     ),
     pinnedProjectIds: ['ao-tui'],
     pinnedTerminalSessionKeys: [
@@ -1426,9 +1429,10 @@ function getTemporaryProjectTooltipAuditRows(
         continue;
       }
 
-      const groupOpen = props.openWorkerSessionGroupIds
-        ? props.openWorkerSessionGroupIds.includes(group.id)
-        : true;
+      const groupOpen =
+        props.openWorkerSessionGroupIdsByProject?.[project.id]?.includes(
+          group.id
+        ) ?? true;
 
       rows.push({
         target: `${group.label} group`,

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
+import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppTerminalSessionIdRouteImport } from './routes/_app.terminal.$sessionId'
 import { Route as AppBoardProjectIdRouteImport } from './routes/_app.board.$projectId'
 
@@ -21,6 +22,11 @@ const AppRoute = AppRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
 const AppTerminalSessionIdRoute = AppTerminalSessionIdRouteImport.update({
@@ -36,10 +42,12 @@ const AppBoardProjectIdRoute = AppBoardProjectIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/settings': typeof AppSettingsRoute
   '/board/$projectId': typeof AppBoardProjectIdRoute
   '/terminal/$sessionId': typeof AppTerminalSessionIdRoute
 }
 export interface FileRoutesByTo {
+  '/settings': typeof AppSettingsRoute
   '/': typeof AppIndexRoute
   '/board/$projectId': typeof AppBoardProjectIdRoute
   '/terminal/$sessionId': typeof AppTerminalSessionIdRoute
@@ -47,18 +55,20 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/_app/settings': typeof AppSettingsRoute
   '/_app/': typeof AppIndexRoute
   '/_app/board/$projectId': typeof AppBoardProjectIdRoute
   '/_app/terminal/$sessionId': typeof AppTerminalSessionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/board/$projectId' | '/terminal/$sessionId'
+  fullPaths: '/' | '/settings' | '/board/$projectId' | '/terminal/$sessionId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/board/$projectId' | '/terminal/$sessionId'
+  to: '/settings' | '/' | '/board/$projectId' | '/terminal/$sessionId'
   id:
     | '__root__'
     | '/_app'
+    | '/_app/settings'
     | '/_app/'
     | '/_app/board/$projectId'
     | '/_app/terminal/$sessionId'
@@ -84,6 +94,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/terminal/$sessionId': {
       id: '/_app/terminal/$sessionId'
       path: '/terminal/$sessionId'
@@ -102,12 +119,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppSettingsRoute: typeof AppSettingsRoute
   AppIndexRoute: typeof AppIndexRoute
   AppBoardProjectIdRoute: typeof AppBoardProjectIdRoute
   AppTerminalSessionIdRoute: typeof AppTerminalSessionIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppSettingsRoute: AppSettingsRoute,
   AppIndexRoute: AppIndexRoute,
   AppBoardProjectIdRoute: AppBoardProjectIdRoute,
   AppTerminalSessionIdRoute: AppTerminalSessionIdRoute,

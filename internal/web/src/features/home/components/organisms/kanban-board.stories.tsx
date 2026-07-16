@@ -37,7 +37,7 @@ const overflowPromptTasks = [
   'Use the $investigate workflow to root-cause this yyork UI bug',
   'Explain the current state of agent hooks in yyork',
   'Audit worker title generation after native hook updates',
-  'Verify sidebar visibility filtering with hidden sessions',
+  'Verify sidebar session ordering across projects',
 ];
 
 const overflowKanbanColumns: KanbanColumnData[] = sampleKanbanColumns.map(

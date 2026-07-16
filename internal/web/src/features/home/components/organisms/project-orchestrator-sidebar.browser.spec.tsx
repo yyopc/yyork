@@ -1,3 +1,11 @@
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router';
+import { useState } from 'react';
 import { expect, test, vi } from 'vitest';
 
 import { SidebarProvider } from '@/components/ui/sidebar';
@@ -81,7 +89,39 @@ function StickySidebarHarness(props: {
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
   pinnedTerminalSessionKeys?: string[];
 }) {
+  const rootRoute = createRootRoute();
+  const indexRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/',
+    component: () => <StickySidebarContents {...props} />,
+  });
+  const settingsRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/settings',
+    component: () => <div>Settings destination</div>,
+  });
+  const router = createRouter({
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+    routeTree: rootRoute.addChildren([indexRoute, settingsRoute]),
+  });
+
+  return <RouterProvider router={router} />;
+}
+
+function StickySidebarContents(props: {
+  onTerminalSessionOpenDetached?: (selectionKey: string) => void;
+  onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
+  pinnedTerminalSessionKeys?: string[];
+}) {
   const sessions = makeStickyOverflowSessions();
+  const [openWorkerSessionGroupIdsByProject, setOpenWorkerSessionGroupIds] =
+    useState<Partial<Record<string, WorkerSessionState[]>>>(() =>
+      Object.fromEntries(
+        stickyProjects
+          .slice(0, 1)
+          .map((project) => [project.id, [...workerStates]])
+      )
+    );
 
   return (
     <SidebarProvider defaultOpen className="[--sidebar-width:13rem]">
@@ -94,15 +134,28 @@ function StickySidebarHarness(props: {
         onProjectOpenChange={() => {}}
         onProjectRename={() => {}}
         onTerminalSessionDelete={() => {}}
-        onTerminalSessionHide={() => {}}
         onTerminalSessionMarkDone={props.onTerminalSessionMarkDone}
         onTerminalSessionOpenDetached={props.onTerminalSessionOpenDetached}
         onTerminalSessionPinToggle={() => {}}
         onTerminalSessionRename={() => {}}
-        onWorkerSessionGroupOpenChange={() => {}}
+        onWorkerSessionGroupOpenChange={(projectId, groupId, open) => {
+          setOpenWorkerSessionGroupIds((currentGroupIdsByProject) => {
+            const currentGroupIds =
+              currentGroupIdsByProject[projectId] ?? workerStates;
+
+            return {
+              ...currentGroupIdsByProject,
+              [projectId]: open
+                ? Array.from(new Set([...currentGroupIds, groupId]))
+                : currentGroupIds.filter(
+                    (currentGroupId) => currentGroupId !== groupId
+                  ),
+            };
+          });
+        }}
         onWorkerSessionSelect={() => {}}
         openProjectIds={stickyProjects.map((project) => project.id)}
-        openWorkerSessionGroupIds={workerStates}
+        openWorkerSessionGroupIdsByProject={openWorkerSessionGroupIdsByProject}
         orchestrators={[]}
         pinnedProjectIds={[]}
         pinnedTerminalSessionKeys={props.pinnedTerminalSessionKeys ?? []}
@@ -126,6 +179,9 @@ async function renderDesktopStickySidebar(
 ) {
   await page.viewport(1024, 768);
   render(<StickySidebarHarness {...props} />);
+  await expect
+    .element(page.getByRole('navigation', { name: 'Projects' }))
+    .toBeVisible();
 }
 
 function getButtonByAriaLabel(label: string) {
@@ -186,6 +242,19 @@ function getNavButton(navLabel: string, buttonLabel: string) {
 
   expect(button).toBeTruthy();
   return button as HTMLButtonElement;
+}
+
+function getProjectWorkerGroupToggle(projectName: string, groupLabel: string) {
+  const projectButton = getNavButton('Projects', `Open ${projectName} board`);
+  const projectItem = projectButton.closest<HTMLElement>(
+    '[data-sidebar="menu-item"]'
+  );
+  const groupToggle = projectItem?.querySelector<HTMLButtonElement>(
+    `button[aria-label$="${groupLabel} sessions"]`
+  );
+
+  expect(groupToggle).toBeTruthy();
+  return groupToggle as HTMLButtonElement;
 }
 
 function hasActiveMaskImage(element: HTMLElement) {
@@ -265,6 +334,101 @@ test('uses the scroll fade affordance only on the projects scroller', async () =
   expect(getPinnedGroupContent().classList.contains('scroll-fade-y')).toBe(
     false
   );
+});
+
+test('keeps matching worker state groups independently controllable across projects', async () => {
+  const user = setupUser();
+  await renderDesktopStickySidebar();
+
+  expect(getProjectWorkerGroupToggle('Sticky Alpha', 'Prompt').ariaLabel).toBe(
+    'Collapse Prompt sessions'
+  );
+  expect(getProjectWorkerGroupToggle('Sticky Beta', 'Prompt').ariaLabel).toBe(
+    'Collapse Prompt sessions'
+  );
+
+  await user.click(getProjectWorkerGroupToggle('Sticky Alpha', 'Prompt'));
+
+  await vi.waitFor(() => {
+    expect(
+      getProjectWorkerGroupToggle('Sticky Alpha', 'Prompt').ariaLabel
+    ).toBe('Expand Prompt sessions');
+    expect(getProjectWorkerGroupToggle('Sticky Beta', 'Prompt').ariaLabel).toBe(
+      'Collapse Prompt sessions'
+    );
+  });
+
+  await user.click(getProjectWorkerGroupToggle('Sticky Beta', 'Prompt'));
+
+  await vi.waitFor(() => {
+    expect(
+      getProjectWorkerGroupToggle('Sticky Alpha', 'Prompt').ariaLabel
+    ).toBe('Expand Prompt sessions');
+    expect(getProjectWorkerGroupToggle('Sticky Beta', 'Prompt').ariaLabel).toBe(
+      'Expand Prompt sessions'
+    );
+  });
+
+  await user.click(getProjectWorkerGroupToggle('Sticky Alpha', 'Prompt'));
+
+  await vi.waitFor(() => {
+    expect(
+      getProjectWorkerGroupToggle('Sticky Alpha', 'Prompt').ariaLabel
+    ).toBe('Collapse Prompt sessions');
+    expect(getProjectWorkerGroupToggle('Sticky Beta', 'Prompt').ariaLabel).toBe(
+      'Expand Prompt sessions'
+    );
+  });
+});
+
+test('opens the footer settings menu and navigates from its Settings action', async () => {
+  const user = setupUser();
+  await renderDesktopStickySidebar();
+
+  const settingsTrigger = page.getByRole('button', { name: 'Settings' });
+  await user.click(settingsTrigger);
+
+  const settingsAction = page.getByRole('menuitem', { name: 'Settings' });
+  await expect.element(settingsAction).toBeVisible();
+  await expect.element(settingsTrigger).toBeVisible();
+
+  await user.click(settingsAction);
+  await expect.element(page.getByText('Settings destination')).toBeVisible();
+});
+
+test('changes the theme from the footer menu with pointer and keyboard input', async () => {
+  const user = setupUser();
+  const previousTheme = localStorage.getItem('theme');
+  localStorage.setItem('theme', 'system');
+
+  try {
+    await renderDesktopStickySidebar();
+    await user.click(page.getByRole('button', { name: 'Settings' }));
+
+    const themeSelect = page.getByRole('combobox', { name: 'Theme' });
+    await user.click(themeSelect);
+    const lightOption = page.getByRole('option', { name: 'Light' });
+    await user.click(lightOption);
+    expect(localStorage.getItem('theme')).toBe('light');
+    await expect.element(themeSelect).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(themeSelect);
+    await expect.element(themeSelect).toHaveAttribute('aria-expanded', 'true');
+    await user.keyboard('{ArrowDown}{Enter}');
+    expect(localStorage.getItem('theme')).not.toBe('light');
+    await expect.element(themeSelect).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(themeSelect);
+    await user.click(page.getByRole('option', { name: 'Dark' }));
+    expect(localStorage.getItem('theme')).toBe('dark');
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+  } finally {
+    if (previousTheme === null) {
+      localStorage.removeItem('theme');
+    } else {
+      localStorage.setItem('theme', previousTheme);
+    }
+  }
 });
 
 test('matches pinned worker row font size to project worker rows', async () => {

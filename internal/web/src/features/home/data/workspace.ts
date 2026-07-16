@@ -215,6 +215,7 @@ export function createProjectMutationOptions() {
       path: string;
       agentPlugin?: AgentHarnessId;
       workerAgentPlugin?: AgentHarnessId;
+      workerWorkspaceMode?: WorkerWorkspaceMode;
     }): Promise<CreateProjectResult> => {
       const response = await fetch('/api/projects', {
         method: 'POST',
@@ -223,6 +224,7 @@ export function createProjectMutationOptions() {
           path: input.path,
           agentPlugin: input.agentPlugin,
           workerAgentPlugin: input.workerAgentPlugin,
+          workerWorkspaceMode: input.workerWorkspaceMode,
         }),
       });
       if (!response.ok) {
@@ -416,6 +418,46 @@ export function markSessionDoneMutationOptions() {
       if (!contentType.includes('application/json')) {
         throw new Error(
           `Failed to mark session done: expected JSON, got ${contentType || 'unknown content type'}`
+        );
+      }
+
+      await response.json();
+    },
+  };
+}
+
+// markSessionResponseSeen records that the latest delivered Prompt response
+// has been opened. The backend stores the delivered timestamp and publishes a
+// session.updated event so attention state converges across browser windows.
+export function markSessionResponseSeenMutationOptions() {
+  return {
+    mutationFn: async (input: { projectId?: string; sessionId: string }) => {
+      const params = new URLSearchParams();
+      if (input.projectId) {
+        params.set('project', input.projectId);
+      }
+      const response = await fetch(
+        `/api/sessions/${encodeURIComponent(input.sessionId)}${
+          params.size > 0 ? `?${params.toString()}` : ''
+        }`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ seenResponse: true }),
+        }
+      );
+      if (!response.ok) {
+        throw new Error(
+          `Failed to mark session response seen: ${response.status}`
+        );
+      }
+
+      const contentType = response.headers.get('content-type') ?? '';
+      if (!contentType.includes('application/json')) {
+        throw new Error(
+          `Failed to mark session response seen: expected JSON, got ${
+            contentType || 'unknown content type'
+          }`
         );
       }
 

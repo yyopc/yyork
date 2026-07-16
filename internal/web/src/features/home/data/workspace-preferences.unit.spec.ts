@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  getCanvasOpenForTarget,
+  getCanvasOpenPreferenceUpdate,
   getCanvasPreviewTargetKey,
   getCanvasPreviewUrlForTarget,
   getCanvasPreviewUrlPreferenceUpdate,
@@ -39,9 +41,27 @@ describe('workspace preferences', () => {
     ).toBe('cwd:%2FUsers%2Fexample%2Fyyork');
   });
 
+  it('opens and closes only the requested Canvas target', () => {
+    const workerA = 'session:yyork:worker-a';
+    const workerB = 'session:yyork:worker-b';
+    const openedA = getCanvasOpenPreferenceUpdate({}, workerA, true);
+    const openedBoth = getCanvasOpenPreferenceUpdate(openedA, workerB, true);
+
+    expect(getCanvasOpenForTarget(openedBoth, workerA)).toBe(true);
+    expect(getCanvasOpenForTarget(openedBoth, workerB)).toBe(true);
+
+    const closedA = getCanvasOpenPreferenceUpdate(openedBoth, workerA, false);
+
+    expect(closedA).toEqual({ canvasOpenTargetKeys: [workerB] });
+    expect(getCanvasOpenForTarget(closedA, workerA)).toBe(false);
+    expect(getCanvasOpenForTarget(closedA, workerB)).toBe(true);
+    expect(getCanvasOpenPreferenceUpdate(closedA, workerB, false)).toEqual({
+      canvasOpenTargetKeys: undefined,
+    });
+  });
+
   it('uses target-scoped browser URLs with legacy fallback read support', () => {
     const preferences: HomeWorkspacePreferences = {
-      canvasOpen: true,
       canvasPreviewUrl: 'https://yyork.localhost/',
       canvasPreviewUrls: {
         'session:yyork:kfg2sy': 'http://localhost:3000/',
@@ -89,7 +109,6 @@ describe('workspace preferences', () => {
     });
 
     writeHomeWorkspacePreferences({
-      canvasOpen: true,
       canvasPreviewUrl: 'https://google.com',
       canvasPreviewUrls: {
         'session:yyork:kfg2sy': 'https://yyork.localhost',
@@ -99,7 +118,6 @@ describe('workspace preferences', () => {
     });
 
     expect(readHomeWorkspacePreferences()).toEqual({
-      canvasOpen: true,
       canvasPreviewUrls: {
         'session:yyork:kfg2sy': 'https://yyork.localhost/',
       },
@@ -118,13 +136,11 @@ describe('workspace preferences', () => {
     });
 
     writeHomeWorkspacePreferences({
-      canvasOpen: true,
       canvasTab: 'browser',
       sidebarOpen: true,
     });
 
     expect(readHomeWorkspacePreferences()).toMatchObject({
-      canvasOpen: true,
       canvasTab: 'browser',
       sidebarOpen: true,
     });
@@ -132,14 +148,12 @@ describe('workspace preferences', () => {
     storage.set(
       'yyork.home.workspace-preferences',
       JSON.stringify({
-        canvasOpen: true,
         canvasTab: 'terminal',
         sidebarOpen: true,
       })
     );
 
     expect(readHomeWorkspacePreferences()).toEqual({
-      canvasOpen: true,
       sidebarOpen: true,
     });
   });
@@ -158,14 +172,12 @@ describe('workspace preferences', () => {
       'yyork.home.workspace-preferences',
       JSON.stringify({
         canvasLayout: { canvas: 5, main: 95 },
-        canvasOpen: true,
         sidebarOpen: true,
       })
     );
 
     expect(readHomeWorkspacePreferences()).toMatchObject({
       canvasLayout: { canvas: 22, main: 78 },
-      canvasOpen: true,
       sidebarOpen: true,
     });
 
@@ -173,14 +185,12 @@ describe('workspace preferences', () => {
       'yyork.home.workspace-preferences',
       JSON.stringify({
         canvasLayout: { canvas: 90, main: 10 },
-        canvasOpen: true,
         sidebarOpen: true,
       })
     );
 
     expect(readHomeWorkspacePreferences()).toMatchObject({
       canvasLayout: { canvas: 70, main: 30 },
-      canvasOpen: true,
       sidebarOpen: true,
     });
   });
@@ -196,7 +206,6 @@ describe('workspace preferences', () => {
     });
 
     writeHomeWorkspacePreferences({
-      canvasOpen: true,
       canvasSelectedFilePaths: {
         'session:yyork:kfg2sy': 'README.md',
         'session:yyork:v042rv': 'internal/web/package.json',
@@ -205,7 +214,6 @@ describe('workspace preferences', () => {
     });
 
     expect(readHomeWorkspacePreferences()).toMatchObject({
-      canvasOpen: true,
       canvasSelectedFilePaths: {
         'session:yyork:kfg2sy': 'README.md',
         'session:yyork:v042rv': 'internal/web/package.json',
@@ -251,7 +259,6 @@ describe('workspace preferences', () => {
     storage.set(
       'yyork.home.workspace-preferences',
       JSON.stringify({
-        canvasOpen: true,
         canvasSelectedFilePaths: {
           'session:yyork:kfg2sy': '  ',
           'session:yyork:v042rv': 42,
@@ -261,7 +268,6 @@ describe('workspace preferences', () => {
     );
 
     expect(readHomeWorkspacePreferences()).toEqual({
-      canvasOpen: true,
       sidebarOpen: true,
     });
   });
@@ -277,7 +283,6 @@ describe('workspace preferences', () => {
     });
 
     writeHomeWorkspacePreferences({
-      canvasOpen: true,
       canvasReview: {
         diffLayout: 'stacked',
         wrapLines: true,
@@ -286,7 +291,6 @@ describe('workspace preferences', () => {
     });
 
     expect(readHomeWorkspacePreferences()).toMatchObject({
-      canvasOpen: true,
       canvasReview: {
         diffLayout: 'stacked',
         wrapLines: true,
@@ -297,7 +301,6 @@ describe('workspace preferences', () => {
     storage.set(
       'yyork.home.workspace-preferences',
       JSON.stringify({
-        canvasOpen: true,
         canvasReview: {
           diffLayout: 'side-by-side',
           wrapLines: 'yes',
@@ -307,14 +310,12 @@ describe('workspace preferences', () => {
     );
 
     expect(readHomeWorkspacePreferences()).toEqual({
-      canvasOpen: true,
       sidebarOpen: true,
     });
 
     storage.set(
       'yyork.home.workspace-preferences',
       JSON.stringify({
-        canvasOpen: true,
         canvasReview: {
           diffLayout: 'split',
           wrapLines: false,
@@ -324,12 +325,214 @@ describe('workspace preferences', () => {
     );
 
     expect(readHomeWorkspacePreferences()).toMatchObject({
-      canvasOpen: true,
       canvasReview: {
         diffLayout: 'split',
         wrapLines: false,
       },
       sidebarOpen: true,
     });
+  });
+
+  it('round-trips worker group expansion state independently per project', () => {
+    const storage = new Map<string, string>();
+
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => storage.set(key, value),
+      },
+    });
+
+    writeHomeWorkspacePreferences({
+      openWorkerSessionGroupIdsByProject: {
+        yyoreel: [],
+        yyork: ['prompt'],
+      },
+      sidebarOpen: true,
+    });
+
+    expect(readHomeWorkspacePreferences()).toMatchObject({
+      openWorkerSessionGroupIdsByProject: {
+        yyoreel: [],
+        yyork: ['prompt'],
+      },
+    });
+  });
+
+  it('normalizes persisted worker group expansion state per project', () => {
+    const storage = new Map<string, string>();
+
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => storage.set(key, value),
+      },
+    });
+
+    storage.set(
+      'yyork.home.workspace-preferences',
+      JSON.stringify({
+        openWorkerSessionGroupIdsByProject: {
+          '': ['done'],
+          malformed: ['unknown'],
+          nonArray: 'prompt',
+          yyoreel: [],
+          yyork: ['prompt', 'working', 'prompt', 'unknown'],
+        },
+        sidebarOpen: true,
+      })
+    );
+
+    expect(readHomeWorkspacePreferences()).toEqual({
+      openWorkerSessionGroupIdsByProject: {
+        yyoreel: [],
+        yyork: ['prompt', 'working'],
+      },
+      sidebarOpen: true,
+    });
+  });
+
+  it('drops legacy global worker group state and preserves unrelated preferences', () => {
+    const storage = new Map<string, string>();
+
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => storage.set(key, value),
+      },
+    });
+
+    storage.set(
+      'yyork.home.workspace-preferences',
+      JSON.stringify({
+        openWorkerSessionGroupIds: ['prompt'],
+        pinnedProjectIds: ['yyork'],
+        sidebarOpen: true,
+      })
+    );
+
+    const normalizedPreferences = readHomeWorkspacePreferences();
+
+    expect(normalizedPreferences).toEqual({
+      pinnedProjectIds: ['yyork'],
+      sidebarOpen: true,
+    });
+
+    writeHomeWorkspacePreferences(normalizedPreferences);
+
+    expect(
+      JSON.parse(storage.get('yyork.home.workspace-preferences') ?? '{}')
+    ).not.toHaveProperty('openWorkerSessionGroupIds');
+  });
+
+  it('falls back safely when persisted workspace preferences are malformed', () => {
+    const storage = new Map<string, string>();
+
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => storage.set(key, value),
+      },
+    });
+
+    storage.set('yyork.home.workspace-preferences', '{invalid json');
+
+    expect(readHomeWorkspacePreferences()).toEqual({
+      sidebarOpen: false,
+    });
+
+    storage.set(
+      'yyork.home.workspace-preferences',
+      JSON.stringify({
+        openWorkerSessionGroupIdsByProject: ['prompt'],
+        sidebarOpen: true,
+      })
+    );
+
+    expect(readHomeWorkspacePreferences()).toEqual({
+      sidebarOpen: true,
+    });
+  });
+
+  it('round-trips and normalizes target-scoped Canvas visibility', () => {
+    const storage = new Map<string, string>();
+
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => storage.set(key, value),
+      },
+    });
+
+    storage.set(
+      'yyork.home.workspace-preferences',
+      JSON.stringify({
+        canvasOpenTargetKeys: [
+          'session:yyork:worker-a',
+          'session:yyork:worker-a',
+          42,
+          '',
+          'session:yyork:worker-b',
+        ],
+        sidebarOpen: true,
+      })
+    );
+
+    const normalizedPreferences = readHomeWorkspacePreferences();
+
+    expect(normalizedPreferences).toEqual({
+      canvasOpenTargetKeys: [
+        'session:yyork:worker-a',
+        'session:yyork:worker-b',
+      ],
+      sidebarOpen: true,
+    });
+
+    writeHomeWorkspacePreferences(normalizedPreferences);
+
+    expect(
+      JSON.parse(storage.get('yyork.home.workspace-preferences') ?? '{}')
+    ).toEqual({
+      canvasOpenTargetKeys: [
+        'session:yyork:worker-a',
+        'session:yyork:worker-b',
+      ],
+      sidebarOpen: true,
+      version: 1,
+    });
+  });
+
+  it('drops malformed target visibility and legacy global Canvas state', () => {
+    const storage = new Map<string, string>();
+
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => storage.set(key, value),
+      },
+    });
+
+    storage.set(
+      'yyork.home.workspace-preferences',
+      JSON.stringify({
+        canvasOpen: true,
+        canvasOpenTargetKeys: { 'session:yyork:worker-a': true },
+        pinnedProjectIds: ['yyork'],
+        sidebarOpen: true,
+      })
+    );
+
+    const normalizedPreferences = readHomeWorkspacePreferences();
+
+    expect(normalizedPreferences).toEqual({
+      pinnedProjectIds: ['yyork'],
+      sidebarOpen: true,
+    });
+
+    writeHomeWorkspacePreferences(normalizedPreferences);
+
+    expect(
+      JSON.parse(storage.get('yyork.home.workspace-preferences') ?? '{}')
+    ).not.toHaveProperty('canvasOpen');
   });
 });

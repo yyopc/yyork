@@ -29,6 +29,7 @@ export interface WorkspaceContextValue {
   canvasSelectedFilePath?: string;
   canvasTab: CanvasTab;
   canvasTarget: CanvasTargetSummary;
+  confirmBeforeStoppingSessions: boolean;
   hasProjects: boolean;
   kanbanColumns: KanbanColumnData[];
   onCanvasLayoutChange: (layout: HomeWorkspaceCanvasLayout) => void;
@@ -42,6 +43,7 @@ export interface WorkspaceContextValue {
   onCanvasTabChange: (tab: CanvasTab) => void;
   onAddProject: (source?: AddProjectSource) => void | Promise<void>;
   onChangeStagedProject: () => void;
+  onConfirmBeforeStoppingSessionsChange: (confirm: boolean) => void;
   onStartProjectSetup: (selection: ProjectSetupHarnessSelection) => void;
   firstRunProjectSetupPhase: FirstRunProjectCardPhase;
   firstRunProjectSetupSelection: ProjectSetupHarnessSelection;
@@ -53,7 +55,6 @@ export interface WorkspaceContextValue {
   ) => void;
   onTerminalSessionDelete?: (selectionKey: string, label: string) => void;
   onTerminalSessionAttachDetached?: () => void;
-  onTerminalSessionHide?: (selectionKey: string, label: string) => void;
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
   onTerminalSessionFocusDetached?: (selectionKey: string) => void;
   onTerminalSessionOpenDetached?: (selectionKey: string) => void;

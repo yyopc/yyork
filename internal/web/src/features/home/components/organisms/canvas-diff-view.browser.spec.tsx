@@ -23,6 +23,7 @@ vi.mock('@pierre/diffs/react', async () => {
   const React = await import('react');
 
   interface MockCodeViewItem {
+    annotations?: MockDiffLineAnnotation[];
     collapsed?: boolean;
     fileDiff: {
       patch: string;
@@ -32,18 +33,57 @@ vi.mock('@pierre/diffs/react', async () => {
     type: 'diff';
   }
 
+  interface MockDiffLineAnnotation {
+    lineNumber: number;
+    metadata?: unknown;
+    side: 'additions' | 'deletions';
+  }
+
+  interface MockCodeViewLineSelection {
+    id: string;
+    range: {
+      end: number;
+      endSide?: 'additions' | 'deletions';
+      side?: 'additions' | 'deletions';
+      start: number;
+    };
+  }
+
   interface MockCodeViewProps {
     className?: string;
     items: MockCodeViewItem[];
+    options?: {
+      enableGutterUtility?: boolean;
+      onGutterUtilityClick?: (
+        range: MockCodeViewLineSelection['range'],
+        context: { item: MockCodeViewItem }
+      ) => void;
+    };
+    selectedLines?: MockCodeViewLineSelection | null;
+    onSelectedLinesChange?: (
+      selection: MockCodeViewLineSelection | null
+    ) => void;
+    renderAnnotation?: (
+      annotation: MockDiffLineAnnotation,
+      item: MockCodeViewItem
+    ) => ReactNode;
     renderHeaderMetadata?: (item: MockCodeViewItem) => ReactNode;
   }
 
   const CodeView = React.forwardRef(function CodeView(
     props: MockCodeViewProps,
-    ref: React.Ref<{ scrollTo: typeof codeViewScrollTo }>
+    ref: React.Ref<{
+      clearSelectedLines: () => void;
+      scrollTo: typeof codeViewScrollTo;
+      setSelectedLines: (selection: MockCodeViewLineSelection | null) => void;
+    }>
   ) {
     React.useImperativeHandle(ref, () => ({
+      clearSelectedLines: () => props.onSelectedLinesChange?.(null),
       scrollTo: codeViewScrollTo,
+      setSelectedLines: (selection) => {
+        props.onSelectedLinesChange?.(selection);
+      },
     }));
 
     return (
@@ -53,6 +93,50 @@ vi.mock('@pierre/diffs/react', async () => {
             <div data-diffs-header="metadata">
               {props.renderHeaderMetadata?.(item)}
             </div>
+            {props.options?.enableGutterUtility ? (
+              <button
+                type="button"
+                onClick={() =>
+                  props.options?.onGutterUtilityClick?.(
+                    {
+                      end: 1,
+                      endSide: 'additions',
+                      side: 'additions',
+                      start: 1,
+                    },
+                    { item }
+                  )
+                }
+              >
+                Add annotation on {item.fileDiff.path} added line 1
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() =>
+                props.onSelectedLinesChange?.({
+                  id: item.id,
+                  range: {
+                    end: 1,
+                    endSide: 'additions',
+                    side: 'additions',
+                    start: 1,
+                  },
+                })
+              }
+            >
+              Select {item.fileDiff.path} added line 1
+            </button>
+            {item.annotations?.map((annotation) => (
+              <div
+                aria-label={`Annotation slot ${item.id} ${annotation.side} ${annotation.lineNumber}`}
+                key={`${annotation.side}:${annotation.lineNumber}:${String(
+                  annotation.metadata
+                )}`}
+              >
+                {props.renderAnnotation?.(annotation, item)}
+              </div>
+            ))}
             {item.collapsed ? null : (
               <pre className="yyork-diff-viewer">{item.fileDiff.patch}</pre>
             )}
@@ -311,6 +395,97 @@ test('marking a changed file viewed collapses only that file patch', async () =>
   await expect.element(page.getByText('-oldAlpha')).toBeVisible();
 });
 
+test('adds an annotation to a selected diff line', async () => {
+  const user = setupUser();
+  const fetchMock = stubDiffResponse(
+    makeDiffResponse({ sessionId: 'review-annotations' })
+  );
+
+  render(
+    <CanvasDiffView
+      active
+      reviewPreferences={{ diffLayout: 'split', wrapLines: false }}
+      onReviewPreferencesChange={() => undefined}
+      target={{ projectId: 'project-a', sessionId: 'review-annotations' }}
+    />
+  );
+
+  await user.click(
+    page.getByRole('button', {
+      name: 'Add annotation on src/alpha.ts added line 1',
+    })
+  );
+
+  await expect
+    .element(page.getByRole('form', { name: 'Code annotation' }))
+    .toBeVisible();
+  await expect
+    .element(page.getByText('src/alpha.ts · added line 1'))
+    .not.toBeInTheDocument();
+
+  const annotationComposer = document.querySelector(
+    '.yyork-diff-annotation-composer'
+  );
+  expect(annotationComposer).not.toBeNull();
+  expect(getComputedStyle(annotationComposer as Element).flexDirection).toBe(
+    'column'
+  );
+  await expect
+    .element(
+      page.getByRole('textbox', {
+        name: 'Annotation for src/alpha.ts · added line 1',
+      })
+    )
+    .toHaveClass(/focus-visible:ring-0/);
+
+  await user.type(
+    page.getByRole('textbox', {
+      name: 'Annotation for src/alpha.ts · added line 1',
+    }),
+    'Ask the agent to tighten this branch.'
+  );
+  await user.click(
+    page.getByRole('button', { exact: true, name: 'Add annotation' })
+  );
+
+  await expect
+    .element(page.getByRole('form', { name: 'Code annotation' }))
+    .not.toBeInTheDocument();
+  await expect
+    .element(page.getByText('Ask the agent to tighten this branch.'))
+    .toBeVisible();
+  await expect
+    .element(page.getByLabelText('Annotation on src/alpha.ts · added line 1'))
+    .toBeVisible();
+  await vi.waitFor(() => {
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/annotations/review-annotations?project=project-a',
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
+  const annotationRequest = fetchMock.mock.calls.find(([input]) =>
+    String(input).startsWith('/api/annotations/')
+  );
+  expect(annotationRequest).toBeDefined();
+  expect(JSON.parse(String(annotationRequest?.[1]?.body))).toMatchObject({
+    annotations: [
+      {
+        comment: 'Ask the agent to tighten this branch.',
+        element: 'review diff',
+        elementPath: 'src/alpha.ts · added line 1',
+        intent: 'code-review',
+        selectedText: 'src/alpha.ts · added line 1',
+      },
+    ],
+  });
+
+  await user.click(page.getByRole('button', { name: 'Delete annotation' }));
+
+  await expect
+    .element(page.getByText('Ask the agent to tighten this branch.'))
+    .not.toBeInTheDocument();
+});
+
 test('collapses and restores the changed-file tree from the review toolbar', async () => {
   const user = setupUser();
   stubDiffResponse(makeDiffResponse({ sessionId: 'review-tree-collapse' }));
@@ -352,6 +527,20 @@ test('collapses and restores the changed-file tree from the review toolbar', asy
   expect(sessionDiff).not.toBeNull();
   expect(Math.round(sessionDiff?.getBoundingClientRect().width ?? 0)).toBe(
     Math.round(collapsedWorkspace?.getBoundingClientRect().width ?? 0)
+  );
+
+  await user.click(
+    page.getByRole('button', {
+      name: 'Add annotation on src/alpha.ts added line 1',
+    })
+  );
+
+  const annotationComposer = document.querySelector(
+    '.yyork-diff-annotation-composer'
+  );
+  expect(annotationComposer).not.toBeNull();
+  expect(getComputedStyle(annotationComposer as Element).maxWidth).toBe(
+    'calc(100% - 80px)'
   );
 
   await user.click(page.getByRole('button', { name: 'Show file tree' }));
@@ -443,7 +632,17 @@ test('keeps the no-text-hunks empty state without adding a tree', async () => {
 });
 
 function stubDiffResponse(response: CanvasDiffResponse) {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json(response)));
+  const fetchMock = vi.fn(
+    async (input: RequestInfo | URL, _init?: RequestInit) => {
+      if (String(input).startsWith('/api/annotations/')) {
+        return Response.json({ delivered: 1 });
+      }
+
+      return Response.json(response);
+    }
+  );
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
 }
 
 interface CanvasDiffResponse {

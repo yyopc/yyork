@@ -26,7 +26,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-import { OpenIdeButton } from '@/features/home/components/molecules/open-ide-button';
 import {
   createTerminalWebSocketURL,
   initialTerminalSize,
@@ -41,8 +40,12 @@ import type { WorkerSession } from '@/features/home/domain/session-workspace';
 
 const textEncoder = new TextEncoder();
 const terminalReconnectDelaysMs = [500, 1_000, 2_000] as const;
-const terminalResetSequence = '\x1b[3J\x1b[2J\x1b[H';
+// ED2 is intentionally followed by ED3. With scrollOnEraseInDisplay enabled,
+// ED2 first moves the old screen into scrollback; ED3 then removes that history
+// so a reused xterm never leaks one session's output into the next.
+const terminalResetSequence = '\x1b[2J\x1b[3J\x1b[H';
 const terminalStableConnectionMs = 5_000;
+const terminalReplayScrollSettleMs = 100;
 // Send the PTY a single resize once the pane stops animating/dragging instead
 // of on every intermediate frame, so the attached program gets one SIGWINCH.
 const terminalResizeDebounceMs = 100;
@@ -154,7 +157,10 @@ function useTerminalPanel(props: TerminalPanelProps): TerminalPanelViewProps {
   const socketRef = useRef<WebSocket | null>(null);
   const terminalRef = useRef<TerminalHandle | null>(null);
   const clearBeforeNextMessageRef = useRef(false);
-  const scrollToBottomAfterNextMessageRef = useRef(false);
+  const scrollOffsetAfterNextMessageRef = useRef<number | undefined>(undefined);
+  const scrollRestoreTimerRef = useRef<number | undefined>(undefined);
+  const terminalScrollOffsetsRef = useRef(new Map<string, number>());
+  const previousTerminalSessionKeyRef = useRef(terminalSessionKey);
   const reconnectAttemptRef = useRef(0);
   const resizeDebounceTimerRef = useRef<number | undefined>(undefined);
   const terminalSizeRef = useRef(initialTerminalSize);
@@ -178,18 +184,74 @@ function useTerminalPanel(props: TerminalPanelProps): TerminalPanelViewProps {
             ? runtimeState.connectionSnapshot.status
             : 'connecting';
 
-  function prepareNextTerminalReplay() {
+  function getScrollOffsetFromBottom(): number {
+    const terminal = terminalRef.current;
+    if (!terminal) {
+      return 0;
+    }
+
+    const { baseY, viewportY } = terminal.getScrollState();
+    return Math.max(0, baseY - viewportY);
+  }
+
+  function prepareNextTerminalReplay(scrollOffsetFromBottom = 0) {
+    if (scrollRestoreTimerRef.current !== undefined) {
+      window.clearTimeout(scrollRestoreTimerRef.current);
+      scrollRestoreTimerRef.current = undefined;
+    }
     clearBeforeNextMessageRef.current = true;
-    scrollToBottomAfterNextMessageRef.current = true;
+    scrollOffsetAfterNextMessageRef.current = scrollOffsetFromBottom;
+  }
+
+  function scheduleScrollRestoreAfterReplay(
+    terminal: TerminalHandle,
+    scrollOffsetFromBottom: number
+  ) {
+    if (scrollOffsetFromBottom === 0) {
+      // Keep first visits pinned while a large replay arrives in several frames.
+      terminal.scrollToBottom();
+    }
+    if (scrollRestoreTimerRef.current !== undefined) {
+      window.clearTimeout(scrollRestoreTimerRef.current);
+    }
+    scrollRestoreTimerRef.current = window.setTimeout(() => {
+      scrollRestoreTimerRef.current = undefined;
+      const pendingOffset = scrollOffsetAfterNextMessageRef.current;
+      if (pendingOffset === undefined) {
+        return;
+      }
+
+      if (pendingOffset === 0) {
+        terminal.scrollToBottom();
+      } else {
+        const { baseY } = terminal.getScrollState();
+        terminal.scrollToLine(Math.max(0, baseY - pendingOffset));
+      }
+      scrollOffsetAfterNextMessageRef.current = undefined;
+    }, terminalReplayScrollSettleMs);
   }
 
   useEffect(() => {
     reconnectAttemptRef.current = 0;
+    const previousTerminalSessionKey = previousTerminalSessionKeyRef.current;
+    if (
+      previousTerminalSessionKey !== terminalSessionKey &&
+      previousTerminalSessionKey !== 'idle'
+    ) {
+      terminalScrollOffsetsRef.current.set(
+        previousTerminalSessionKey,
+        getScrollOffsetFromBottom()
+      );
+    }
+    previousTerminalSessionKeyRef.current = terminalSessionKey;
+
     // The terminal instance is reused across sessions instead of being torn down
     // and rebuilt, so the previous session's screen + scrollback would linger.
     // Clear it now, and guard the next socket message in case the new session's
     // output is already in flight before the clear lands.
-    prepareNextTerminalReplay();
+    prepareNextTerminalReplay(
+      terminalScrollOffsetsRef.current.get(terminalSessionKey) ?? 0
+    );
     terminalRef.current?.write(terminalResetSequence);
   }, [terminalSessionKey]);
 
@@ -256,7 +318,7 @@ function useTerminalPanel(props: TerminalPanelProps): TerminalPanelViewProps {
       reconnectAttemptRef.current += 1;
       reconnectTimer = window.setTimeout(() => {
         reconnectTimer = undefined;
-        prepareNextTerminalReplay();
+        prepareNextTerminalReplay(getScrollOffsetFromBottom());
         dispatchRuntime({
           sessionKey: terminalSessionKey,
           type: 'retry-connection',
@@ -310,12 +372,22 @@ function useTerminalPanel(props: TerminalPanelProps): TerminalPanelViewProps {
       if (clearBeforeNextMessageRef.current) {
         currentTerminal.write(terminalResetSequence);
         clearBeforeNextMessageRef.current = false;
+        // The reset is still associated with the previous screen state. Queue
+        // the palette refresh only after it parses, so the following replay can
+        // restore DECSET 1004 before xterm reports FocusIn to this new socket.
+        currentTerminal.queuePaletteSync();
       }
-      const scrollToBottomAfterWrite =
-        scrollToBottomAfterNextMessageRef.current;
-      scrollToBottomAfterNextMessageRef.current = false;
+      const scrollOffsetFromBottomAfterWrite =
+        scrollOffsetAfterNextMessageRef.current;
       writeTerminalMessage(currentTerminal, event.data, {
-        scrollToBottomAfterWrite,
+        onParsed:
+          scrollOffsetFromBottomAfterWrite === undefined
+            ? undefined
+            : () =>
+                scheduleScrollRestoreAfterReplay(
+                  currentTerminal,
+                  scrollOffsetFromBottomAfterWrite
+                ),
       });
     });
 
@@ -362,6 +434,10 @@ function useTerminalPanel(props: TerminalPanelProps): TerminalPanelViewProps {
       }
 
       cancelTerminalResizeDebounce(resizeDebounceTimerRef);
+      if (scrollRestoreTimerRef.current !== undefined) {
+        window.clearTimeout(scrollRestoreTimerRef.current);
+        scrollRestoreTimerRef.current = undefined;
+      }
       clearStableConnectionTimer();
       clearReconnectTimer();
       socket.close(1000, 'terminal session changed');
@@ -384,7 +460,7 @@ function useTerminalPanel(props: TerminalPanelProps): TerminalPanelViewProps {
     // trigger SIGWINCH and clear stale glyphs before it lands.
     const socket = socketRef.current;
     if (socket && socket.readyState === WebSocket.OPEN) {
-      prepareNextTerminalReplay();
+      prepareNextTerminalReplay(getScrollOffsetFromBottom());
       syncTerminalPanelSize({
         forceSend: true,
         resizeDebounceTimerRef,
@@ -425,7 +501,7 @@ function useTerminalPanel(props: TerminalPanelProps): TerminalPanelViewProps {
   }
 
   function handleTerminalRetry() {
-    prepareNextTerminalReplay();
+    prepareNextTerminalReplay(getScrollOffsetFromBottom());
     reconnectAttemptRef.current = 0;
     dispatchRuntime({
       sessionKey: terminalSessionKey,
@@ -444,7 +520,7 @@ function useTerminalPanel(props: TerminalPanelProps): TerminalPanelViewProps {
       return;
     }
     const reconnectTerminal = () => {
-      prepareNextTerminalReplay();
+      prepareNextTerminalReplay(getScrollOffsetFromBottom());
       reconnectAttemptRef.current = 0;
       dispatchRuntime({
         sessionKey: terminalSessionKey,
@@ -582,6 +658,9 @@ function TerminalPanelView(props: TerminalPanelViewProps) {
           (see the connect effect + reset-on-switch above).
         */}
         <XTermTerminal
+          adaptCodexUserMessageBackground={
+            (props.session?.agentPluginId ?? props.session?.agent) === 'codex'
+          }
           aria-label={props.terminalLabel}
           className="ao-terminal"
           cols={props.terminalSize.cols}
@@ -637,10 +716,6 @@ function TerminalPanelView(props: TerminalPanelViewProps) {
             <SquareArrowDownRightIcon />
           </IconButton>
         ) : null}
-        <OpenIdeButton
-          className={terminalControlButtonClassName}
-          session={props.session}
-        />
         <IconButton
           label={fullscreenButtonLabel}
           className={terminalControlEndButtonClassName}
@@ -772,25 +847,21 @@ function syncTerminalPanelSize(params: {
 function writeTerminalMessage(
   terminal: TerminalHandle,
   data: unknown,
-  options: { scrollToBottomAfterWrite?: boolean } = {}
+  options: { onParsed?: () => void } = {}
 ) {
-  const onParsed = options.scrollToBottomAfterWrite
-    ? () => terminal.scrollToBottom()
-    : undefined;
-
   if (typeof data === 'string') {
-    terminal.write(data, onParsed);
+    terminal.write(data, options.onParsed);
     return;
   }
 
   if (data instanceof ArrayBuffer) {
-    terminal.write(new Uint8Array(data), onParsed);
+    terminal.write(new Uint8Array(data), options.onParsed);
     return;
   }
 
   if (data instanceof Blob) {
     void data.arrayBuffer().then((buffer) => {
-      terminal.write(new Uint8Array(buffer), onParsed);
+      terminal.write(new Uint8Array(buffer), options.onParsed);
     });
   }
 }

@@ -7,7 +7,6 @@ import { GlimmInterceptLinks } from '@/lib/glimm/intercept-links';
 
 import { PageError } from '@/components/errors/page-error';
 
-import { SettingsPrototypePage } from '@/features/settings-mock/pages/settings-prototype';
 import { Providers } from '@/providers';
 
 const GlimmSweepDevtool = import.meta.env.DEV
@@ -32,8 +31,6 @@ export function RootComponent() {
     typeof window !== 'undefined'
       ? new URLSearchParams(window.location.search)
       : undefined;
-  const isSettingsMock =
-    typeof window !== 'undefined' && searchParams?.get('mock') === 'settings';
   const shouldMountGlimmSweepDevtool =
     import.meta.env.DEV && searchParams?.has('glimmDevtool') === true;
 
@@ -45,7 +42,7 @@ export function RootComponent() {
           <GlimmSweepDevtool />
         </Suspense>
       ) : null}
-      {isSettingsMock ? <SettingsPrototypePage /> : <Outlet />}
+      <Outlet />
     </Providers>
   );
 }

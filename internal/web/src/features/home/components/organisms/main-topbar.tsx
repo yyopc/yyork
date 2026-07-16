@@ -61,7 +61,7 @@ const workerWorkspaceOptions = [
 type WorkerWorkspaceOption = (typeof workerWorkspaceOptions)[number];
 type WorkerWorkspaceSelectScope = 'current-worker' | 'project-default';
 
-export function MainTopbar() {
+export function MainTopbar(props: { minimal?: boolean }) {
   const { isMobile, openMobile, state } = useSidebar();
   const {
     canvasAvailable,
@@ -87,7 +87,7 @@ export function MainTopbar() {
     onCanvasOpenChange(!canvasOpen);
   };
   useHotkey(appHotkeys.toggleCanvas, toggleCanvas, {
-    enabled: canvasAvailable,
+    enabled: canvasAvailable && !props.minimal,
     ignoreInputs: false,
     requireReset: true,
   });
@@ -101,8 +101,8 @@ export function MainTopbar() {
       )}
     >
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <AppBrand />
-        {selectedProject ? (
+        <AppBrand showAlpha={!props.minimal} />
+        {!props.minimal && selectedProject ? (
           <div className="ms-auto shrink-0">
             <WorkerWorkspaceSelect
               disabled={workerWorkspaceModePending}
@@ -120,7 +120,7 @@ export function MainTopbar() {
         ) : null}
       </div>
 
-      {canvasAvailable && (
+      {!props.minimal && canvasAvailable && (
         <div className="flex shrink-0 items-center gap-3">
           {canvasOpen ? (
             <div
@@ -329,21 +329,23 @@ function CanvasToggleButton(props: {
   );
 }
 
-function AppBrand() {
+function AppBrand(props: { showAlpha: boolean }) {
   return (
     <div className="flex h-9 max-w-full min-w-0 items-center gap-2 justify-self-start text-sidebar-foreground">
-      <BrandTypography />
+      <BrandTypography showAlpha={props.showAlpha} />
     </div>
   );
 }
 
-function BrandTypography() {
+function BrandTypography(props: { showAlpha: boolean }) {
   return (
     <>
       <Logo className="h-4 w-[3.75rem] shrink-0 text-sidebar-foreground" />
-      <span className="shrink-0 rounded-full border border-sidebar-border bg-sidebar-primary px-1.5 py-0.5 text-[10px] leading-none font-semibold text-sidebar-primary-foreground">
-        alpha
-      </span>
+      {props.showAlpha ? (
+        <span className="shrink-0 rounded-full border border-sidebar-border bg-sidebar-primary px-1.5 py-0.5 text-[10px] leading-none font-semibold text-sidebar-primary-foreground">
+          alpha
+        </span>
+      ) : null}
     </>
   );
 }

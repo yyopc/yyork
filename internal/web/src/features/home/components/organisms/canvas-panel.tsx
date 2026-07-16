@@ -348,13 +348,14 @@ function WorkspaceFileTree(props: {
   };
   const { model } = useFileTree({
     dragAndDrop: false,
+    fileTreeSearchMode: 'hide-non-matches',
     flattenEmptyDirectories: true,
     gitStatus: props.gitStatus,
     icons: {
       colored: false,
       set: 'standard',
     },
-    initialExpansion: 2,
+    initialExpansion: 'closed',
     initialSelectedPaths: persistedSelectedFilePath
       ? [persistedSelectedFilePath]
       : undefined,
@@ -368,7 +369,7 @@ function WorkspaceFileTree(props: {
     },
     paths: props.paths,
     renaming: false,
-    search: false,
+    search: true,
     stickyFolders: true,
   });
   const directoryPaths = getFileTreeDirectoryPaths(props.paths);

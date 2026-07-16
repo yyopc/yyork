@@ -2,14 +2,53 @@ import { QueryClient } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  createProjectMutationOptions,
   homeWorkspaceQueryKey,
   markSessionDoneMutationOptions,
+  markSessionResponseSeenMutationOptions,
   parseHomeWorkspaceResponse,
   patchWorkspaceWithRemovedProject,
   removeProjectMutationOptions,
   renameSessionMutationOptions,
   restartSessionMutationOptions,
 } from '@/features/home/data/workspace';
+
+describe('createProjectMutationOptions', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('sends the selected agent and worker workspace defaults', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({
+        created: true,
+        id: 'p_yyork',
+        name: 'yyork',
+        path: '/repo/yyork',
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createProjectMutationOptions().mutationFn({
+      agentPlugin: 'claude-code',
+      path: '/repo/yyork',
+      workerAgentPlugin: 'codex',
+      workerWorkspaceMode: 'new-worktree',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects', {
+      body: JSON.stringify({
+        path: '/repo/yyork',
+        agentPlugin: 'claude-code',
+        workerAgentPlugin: 'codex',
+        workerWorkspaceMode: 'new-worktree',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+    });
+  });
+});
 
 describe('removeProjectMutationOptions', () => {
   afterEach(() => {
@@ -215,6 +254,39 @@ describe('restartSessionMutationOptions', () => {
       '/api/sessions/vzka9e/restart?project=%2Frepo%2Fyyork',
       {
         method: 'POST',
+      }
+    );
+  });
+});
+
+describe('markSessionResponseSeenMutationOptions', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('patches the session response seen marker', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({
+        id: 'v042rv',
+        metadata: { seenWorkerResponseAt: '2026-06-07T10:20:00Z' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      markSessionResponseSeenMutationOptions().mutationFn({
+        projectId: '/repo/yyork',
+        sessionId: 'v042rv',
+      })
+    ).resolves.toBeUndefined();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/sessions/v042rv?project=%2Frepo%2Fyyork',
+      {
+        body: JSON.stringify({ seenResponse: true }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH',
       }
     );
   });

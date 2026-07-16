@@ -197,7 +197,10 @@ test('pins the terminal viewport to the bottom after switching sessions and repl
     return candidate as FakeWebSocket;
   });
   socketA.fireOpen();
-  socketA.fireMessage(terminalReplay('session-a'));
+  const sessionAReplay = terminalReplay('session-a');
+  const sessionAReplaySplit = Math.floor(sessionAReplay.length / 2);
+  socketA.fireMessage(sessionAReplay.slice(0, sessionAReplaySplit));
+  socketA.fireMessage(sessionAReplay.slice(sessionAReplaySplit));
 
   await vi.waitFor(() => {
     expect(term.buffer.active.baseY).toBeGreaterThan(0);
@@ -222,7 +225,67 @@ test('pins the terminal viewport to the bottom after switching sessions and repl
   await vi.waitFor(() => {
     expect(term.buffer.active.baseY).toBeGreaterThan(0);
     expect(terminalBufferText(term)).toContain('session-b-line-80');
+    expect(terminalBufferText(term)).not.toContain('session-a-line-80');
     expect(term.buffer.active.viewportY).toBe(term.buffer.active.baseY);
+  }, 5_000);
+});
+
+test('restores a session scroll position when returning to its terminal', async () => {
+  const sessionA = makeSession('a');
+  const sessionB = makeSession('b');
+
+  const { rerender } = await render(<TerminalPanel session={sessionA} />);
+  const term = await waitForTerminal();
+  const socketA = await vi.waitFor(() => {
+    const candidate = fakeSockets.at(-1);
+    expect(candidate?.url).toContain('/api/sessions/a/terminal');
+    return candidate as FakeWebSocket;
+  });
+  socketA.fireOpen();
+  const sessionAReplay = terminalReplay('session-a');
+  const sessionAReplaySplit = Math.floor(sessionAReplay.length / 2);
+  socketA.fireMessage(sessionAReplay.slice(0, sessionAReplaySplit));
+  socketA.fireMessage(sessionAReplay.slice(sessionAReplaySplit));
+
+  await vi.waitFor(() => {
+    expect(term.buffer.active.baseY).toBeGreaterThan(0);
+  }, 5_000);
+  term.scrollToTop();
+  const savedOffsetFromBottom = term.buffer.active.baseY;
+  expect(term.buffer.active.viewportY).toBe(0);
+
+  await rerender(<TerminalPanel session={sessionB} />);
+  const socketB = await vi.waitFor(() => {
+    const candidate = fakeSockets.at(-1);
+    expect(candidate?.url).toContain('/api/sessions/b/terminal');
+    return candidate as FakeWebSocket;
+  });
+  socketB.fireOpen();
+  socketB.fireMessage(terminalReplay('session-b'));
+
+  await vi.waitFor(() => {
+    expect(terminalBufferText(term)).toContain('session-b-line-80');
+    expect(term.buffer.active.viewportY).toBe(term.buffer.active.baseY);
+  }, 5_000);
+
+  await rerender(<TerminalPanel session={sessionA} />);
+  const reconnectedSocketA = await vi.waitFor(() => {
+    const candidate = fakeSockets.at(-1);
+    expect(candidate).not.toBe(socketB);
+    expect(candidate?.url).toContain('/api/sessions/a/terminal');
+    return candidate as FakeWebSocket;
+  });
+  reconnectedSocketA.fireOpen();
+  reconnectedSocketA.fireMessage(sessionAReplay.slice(0, sessionAReplaySplit));
+  reconnectedSocketA.fireMessage(sessionAReplay.slice(sessionAReplaySplit));
+
+  await vi.waitFor(() => {
+    const restoredOffsetFromBottom =
+      term.buffer.active.baseY - term.buffer.active.viewportY;
+    expect(terminalBufferText(term)).toContain('session-a-line-80');
+    expect(restoredOffsetFromBottom).toBe(
+      Math.min(savedOffsetFromBottom, term.buffer.active.baseY)
+    );
   }, 5_000);
 });
 
@@ -278,7 +341,7 @@ test('uses the terminal background for floating terminal controls', async () => 
         'section[aria-label$="terminal panel"] div.pointer-events-none button'
       )
     );
-    expect(elements).toHaveLength(3);
+    expect(elements).toHaveLength(2);
     return elements;
   }, 5_000);
 

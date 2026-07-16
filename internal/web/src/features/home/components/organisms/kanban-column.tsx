@@ -33,7 +33,6 @@ export function KanbanColumn(
             card={card}
             onSelect={props.onSessionSelect}
             onTerminalSessionDelete={props.onTerminalSessionDelete}
-            onTerminalSessionHide={props.onTerminalSessionHide}
             onTerminalSessionMarkDone={props.onTerminalSessionMarkDone}
             onTerminalSessionOpenDetached={props.onTerminalSessionOpenDetached}
             onTerminalSessionPinToggle={props.onTerminalSessionPinToggle}

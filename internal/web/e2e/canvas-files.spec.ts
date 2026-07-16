@@ -1,6 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 
 const SESSION_ID = 'ao-live-1';
+const SECOND_SESSION_ID = 'ao-live-2';
 const PROJECT_ID = 'agent-orchestrator_live';
 const TARGET_KEY = `session:${encodeURIComponent(PROJECT_ID)}:${encodeURIComponent(SESSION_ID)}`;
 const SELECTED_FILE = 'README.md';
@@ -11,6 +12,7 @@ const workspaceBody = {
     {
       id: PROJECT_ID,
       name: 'Agent Orchestrator',
+      path: '/tmp/ao-live',
       workerWorkspaceMode: 'local',
     },
   ],
@@ -29,6 +31,21 @@ const workspaceBody = {
       terminalSupported: true,
       title: 'Live worker 1',
       workerId: '[AO-1]',
+    },
+    {
+      agent: 'codex',
+      cwd: '/tmp/ao-live-2',
+      description: 'A second live worker.',
+      id: SECOND_SESSION_ID,
+      issue: '[PR #2]',
+      metadata: '[codex/prompt]',
+      project: PROJECT_ID,
+      recap: 'A second live worker.',
+      selected: false,
+      state: 'prompt',
+      terminalSupported: true,
+      title: 'Live worker 2',
+      workerId: '[AO-2]',
     },
   ],
 };
@@ -232,6 +249,57 @@ async function selectReadmeFile(page: Page) {
   await expect(page.getByLabel('Selected file')).toContainText(SELECTED_FILE);
   await expect.poll(() => readStoredSelectedFilePath(page)).toBe(SELECTED_FILE);
 }
+
+test('Canvas visibility persists independently per worker session', async ({
+  page,
+}) => {
+  await installFakeTerminalWebSocket(page);
+  await installCanvasRoutes(page);
+  await page.goto(`/terminal/${SESSION_ID}?project=${PROJECT_ID}`);
+  await ensureCanvasOpen(page);
+
+  await page.goto(`/terminal/${SECOND_SESSION_ID}?project=${PROJECT_ID}`);
+
+  await expect(
+    page.getByRole('button', { name: 'Open Canvas side panel' })
+  ).toHaveAttribute('aria-pressed', 'false');
+  await expect(
+    page.getByRole('button', { name: 'Close Canvas side panel' })
+  ).toHaveCount(0);
+
+  await ensureCanvasOpen(page);
+  await page.goto(`/terminal/${SESSION_ID}?project=${PROJECT_ID}`);
+  await expect(
+    page.getByRole('button', { name: 'Close Canvas side panel' })
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: 'Close Canvas side panel' }).click();
+  await page.goto(`/terminal/${SECOND_SESSION_ID}?project=${PROJECT_ID}`);
+  await expect(
+    page.getByRole('button', { name: 'Close Canvas side panel' })
+  ).toBeVisible();
+
+  await page.reload();
+  await expect(
+    page.getByRole('button', { name: 'Close Canvas side panel' })
+  ).toBeVisible();
+  await page.goto(`/terminal/${SESSION_ID}?project=${PROJECT_ID}`);
+  await expect(
+    page.getByRole('button', { name: 'Open Canvas side panel' })
+  ).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('detached worker terminals do not expose Canvas', async ({ page }) => {
+  await installFakeTerminalWebSocket(page);
+  await installCanvasRoutes(page);
+
+  await page.goto(`/terminal/${SESSION_ID}?project=${PROJECT_ID}&detached=1`);
+
+  await expect(page.getByLabel('Canvas inspector')).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: /Canvas side panel/ })
+  ).toHaveCount(0);
+});
 
 test('canvas persists selected file across canvas tab switches', async ({
   page,

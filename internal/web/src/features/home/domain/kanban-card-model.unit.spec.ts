@@ -222,6 +222,20 @@ describe('kanban card model', () => {
       label: 'Response seen',
       status: 'seen',
     });
+    expect(
+      toKanbanCardView({
+        ...session,
+        metadata: JSON.stringify({
+          lastAssistantMessageAt: deliveredAt,
+          seenWorkerResponseAt: deliveredAt,
+          title: 'Review implementation',
+        }),
+      }).responseAttention
+    ).toEqual({
+      deliveredAt,
+      label: 'Response seen',
+      status: 'seen',
+    });
   });
 
   it('falls back to lastActivityAt for legacy prompt response delivery', () => {

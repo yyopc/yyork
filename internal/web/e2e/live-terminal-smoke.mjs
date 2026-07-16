@@ -72,6 +72,10 @@ try {
 
   browser = await chromium.launch({
     headless: !isHeadedMode,
+    // Headed runs stay off-screen so they do not steal keyboard/window focus.
+    args: isHeadedMode
+      ? ['--window-position=-2400,-2400', '--window-size=1440,900']
+      : undefined,
     slowMo: slowMoMs > 0 ? slowMoMs : undefined,
   });
   const attachment = await openTerminalAttachment(
@@ -170,6 +174,8 @@ try {
 
 async function openTerminalAttachment(browser, webOrigin, selectedSession) {
   const page = await browser.newPage({
+    // null → no prefers-color-scheme override (system theme).
+    colorScheme: null,
     viewport: { width: 1440, height: 900 },
   });
   const pageErrors = [];

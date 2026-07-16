@@ -17,7 +17,6 @@ export function KanbanPage() {
           columns={context.kanbanColumns}
           onSessionSelect={context.onWorkerSessionSelect}
           onTerminalSessionDelete={context.onTerminalSessionDelete}
-          onTerminalSessionHide={context.onTerminalSessionHide}
           onTerminalSessionMarkDone={context.onTerminalSessionMarkDone}
           onTerminalSessionOpenDetached={context.onTerminalSessionOpenDetached}
           onTerminalSessionPinToggle={context.onTerminalSessionPinToggle}
