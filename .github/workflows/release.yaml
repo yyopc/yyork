@@ -196,6 +196,9 @@ jobs:
 
           yyork_bin="$install_prefix/bin/yyork"
           expected_version="yyork version ${{ needs.preflight.outputs.version }}"
+          if [[ "${{ needs.preflight.outputs.should_publish }}" != "true" ]]; then
+            expected_version="${expected_version}-snapshot"
+          fi
           version_output="$(env HOME="$install_home" USERPROFILE="$install_home" PATH="$no_go_bin:$PATH" \
             "$yyork_bin" --version)"
           echo "$version_output"
