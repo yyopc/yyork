@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { createVerdaccioBootstrapEnv } from './verdaccio-bootstrap-env.mjs';
 import { nativePackageMetadata } from '../../bin/native-package.mjs';
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -72,8 +73,14 @@ async function main() {
         '',
       ].join('\n')
     );
+    await runLogged('git', ['init', '--quiet'], {
+      cwd: projectDir,
+      env: smokeEnv,
+      logPath: resolve(logsDir, 'git-init.log'),
+    });
 
     const verdaccioConfig = writeVerdaccioConfig(tempDir);
+    const verdaccioEnv = createVerdaccioBootstrapEnv(smokeEnv, tempDir);
     verdaccio = spawnLogged(
       'npm',
       [
@@ -90,7 +97,7 @@ async function main() {
       ],
       {
         cwd: tempDir,
-        env: smokeEnv,
+        env: verdaccioEnv,
         logPath: resolve(logsDir, 'verdaccio.log'),
       }
     );
@@ -175,13 +182,18 @@ async function main() {
     );
   } finally {
     if (server) {
-      killProcessTree(server);
+      await killProcessTree(server);
     }
     if (verdaccio) {
-      killProcessTree(verdaccio);
+      await killProcessTree(verdaccio);
     }
     if (!options.keepTemp) {
-      rmSync(tempDir, { recursive: true, force: true });
+      rmSync(tempDir, {
+        force: true,
+        maxRetries: 5,
+        recursive: true,
+        retryDelay: 100,
+      });
     } else {
       console.log(`Release UX smoke temp dir kept at ${tempDir}`);
     }
@@ -321,6 +333,7 @@ function writeVerdaccioConfig(tempDir) {
     configPath,
     [
       `storage: ${JSON.stringify(storage)}`,
+      'max_body_size: 100mb',
       'auth:',
       '  htpasswd:',
       `    file: ${JSON.stringify(htpasswd)}`,
@@ -534,22 +547,25 @@ async function runLogged(command, args, runOptions) {
   return result;
 }
 
-function killProcessTree(child) {
+async function killProcessTree(child) {
   if (!child.pid || child.exitCode !== null) {
     return;
   }
+  const closed = new Promise((resolvePromise) => {
+    child.once('close', resolvePromise);
+  });
   if (process.platform === 'win32') {
     spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], {
       stdio: 'ignore',
     });
-    return;
+  } else {
+    try {
+      process.kill(-child.pid, 'SIGTERM');
+    } catch (_error) {
+      child.kill('SIGTERM');
+    }
   }
-
-  try {
-    process.kill(-child.pid, 'SIGTERM');
-  } catch (_error) {
-    child.kill('SIGTERM');
-  }
+  await Promise.race([closed, sleep(5_000)]);
 }
 
 function tail(text) {
