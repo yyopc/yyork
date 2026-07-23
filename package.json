@@ -45,6 +45,7 @@
     "api:generate:openapi": "go run ./api/generate-workspace-contract.go",
     "api:generate:zod": "openapi-zod-client ./api/openapi.generated.json -o ./internal/web/src/features/home/domain/session-workspace-contract.generated.ts -t ./api/session-workspace-contract.hbs --export-schemas && pnpm --filter @yyork/web exec oxfmt src/features/home/domain/session-workspace-contract.generated.ts",
     "yyork": "go run .",
+    "vendor:yyoreel": "node ./scripts/vendor-yyoreel.mjs",
     "dev": "run-p dev:stack docs:dev mock:dev",
     "dev:stack": "portless run",
     "dev:app": "go run . dev",
@@ -72,6 +73,9 @@
     "e2e": "pnpm --filter @yyork/web e2e",
     "e2e:live-terminal": "pnpm --dir internal/web e2e:live-terminal"
   },
+  "dependencies": {
+    "yyoreel": "file:third_party/yyoreel/yyoreel-0.1.4.tgz"
+  },
   "devDependencies": {
     "npm-run-all": "catalog:",
     "openapi-zod-client": "^1.18.3",
@@ -90,6 +94,7 @@
   "packageManager": "pnpm@10.28.0",
   "pnpm": {
     "overrides": {
+      "@yyoreel/core": "file:third_party/yyoreel/yyoreel-core-0.1.4.tgz",
       "react-doctor>@sentry/node": "10.62.0",
       "react-router-devtools>@tanstack/devtools-vite": "0.8.1"
     },

@@ -105,4 +105,5 @@ opencode.json
 
 # playwright debug artifacts
 internal/web/output/
+.yyoreel/
 .gstack/
