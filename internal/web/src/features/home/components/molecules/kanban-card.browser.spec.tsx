@@ -76,6 +76,9 @@ test('opens the shared session context menu on right click', async () => {
   await expect
     .element(page.getByRole('menuitem', { name: 'Rename' }))
     .toBeVisible();
+  expect(
+    page.getByRole('menuitem', { name: 'Copy session ID' }).query()
+  ).toBeNull();
   await expect
     .element(page.getByRole('menuitem', { name: 'Hide from sidebar' }))
     .not.toBeInTheDocument();

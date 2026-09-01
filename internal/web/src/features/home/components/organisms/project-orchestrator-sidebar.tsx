@@ -425,6 +425,7 @@ function PinnedTerminalSessionNavItem(props: {
     <SidebarMenuItem key={session.selectionKey} className="group/session-row">
       <SessionContextMenu
         isPinned={session.isPinned}
+        sessionId={session.id}
         onOpen={openSession}
         onOpenDetached={
           props.onTerminalSessionOpenDetached
@@ -831,6 +832,7 @@ function ProjectWorkerSessionTree(props: {
           <SidebarMenuItem key={selectionKey} className="group/session-row">
             <SessionContextMenu
               isPinned={props.pinnedTerminalSessionKeys.includes(selectionKey)}
+              sessionId={orchestrator.id}
               onOpen={() => props.onOrchestratorSessionSelect(selectionKey)}
               onOpenDetached={
                 props.onTerminalSessionOpenDetached
@@ -1024,6 +1026,7 @@ function ProjectWorkerSessionGroup(props: {
                     isPinned={props.pinnedTerminalSessionKeys.includes(
                       session.selectionKey
                     )}
+                    sessionId={session.id}
                     onOpen={() =>
                       props.onWorkerSessionSelect(session.selectionKey)
                     }
@@ -1517,6 +1520,7 @@ function getPinnedTerminalSessions(props: {
   for (const orchestrator of props.orchestrators) {
     const selectionKey = getWorkerSessionSelectionKey(orchestrator);
     terminalSessionsByKey.set(selectionKey, {
+      id: orchestrator.id,
       isPinned: pinnedTerminalSessionKeys.has(selectionKey),
       kind: 'orchestrator',
       label: projectNames.get(orchestrator.project) ?? 'Orchestrator',

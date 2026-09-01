@@ -84,11 +84,17 @@ function makeWorkerSession(
   };
 }
 
-function StickySidebarHarness(props: {
+interface StickySidebarHarnessProps {
+  onOrchestratorSessionSelect?: (selectionKey: string) => void;
   onTerminalSessionOpenDetached?: (selectionKey: string) => void;
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
+  onWorkerSessionSelect?: (selectionKey: string) => void;
+  orchestrators?: WorkerSession[];
   pinnedTerminalSessionKeys?: string[];
-}) {
+  sessions?: WorkerSession[];
+}
+
+function StickySidebarHarness(props: StickySidebarHarnessProps) {
   const rootRoute = createRootRoute();
   const indexRoute = createRoute({
     getParentRoute: () => rootRoute,
@@ -108,12 +114,8 @@ function StickySidebarHarness(props: {
   return <RouterProvider router={router} />;
 }
 
-function StickySidebarContents(props: {
-  onTerminalSessionOpenDetached?: (selectionKey: string) => void;
-  onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
-  pinnedTerminalSessionKeys?: string[];
-}) {
-  const sessions = makeStickyOverflowSessions();
+function StickySidebarContents(props: StickySidebarHarnessProps) {
+  const sessions = props.sessions ?? makeStickyOverflowSessions();
   const [openWorkerSessionGroupIdsByProject, setOpenWorkerSessionGroupIds] =
     useState<Partial<Record<string, WorkerSessionState[]>>>(() =>
       Object.fromEntries(
@@ -128,7 +130,9 @@ function StickySidebarContents(props: {
       <ProjectOrchestratorSidebar
         activeBoardProjectId={stickyProjects[0]?.id}
         onAddProject={() => {}}
-        onOrchestratorSessionSelect={() => {}}
+        onOrchestratorSessionSelect={
+          props.onOrchestratorSessionSelect ?? (() => {})
+        }
         onProjectBoardSelect={() => {}}
         onProjectDelete={() => {}}
         onProjectOpenChange={() => {}}
@@ -153,10 +157,10 @@ function StickySidebarContents(props: {
             };
           });
         }}
-        onWorkerSessionSelect={() => {}}
+        onWorkerSessionSelect={props.onWorkerSessionSelect ?? (() => {})}
         openProjectIds={stickyProjects.map((project) => project.id)}
         openWorkerSessionGroupIdsByProject={openWorkerSessionGroupIdsByProject}
-        orchestrators={[]}
+        orchestrators={props.orchestrators ?? []}
         pinnedProjectIds={[]}
         pinnedTerminalSessionKeys={props.pinnedTerminalSessionKeys ?? []}
         projects={stickyProjects}
@@ -171,11 +175,7 @@ function StickySidebarContents(props: {
 }
 
 async function renderDesktopStickySidebar(
-  props: {
-    onTerminalSessionOpenDetached?: (selectionKey: string) => void;
-    onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
-    pinnedTerminalSessionKeys?: string[];
-  } = {}
+  props: StickySidebarHarnessProps = {}
 ) {
   await page.viewport(1024, 768);
   render(<StickySidebarHarness {...props} />);
@@ -191,6 +191,29 @@ function getButtonByAriaLabel(label: string) {
 
   expect(button).toBeTruthy();
   return button as HTMLButtonElement;
+}
+
+function openContextMenu(button: HTMLButtonElement) {
+  button.dispatchEvent(
+    new MouseEvent('contextmenu', {
+      bubbles: true,
+      button: 2,
+      buttons: 2,
+      cancelable: true,
+    })
+  );
+}
+
+function makeOrchestratorSession(id: string): WorkerSession {
+  return {
+    ...makeWorkerSession('sticky-alpha', 'working', 9),
+    description: 'Coordinates workers for Sticky Alpha.',
+    id,
+    issue: 'Orchestrator',
+    kind: 'orchestrator',
+    title: 'Orchestrator',
+    workerId: '[ORCHESTRATOR]',
+  };
 }
 
 function getProjectsScrollArea() {
@@ -568,6 +591,149 @@ test('shows mark done only for prompt worker rows', async () => {
     .element(page.getByRole('menuitem', { exact: true, name: 'Open terminal' }))
     .toBeVisible();
   expect(page.getByRole('menuitem', { name: 'Mark done' }).query()).toBeNull();
+});
+
+test('copies the exact worker session ID without opening the sidebar row', async () => {
+  const user = setupUser();
+  const onWorkerSessionSelect = vi.fn();
+  const workerSession = {
+    ...makeWorkerSession('sticky-alpha', 'working', 0),
+    id: 'd8f57z',
+    workerId: 'native-codex-uuid',
+  };
+  const writeText = vi
+    .spyOn(navigator.clipboard, 'writeText')
+    .mockResolvedValue(undefined);
+
+  try {
+    await renderDesktopStickySidebar({
+      onWorkerSessionSelect,
+      sessions: [workerSession],
+    });
+
+    openContextMenu(getButtonByAriaLabel('Open working worker 1 terminal'));
+    await user.click(page.getByRole('menuitem', { name: 'Copy session ID' }));
+
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('d8f57z');
+    });
+    await expect.element(page.getByText('Copied session ID')).toBeVisible();
+    await expect.element(page.getByText('d8f57z')).toBeVisible();
+    expect(writeText).not.toHaveBeenCalledWith('sticky-alpha:d8f57z');
+    expect(writeText).not.toHaveBeenCalledWith('native-codex-uuid');
+    expect(onWorkerSessionSelect).not.toHaveBeenCalled();
+  } finally {
+    writeText.mockRestore();
+  }
+});
+
+test('copies the exact orchestrator session ID from its sidebar row', async () => {
+  const user = setupUser();
+  const onOrchestratorSessionSelect = vi.fn();
+  const writeText = vi
+    .spyOn(navigator.clipboard, 'writeText')
+    .mockResolvedValue(undefined);
+
+  try {
+    await renderDesktopStickySidebar({
+      onOrchestratorSessionSelect,
+      orchestrators: [makeOrchestratorSession('0rch3s')],
+      sessions: [],
+    });
+
+    openContextMenu(getButtonByAriaLabel('Open Orchestrator terminal'));
+    await user.click(page.getByRole('menuitem', { name: 'Copy session ID' }));
+
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('0rch3s');
+    });
+    expect(onOrchestratorSessionSelect).not.toHaveBeenCalled();
+  } finally {
+    writeText.mockRestore();
+  }
+});
+
+test('copies the exact pinned session ID from its pinned sidebar row', async () => {
+  const user = setupUser();
+  const onWorkerSessionSelect = vi.fn();
+  const pinnedSession = {
+    ...makeWorkerSession('sticky-alpha', 'prompt', 0),
+    id: 'p1nn3d',
+    workerId: 'native-claude-uuid',
+  };
+  const pinnedSelectionKey = getWorkerSessionSelectionKey(pinnedSession);
+  const writeText = vi
+    .spyOn(navigator.clipboard, 'writeText')
+    .mockResolvedValue(undefined);
+
+  try {
+    await renderDesktopStickySidebar({
+      onWorkerSessionSelect,
+      pinnedTerminalSessionKeys: [pinnedSelectionKey],
+      sessions: [pinnedSession],
+    });
+
+    openContextMenu(getNavButton('Pinned', 'open the worker session: p1nn3d'));
+    await user.click(page.getByRole('menuitem', { name: 'Copy session ID' }));
+
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('p1nn3d');
+    });
+    expect(onWorkerSessionSelect).not.toHaveBeenCalled();
+  } finally {
+    writeText.mockRestore();
+  }
+});
+
+test('reports a rejected session ID copy without opening the sidebar row', async () => {
+  const user = setupUser();
+  const onWorkerSessionSelect = vi.fn();
+  const workerSession = {
+    ...makeWorkerSession('sticky-alpha', 'working', 0),
+    id: 'fa1led',
+  };
+  const writeText = vi
+    .spyOn(navigator.clipboard, 'writeText')
+    .mockRejectedValue(new Error('Clipboard permission denied'));
+
+  try {
+    await renderDesktopStickySidebar({
+      onWorkerSessionSelect,
+      sessions: [workerSession],
+    });
+
+    openContextMenu(getButtonByAriaLabel('Open working worker 1 terminal'));
+    await user.click(page.getByRole('menuitem', { name: 'Copy session ID' }));
+
+    await expect
+      .element(page.getByText('Could not copy session ID'))
+      .toBeVisible();
+    expect(onWorkerSessionSelect).not.toHaveBeenCalled();
+  } finally {
+    writeText.mockRestore();
+  }
+});
+
+test('omits copy session ID for a pinned placeholder without an ID', async () => {
+  const placeholder = makeOrchestratorSession('');
+  const placeholderSelectionKey = getWorkerSessionSelectionKey(placeholder);
+
+  await renderDesktopStickySidebar({
+    orchestrators: [placeholder],
+    pinnedTerminalSessionKeys: [placeholderSelectionKey],
+    sessions: [],
+  });
+
+  openContextMenu(
+    getNavButton('Pinned', 'Open Sticky Alpha orchestrator terminal')
+  );
+
+  await expect
+    .element(page.getByRole('menuitem', { exact: true, name: 'Open terminal' }))
+    .toBeVisible();
+  expect(
+    page.getByRole('menuitem', { name: 'Copy session ID' }).query()
+  ).toBeNull();
 });
 
 test('lets the next project row take over when its own sessions reach the top', async () => {

@@ -1,5 +1,6 @@
 import {
   CheckIcon,
+  CopyIcon,
   PencilIcon,
   PinIcon,
   PinOffIcon,
@@ -9,6 +10,7 @@ import {
   Trash2Icon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { toast } from 'sonner';
 
 import {
   ContextMenu,
@@ -28,7 +30,10 @@ export function SessionContextMenu(props: {
   onPinToggle?: () => void;
   onRename?: () => void;
   onRestart?: () => void;
+  sessionId?: string;
 }) {
+  const sessionId = props.sessionId;
+
   return (
     <ContextMenu>
       <ContextMenuTrigger render={<div className="contents" />}>
@@ -57,6 +62,12 @@ export function SessionContextMenu(props: {
           <SquareArrowUpRightIcon aria-hidden="true" />
           <span>Detach terminal</span>
         </ContextMenuItem>
+        {sessionId ? (
+          <ContextMenuItem onClick={() => void copySessionId(sessionId)}>
+            <CopyIcon aria-hidden="true" />
+            <span>Copy session ID</span>
+          </ContextMenuItem>
+        ) : null}
         {props.onMarkDone ? (
           <ContextMenuItem onClick={props.onMarkDone}>
             <CheckIcon aria-hidden="true" />
@@ -83,4 +94,18 @@ export function SessionContextMenu(props: {
       </ContextMenuContent>
     </ContextMenu>
   );
+}
+
+async function copySessionId(sessionId: string) {
+  if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+    toast.error('Could not copy session ID');
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(sessionId);
+    toast.success('Copied session ID', { description: sessionId });
+  } catch {
+    toast.error('Could not copy session ID');
+  }
 }
