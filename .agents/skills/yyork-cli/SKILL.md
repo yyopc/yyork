@@ -16,16 +16,16 @@ Implemented public operational verbs:
 
 - `yyork [projectPath] [--addr <host:port>] [--open=false]`: start the local dashboard/API server. `projectPath` must resolve inside a git repo. There is no public `start` or `dashboard` verb.
 - `yyork spawn [--json] [--flags]`: spawn a session. Defaults to `--type worker` and `--agent claude-code`.
-- `yyork session list [--json] [--project <absolute-project-path>]`: list known sessions.
-- `yyork send [--json] --session <id> [--project <absolute-project-path>] "<message>"`: send a follow-up message to a session.
-- `yyork stop [--json] <sessionID>`: terminate a session, remove its worktree when applicable, and delete its store row.
+- `yyork session list [--json] [--all | --project <projectID>]`: list sessions in the current project by default; use `--all` for intentional global discovery.
+- `yyork send [--json] --session <id> [--project <projectID>] "<message>"`: send a follow-up message, with an explicit owning project ID required for cross-project targets.
+- `yyork stop [--json] [--project <projectID>] [sessionID]`: stop the local server when no session ID is given, or terminate a session after enforcing project ownership.
 
 Hidden/internal or dev-only surfaces:
 
 - `yyork dev` is driven by `pnpm dev` in the yyork repo. Prefer `pnpm dev`; it runs `portless run`, which launches `go run . dev`.
 - `yyork hooks ...` is the machine hook entrypoint for Codex/Claude Code lifecycle hooks. Do not call it manually except for explicit hook cleanup work.
 
-Commands shown under `PLANNED` in help, such as `status`, `open`, `batch-spawn`, `plugin`, `review`, or `verify`, are not implemented. Do not use a planned command until help shows it under `COMMANDS`.
+Commands such as `status`, `open`, `batch-spawn`, `plugin`, `review`, or `verify` are not implemented and do not exist as CLI verbs. Only use a verb once `yyork --help` lists it under `COMMANDS`.
 
 ## Starting yyork
 
@@ -66,7 +66,7 @@ Rules:
 - Worker workspace mode comes from the project's topbar setting: `work locally` or `new worktree`. Public `yyork spawn` does not accept a workspace override.
 - Orchestrator sessions always run in the main project worktree.
 - Workers spawned from an orchestrator inherit `YYORK_PROJECT_PATH`; do not override it unless intentionally targeting a different absolute project path.
-- Project IDs are absolute project paths, not slugs. Use the path shown by `yyork session list` or `$YYORK_PROJECT_PATH` for `--project`.
+- Project IDs are stable `p_...` identifiers derived from project paths. CLI `--project` flags accept only the `projectId` reported by JSON session-list output, not a filesystem path.
 - Use `--agent codex` only when the Codex plugin is the intended runtime; otherwise the default is `claude-code`.
 - Use `--permissions <mode>` only when the target agent plugin supports the mode you are passing. Check `yyork spawn --help` and local plugin code if unsure.
 - Use `--json` whenever you need to parse yyork output. Human output is for display only.
@@ -94,10 +94,11 @@ List sessions before sending or stopping:
 
 ```bash
 yyork session list --json
-yyork session list --json --project "$YYORK_PROJECT_PATH"
+yyork session list --json --all
+yyork session list --json --project <projectID>
 ```
 
-The JSON shape is `{"sessions":[...],"count":N}`. Use each session's `id`, `projectPath`, `kind`, `agent`, and `state` fields for follow-up commands.
+The default list is scoped to `YYORK_PROJECT_PATH`, then the current directory. The JSON shape is `{"sessions":[...],"count":N}`. Use each session's `id`, `projectId`, `projectPath`, `kind`, `agent`, and `state` fields for follow-up commands.
 
 Send a follow-up:
 
@@ -105,19 +106,20 @@ Send a follow-up:
 yyork send --json --session <id> "Please run the missing test and report the output."
 ```
 
-Add `--project <absolute-project-path>` when IDs may be ambiguous across projects:
+If the session belongs to another project, confirm that ownership with its exact project ID:
 
 ```bash
-yyork send --json --project "$YYORK_PROJECT_PATH" --session <id> "Continue with the narrower fix."
+yyork send --json --project <projectID> --session <id> "Continue with the narrower fix."
 ```
 
 Stop only when intentionally ending work:
 
 ```bash
 yyork stop --json <sessionID>
+yyork stop --json --project <projectID> <sessionID>
 ```
 
-`stop` is idempotent for missing IDs, but for real sessions it kills the Zellij session, removes the session worktree when applicable, and deletes the store row. Make sure useful changes are pushed, merged, or otherwise preserved before stopping a worker.
+Cross-project `send` and `stop` fail unless `--project` exactly matches the stored owner. `stop` is idempotent for missing IDs, but for real sessions it kills the Zellij session, removes the session worktree when applicable, and deletes the store row. Make sure useful changes are pushed, merged, or otherwise preserved before stopping a worker.
 
 ## Orchestrator Habits
 

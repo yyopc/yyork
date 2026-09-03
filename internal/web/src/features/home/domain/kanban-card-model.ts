@@ -43,6 +43,7 @@ const agentLabels: Record<string, string> = {
   'claude-code': 'Claude Code',
   claude: 'Claude Code',
   codex: 'Codex',
+  cursor: 'Cursor',
 };
 
 export const KANBAN_CARD_RECAP_PREVIEW_MAX_LEN = 120;

@@ -17,4 +17,13 @@ export const sampleAgentHarnesses: AgentHarnessOption[] = [
     label: 'Codex',
     provider: 'OpenAI CLI',
   },
+  {
+    // The Cursor harness plugin is not implemented yet, so it stays selectable-but-disabled.
+    availability: 'unavailable',
+    command: 'agent',
+    iconUrl: '/agent-icons/cursor-agent.svg',
+    id: 'cursor',
+    label: 'Cursor',
+    provider: 'Cursor',
+  },
 ];

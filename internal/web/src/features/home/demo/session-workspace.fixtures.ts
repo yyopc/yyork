@@ -176,9 +176,30 @@ export const demoHomeWorkspace = {
   ],
 } satisfies SessionWorkspace;
 
+// Kept out of `demoHomeWorkspace.sessions` on purpose: the Cursor harness plugin does not
+// exist yet, so it only needs to render as a card, not to populate the demo columns.
+const workingCursorSession = {
+  ...workingClaudeSession,
+  agent: 'cursor',
+  description:
+    'Sketching the harness plugin contract for the Cursor agent CLI.',
+  id: 'session-ao-9',
+  metadata: JSON.stringify({
+    activity: 'working',
+    currentToolCall: 'Reading file: internal/plugin/registry.go',
+    prompt: 'Draft the Cursor harness plugin.',
+    recap: 'Sketching the harness plugin contract for the Cursor agent CLI.',
+    title: 'Draft the Cursor harness plugin',
+  }),
+  recap: 'Sketching the harness plugin contract for the Cursor agent CLI.',
+  title: 'Draft the Cursor harness plugin',
+  workerId: 'session-ao-9',
+} satisfies WorkerSessionRecord;
+
 export const sampleKanbanCards = {
   claude: toKanbanCard(workingClaudeSession),
   codex: toKanbanCard(promptCodexSession),
+  cursor: toKanbanCard(workingCursorSession),
   selectedCodex: toKanbanCard(workingCodexSession),
 };
 

@@ -58,6 +58,20 @@ func TestDefaultPromptsRenderContext(t *testing.T) {
 	if !strings.Contains(orchestrator, `yyork spawn --json --type worker --prompt "<task>"`) {
 		t.Errorf("orchestrator prompt missing plain spawn example: %q", orchestrator)
 	}
+	for _, want := range []string{
+		"yyork session list --json --all",
+		"yyork stop --json --project <projectID> <id>",
+		`yyork send --json --project <projectID> --session <id> "<message>"`,
+	} {
+		if !strings.Contains(orchestrator, want) {
+			t.Errorf("orchestrator prompt missing scoped command %q: %q", want, orchestrator)
+		}
+	}
+	for _, stale := range []string{"yyork session stop", "<id|path>", "duplicate session"} {
+		if strings.Contains(orchestrator, stale) {
+			t.Errorf("orchestrator prompt contains stale command guidance %q: %q", stale, orchestrator)
+		}
+	}
 	if !strings.Contains(orchestrator, "Start implementation.") {
 		t.Errorf("orchestrator prompt missing fork implementation prompt: %q", orchestrator)
 	}

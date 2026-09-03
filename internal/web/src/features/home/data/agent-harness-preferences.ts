@@ -6,7 +6,7 @@ import type {
 const agentHarnessDefaultsStorageKey = 'yyork.home.agent-harness-defaults';
 const agentHarnessDefaultsVersion = 1;
 
-const agentHarnessIds: AgentHarnessId[] = ['claude-code', 'codex'];
+const agentHarnessIds: AgentHarnessId[] = ['claude-code', 'codex', 'cursor'];
 
 export type AgentHarnessDefaults = Pick<
   ProjectSetupHarnessSelection,

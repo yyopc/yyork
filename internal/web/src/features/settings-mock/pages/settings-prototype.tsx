@@ -23,7 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-type AgentID = 'claude-code' | 'codex' | 'gemini-cli' | 'opencode';
+type AgentID = 'claude-code' | 'codex' | 'cursor' | 'gemini-cli' | 'opencode';
 type ProjectID = 'yyork' | 'fireredvad' | 'creatives' | 'reverbcode';
 type MockMode = 'first-run' | 'global' | 'project';
 
@@ -66,6 +66,16 @@ const agents: AgentOption[] = [
     id: 'codex',
     label: 'Codex',
     provider: 'OpenAI CLI',
+  },
+  {
+    availability: 'missing',
+    command: 'agent',
+    description:
+      'Best when you want workers driven by the Cursor agent CLI. The harness plugin is not implemented yet.',
+    icon: '/agent-icons/cursor-agent.svg',
+    id: 'cursor',
+    label: 'Cursor',
+    provider: 'Cursor',
   },
   {
     availability: 'missing',

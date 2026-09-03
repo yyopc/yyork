@@ -3,6 +3,7 @@ package session_test
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -146,19 +147,20 @@ func (f *fakeProvider) ListSessionNames(_ context.Context) ([]string, error) {
 
 // fakeAgent is a minimal agent.Agent + plugin.Plugin used only for tests.
 type fakeAgent struct {
-	launchCmd    []string
-	restoreCmd   []string
-	forkCmd      []string
-	launchErr    error
-	restoreErr   error
-	forkErr      error
-	restoreOK    bool
-	forkOK       bool
-	hooksErr     error
-	launchCalls  []pluginagent.LaunchConfig
-	restoreCalls []pluginagent.RestoreConfig
-	forkCalls    []pluginagent.ForkConfig
-	hookCalls    []pluginagent.WorkspaceHookConfig
+	launchCmd      []string
+	restoreCmd     []string
+	forkCmd        []string
+	launchErr      error
+	restoreErr     error
+	forkErr        error
+	restoreOK      bool
+	forkOK         bool
+	hooksErr       error
+	launchCalls    []pluginagent.LaunchConfig
+	preLaunchCalls []pluginagent.LaunchConfig
+	restoreCalls   []pluginagent.RestoreConfig
+	forkCalls      []pluginagent.ForkConfig
+	hookCalls      []pluginagent.WorkspaceHookConfig
 }
 
 func (f *fakeAgent) Manifest() plugin.Manifest {
@@ -176,6 +178,10 @@ func (f *fakeAgent) GetLaunchCommand(_ context.Context, cfg pluginagent.LaunchCo
 }
 func (f *fakeAgent) GetPromptDeliveryStrategy(context.Context, pluginagent.LaunchConfig) (pluginagent.PromptDeliveryStrategy, error) {
 	return pluginagent.PromptDeliveryInCommand, nil
+}
+func (f *fakeAgent) PreLaunch(_ context.Context, cfg pluginagent.LaunchConfig) error {
+	f.preLaunchCalls = append(f.preLaunchCalls, cfg)
+	return nil
 }
 func (f *fakeAgent) GetSessionTitleCommand(context.Context, pluginagent.TitleConfig) ([]string, error) {
 	return nil, nil
@@ -217,6 +223,10 @@ type harness struct {
 }
 
 func newHarness(t *testing.T) *harness {
+	return newHarnessWithAgentConfigs(t, map[string]pluginagent.Config{})
+}
+
+func newHarnessWithAgentConfigs(t *testing.T, agentConfigs map[string]pluginagent.Config) *harness {
 	t.Helper()
 	ctx := context.Background()
 
@@ -248,6 +258,7 @@ func newHarness(t *testing.T) *harness {
 		Bus:          bus,
 		WorktreeBase: worktreeBase,
 		DefaultAgent: "fake",
+		AgentConfigs: agentConfigs,
 	})
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
@@ -290,7 +301,9 @@ func (h *harness) drainEvents(t *testing.T, want int, timeout time.Duration) []e
 
 func TestSpawnHappyPath(t *testing.T) {
 	t.Parallel()
-	h := newHarness(t)
+	h := newHarnessWithAgentConfigs(t, map[string]pluginagent.Config{
+		"fake": {"model": "configured-model"},
+	})
 	ctx := context.Background()
 
 	sess, err := h.engine.Spawn(ctx, session.SpawnRequest{
@@ -372,6 +385,15 @@ func TestSpawnHappyPath(t *testing.T) {
 	if h.agent.hookCalls[0].WorkspacePath != wantWorktree {
 		t.Errorf("hook WorkspacePath = %q, want %q", h.agent.hookCalls[0].WorkspacePath, wantWorktree)
 	}
+	if got := h.agent.launchCalls[0].Config["model"]; got != "configured-model" {
+		t.Errorf("launch config model = %#v, want configured-model", got)
+	}
+	if got := h.agent.preLaunchCalls[0].Config["model"]; got != "configured-model" {
+		t.Errorf("pre-launch config model = %#v, want configured-model", got)
+	}
+	if got := h.agent.hookCalls[0].Config["model"]; got != "configured-model" {
+		t.Errorf("hook config model = %#v, want configured-model", got)
+	}
 
 	// Event published.
 	events := h.drainEvents(t, 1, 100*time.Millisecond)
@@ -380,6 +402,30 @@ func TestSpawnHappyPath(t *testing.T) {
 	}
 	if events[0].Payload["id"] != sess.ID {
 		t.Errorf("event id = %q, want %q", events[0].Payload["id"], sess.ID)
+	}
+}
+
+func TestNewEngineLoadsDefaultAgentConfig(t *testing.T) {
+	home := t.TempDir()
+	configDir := filepath.Join(home, ".yyork")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte("agents:\n  fake:\n    model: loaded-model\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+
+	h := newHarnessWithAgentConfigs(t, nil)
+	if _, err := h.engine.Spawn(context.Background(), session.SpawnRequest{
+		ProjectPath:   "/tmp/proj",
+		Prompt:        "use loaded config",
+		WorkspaceMode: session.WorkerWorkspaceModeNewWorktree,
+	}); err != nil {
+		t.Fatalf("Spawn: %v", err)
+	}
+	if got := h.agent.launchCalls[0].Config["model"]; got != "loaded-model" {
+		t.Fatalf("launch config model = %#v, want loaded-model", got)
 	}
 }
 
@@ -479,6 +525,9 @@ func TestSpawnOrchestratorPersistsKindAndSystemPrompt(t *testing.T) {
 	if got.Metadata["title"] != "Orchestrator" {
 		t.Errorf("row metadata title = %v, want Orchestrator", got.Metadata["title"])
 	}
+	if got.Metadata["systemPrompt"] != "orchestrate workers" {
+		t.Errorf("row metadata systemPrompt = %v, want rendered system prompt", got.Metadata["systemPrompt"])
+	}
 
 	if len(h.agent.launchCalls) != 1 {
 		t.Fatalf("launchCalls = %d, want 1", len(h.agent.launchCalls))
@@ -491,6 +540,9 @@ func TestSpawnOrchestratorPersistsKindAndSystemPrompt(t *testing.T) {
 	}
 	if h.provider.createCalls[0].Env["YYORK_SESSION_KIND"] != "orchestrator" {
 		t.Errorf("env[YYORK_SESSION_KIND] = %q, want orchestrator", h.provider.createCalls[0].Env["YYORK_SESSION_KIND"])
+	}
+	if h.provider.createCalls[0].Env["YYORK_PERMISSION_MODE"] != string(pluginagent.PermissionModeBypassPermissions) {
+		t.Errorf("env[YYORK_PERMISSION_MODE] = %q, want bypass-permissions", h.provider.createCalls[0].Env["YYORK_PERMISSION_MODE"])
 	}
 	if h.provider.createCalls[0].Cwd != "/tmp/proj" {
 		t.Errorf("orchestrator cwd = %q, want /tmp/proj", h.provider.createCalls[0].Cwd)
@@ -526,6 +578,33 @@ func TestSpawnOrchestratorUsesDefaultSystemPrompt(t *testing.T) {
 	}
 }
 
+func TestSpawnPersistsSystemPromptFileContentsForHooks(t *testing.T) {
+	h := newHarness(t)
+	promptFile := filepath.Join(t.TempDir(), "cursor-system-prompt.md")
+	if err := os.WriteFile(promptFile, []byte("Use the persisted Cursor instructions."), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	sess, err := h.engine.Spawn(context.Background(), session.SpawnRequest{
+		ProjectPath:      "/tmp/proj",
+		Prompt:           "Use Cursor",
+		SystemPromptFile: promptFile,
+	})
+	if err != nil {
+		t.Fatalf("Spawn: %v", err)
+	}
+	row, err := h.repo.Get(context.Background(), sess.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := row.Metadata["systemPrompt"]; got != "Use the persisted Cursor instructions." {
+		t.Fatalf("systemPrompt metadata = %#v, want file contents", got)
+	}
+	if got := h.agent.launchCalls[0].SystemPromptFile; got != promptFile {
+		t.Fatalf("launch SystemPromptFile = %q, want %q", got, promptFile)
+	}
+}
+
 func TestSpawnWorkerUsesDefaultSystemPrompt(t *testing.T) {
 	t.Parallel()
 	h := newHarness(t)
@@ -554,7 +633,9 @@ func TestSpawnWorkerUsesDefaultSystemPrompt(t *testing.T) {
 
 func TestForkCreatesWorktreeAndNativeForkSession(t *testing.T) {
 	t.Parallel()
-	h := newHarness(t)
+	h := newHarnessWithAgentConfigs(t, map[string]pluginagent.Config{
+		"fake": {"model": "configured-model"},
+	})
 	ctx := context.Background()
 	h.agent.forkOK = true
 	h.agent.forkCmd = []string{"fake", "fork", "native-1"}
@@ -601,6 +682,9 @@ func TestForkCreatesWorktreeAndNativeForkSession(t *testing.T) {
 	if forked.Metadata["title"] != "Implement: Design the migration" {
 		t.Fatalf("title = %#v, want implementation title", forked.Metadata["title"])
 	}
+	if prompt, _ := forked.Metadata["systemPrompt"].(string); !strings.Contains(prompt, wantWorktree) {
+		t.Fatalf("systemPrompt metadata does not describe fork worktree %q: %q", wantWorktree, prompt)
+	}
 
 	if len(h.worktree.createCalls) != 1 {
 		t.Fatalf("worktree createCalls = %d, want 1", len(h.worktree.createCalls))
@@ -626,6 +710,15 @@ func TestForkCreatesWorktreeAndNativeForkSession(t *testing.T) {
 	if !strings.Contains(h.agent.forkCalls[0].SystemPrompt, wantWorktree) {
 		t.Fatalf("fork SystemPrompt missing worktree %q", wantWorktree)
 	}
+	if got := h.agent.forkCalls[0].Config["model"]; got != "configured-model" {
+		t.Fatalf("fork config model = %#v, want configured-model", got)
+	}
+	if got := h.agent.preLaunchCalls[0].Config["model"]; got != "configured-model" {
+		t.Fatalf("fork pre-launch config model = %#v, want configured-model", got)
+	}
+	if got := h.agent.hookCalls[0].Config["model"]; got != "configured-model" {
+		t.Fatalf("fork hook config model = %#v, want configured-model", got)
+	}
 	if len(h.provider.createCalls) != 1 {
 		t.Fatalf("provider createCalls = %d, want 1", len(h.provider.createCalls))
 	}
@@ -634,6 +727,9 @@ func TestForkCreatesWorktreeAndNativeForkSession(t *testing.T) {
 	}
 	if h.provider.createCalls[0].Cwd != wantWorktree {
 		t.Fatalf("Cwd = %q, want %q", h.provider.createCalls[0].Cwd, wantWorktree)
+	}
+	if got := h.provider.createCalls[0].Env["YYORK_PERMISSION_MODE"]; got != string(pluginagent.PermissionModeBypassPermissions) {
+		t.Fatalf("YYORK_PERMISSION_MODE = %q, want bypass-permissions", got)
 	}
 
 	events := h.drainEvents(t, 1, 100*time.Millisecond)
@@ -677,7 +773,9 @@ func TestForkRollsBackWhenNativeForkUnavailable(t *testing.T) {
 
 func TestRestartRecreatesDurabilitySessionFromNativeTranscript(t *testing.T) {
 	t.Parallel()
-	h := newHarness(t)
+	h := newHarnessWithAgentConfigs(t, map[string]pluginagent.Config{
+		"fake": {"model": "configured-model"},
+	})
 	ctx := context.Background()
 	h.agent.restoreOK = true
 	h.agent.restoreCmd = []string{"fake", "resume", "native-1"}
@@ -733,6 +831,15 @@ func TestRestartRecreatesDurabilitySessionFromNativeTranscript(t *testing.T) {
 	if h.agent.restoreCalls[0].Session.Metadata["agentSessionId"] != "native-1" {
 		t.Fatalf("restore metadata = %#v, want native id", h.agent.restoreCalls[0].Session.Metadata)
 	}
+	if got := h.agent.restoreCalls[0].Config["model"]; got != "configured-model" {
+		t.Fatalf("restore config model = %#v, want configured-model", got)
+	}
+	if got := h.agent.preLaunchCalls[0].Config["model"]; got != "configured-model" {
+		t.Fatalf("restart pre-launch config model = %#v, want configured-model", got)
+	}
+	if got := h.agent.hookCalls[0].Config["model"]; got != "configured-model" {
+		t.Fatalf("restart hook config model = %#v, want configured-model", got)
+	}
 	if len(h.provider.killCalls) != 1 || h.provider.killCalls[0] != "source-1" {
 		t.Fatalf("killCalls = %#v, want source zellij", h.provider.killCalls)
 	}
@@ -751,6 +858,9 @@ func TestRestartRecreatesDurabilitySessionFromNativeTranscript(t *testing.T) {
 	}
 	if create.Env["YYORK_SESSION_ID"] != source.ID || create.Env["YYORK_SESSION_KIND"] != string(session.KindOrchestrator) {
 		t.Fatalf("Env = %#v, want session id and orchestrator kind", create.Env)
+	}
+	if got := create.Env["YYORK_PERMISSION_MODE"]; got != string(pluginagent.PermissionModeBypassPermissions) {
+		t.Fatalf("YYORK_PERMISSION_MODE = %q, want bypass-permissions", got)
 	}
 	if len(h.worktree.removeCalls) != 0 {
 		t.Fatalf("removeCalls = %d, want no worktree deletion", len(h.worktree.removeCalls))

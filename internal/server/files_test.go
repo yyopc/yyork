@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/yyopc/yyork/internal/session"
@@ -251,6 +252,232 @@ func TestHandleSessionFileContentRejectsSymlinkOutsideWorkspace(t *testing.T) {
 
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("expected symlink escape to be rejected, got %d", response.Code)
+	}
+}
+
+func TestHandleSessionFileRawServesBytesWithContentType(t *testing.T) {
+	workspacePath := t.TempDir()
+	pngBytes := "\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+	writeTestFile(t, filepath.Join(workspacePath, "assets", "logo.png"), pngBytes)
+
+	server := New(Config{
+		Workspace: session.Workspace{
+			Sessions: []session.Session{
+				{CWD: workspacePath, ID: "ao-1", Project: "project-a"},
+			},
+		},
+	})
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/api/sessions/ao-1/files/raw?project=project-a&path="+url.QueryEscape("assets/logo.png"),
+		nil,
+	)
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected raw file request to succeed, got %d: %s", response.Code, response.Body.String())
+	}
+	if got := response.Header().Get("Content-Type"); got != "image/png" {
+		t.Fatalf("expected Content-Type image/png, got %q", got)
+	}
+	if got := response.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Fatalf("expected nosniff header, got %q", got)
+	}
+	if response.Body.String() != pngBytes {
+		t.Fatalf("expected exact file bytes, got %q", response.Body.String())
+	}
+}
+
+func TestHandleSessionFileRawSupportsRangeRequests(t *testing.T) {
+	workspacePath := t.TempDir()
+	writeTestFile(t, filepath.Join(workspacePath, "clip.mp4"), "0123456789")
+
+	server := New(Config{
+		Workspace: session.Workspace{
+			Sessions: []session.Session{
+				{CWD: workspacePath, ID: "ao-1", Project: "project-a"},
+			},
+		},
+	})
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/api/sessions/ao-1/files/raw?project=project-a&path=clip.mp4",
+		nil,
+	)
+	request.Header.Set("Range", "bytes=2-5")
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusPartialContent {
+		t.Fatalf("expected 206 for range request, got %d: %s", response.Code, response.Body.String())
+	}
+	if got := response.Header().Get("Content-Range"); got != "bytes 2-5/10" {
+		t.Fatalf("expected Content-Range bytes 2-5/10, got %q", got)
+	}
+	if response.Body.String() != "2345" {
+		t.Fatalf("expected partial body %q, got %q", "2345", response.Body.String())
+	}
+}
+
+func TestHandleSessionFileRawPinsExplicitContentTypes(t *testing.T) {
+	cases := []struct {
+		fileName    string
+		contentType string
+	}{
+		{"icon.svg", "image/svg+xml"},
+		{"voice.m4a", "audio/mp4"},
+		{"clip.webm", "video/webm"},
+		{"song.MP3", "audio/mpeg"},
+	}
+
+	workspacePath := t.TempDir()
+	for _, testCase := range cases {
+		writeTestFile(t, filepath.Join(workspacePath, testCase.fileName))
+	}
+
+	server := New(Config{
+		Workspace: session.Workspace{
+			Sessions: []session.Session{
+				{CWD: workspacePath, ID: "ao-1", Project: "project-a"},
+			},
+		},
+	})
+
+	for _, testCase := range cases {
+		request := httptest.NewRequest(
+			http.MethodGet,
+			"/api/sessions/ao-1/files/raw?project=project-a&path="+url.QueryEscape(testCase.fileName),
+			nil,
+		)
+		response := httptest.NewRecorder()
+
+		server.Handler().ServeHTTP(response, request)
+
+		if response.Code != http.StatusOK {
+			t.Fatalf("%s: expected raw request to succeed, got %d", testCase.fileName, response.Code)
+		}
+		if got := response.Header().Get("Content-Type"); got != testCase.contentType {
+			t.Fatalf("%s: expected Content-Type %q, got %q", testCase.fileName, testCase.contentType, got)
+		}
+	}
+}
+
+func TestHandleSessionFileRawServesFileLargerThanContentCap(t *testing.T) {
+	workspacePath := t.TempDir()
+	largeContents := strings.Repeat("a", maxFileContentBytes+10)
+	writeTestFile(t, filepath.Join(workspacePath, "large.mp4"), largeContents)
+
+	server := New(Config{
+		Workspace: session.Workspace{
+			Sessions: []session.Session{
+				{CWD: workspacePath, ID: "ao-1", Project: "project-a"},
+			},
+		},
+	})
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/api/sessions/ao-1/files/raw?project=project-a&path=large.mp4",
+		nil,
+	)
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected large raw file request to succeed, got %d", response.Code)
+	}
+	if response.Body.Len() != len(largeContents) {
+		t.Fatalf("expected %d bytes without truncation, got %d", len(largeContents), response.Body.Len())
+	}
+}
+
+func TestHandleSessionFileRawRejectsPathTraversal(t *testing.T) {
+	workspacePath := t.TempDir()
+	server := New(Config{
+		Workspace: session.Workspace{
+			Sessions: []session.Session{
+				{CWD: workspacePath, ID: "ao-1", Project: "project-a"},
+			},
+		},
+	})
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/api/sessions/ao-1/files/raw?project=project-a&path="+url.QueryEscape("../secret.png"),
+		nil,
+	)
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected path traversal to be rejected, got %d", response.Code)
+	}
+}
+
+func TestHandleSessionFileRawRejectsSymlinkOutsideWorkspace(t *testing.T) {
+	workspacePath := t.TempDir()
+	externalPath := filepath.Join(t.TempDir(), "secret.png")
+	writeTestFile(t, externalPath, "do not read\n")
+	if err := os.Symlink(externalPath, filepath.Join(workspacePath, "secret-link.png")); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+
+	server := New(Config{
+		Workspace: session.Workspace{
+			Sessions: []session.Session{
+				{CWD: workspacePath, ID: "ao-1", Project: "project-a"},
+			},
+		},
+	})
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/api/sessions/ao-1/files/raw?project=project-a&path=secret-link.png",
+		nil,
+	)
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected symlink escape to be rejected, got %d", response.Code)
+	}
+}
+
+func TestHandleSessionFileRawRejectsMissingAndDirectoryPaths(t *testing.T) {
+	workspacePath := t.TempDir()
+	writeTestFile(t, filepath.Join(workspacePath, "media", "logo.png"))
+
+	server := New(Config{
+		Workspace: session.Workspace{
+			Sessions: []session.Session{
+				{CWD: workspacePath, ID: "ao-1", Project: "project-a"},
+			},
+		},
+	})
+
+	missingRequest := httptest.NewRequest(
+		http.MethodGet,
+		"/api/sessions/ao-1/files/raw?project=project-a&path=missing.png",
+		nil,
+	)
+	missingResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(missingResponse, missingRequest)
+	if missingResponse.Code != http.StatusNotFound {
+		t.Fatalf("expected missing file to 404, got %d", missingResponse.Code)
+	}
+
+	directoryRequest := httptest.NewRequest(
+		http.MethodGet,
+		"/api/sessions/ao-1/files/raw?project=project-a&path=media",
+		nil,
+	)
+	directoryResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(directoryResponse, directoryRequest)
+	if directoryResponse.Code != http.StatusBadRequest {
+		t.Fatalf("expected directory path to be rejected, got %d", directoryResponse.Code)
 	}
 }
 

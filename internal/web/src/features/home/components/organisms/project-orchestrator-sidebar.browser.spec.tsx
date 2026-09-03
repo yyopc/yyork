@@ -85,6 +85,7 @@ function makeWorkerSession(
 }
 
 function StickySidebarHarness(props: {
+  onAddProject?: () => void;
   onTerminalSessionOpenDetached?: (selectionKey: string) => void;
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
   pinnedTerminalSessionKeys?: string[];
@@ -109,6 +110,7 @@ function StickySidebarHarness(props: {
 }
 
 function StickySidebarContents(props: {
+  onAddProject?: () => void;
   onTerminalSessionOpenDetached?: (selectionKey: string) => void;
   onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
   pinnedTerminalSessionKeys?: string[];
@@ -127,7 +129,7 @@ function StickySidebarContents(props: {
     <SidebarProvider defaultOpen className="[--sidebar-width:13rem]">
       <ProjectOrchestratorSidebar
         activeBoardProjectId={stickyProjects[0]?.id}
-        onAddProject={() => {}}
+        onAddProject={props.onAddProject ?? (() => {})}
         onOrchestratorSessionSelect={() => {}}
         onProjectBoardSelect={() => {}}
         onProjectDelete={() => {}}
@@ -172,16 +174,19 @@ function StickySidebarContents(props: {
 
 async function renderDesktopStickySidebar(
   props: {
+    onAddProject?: () => void;
     onTerminalSessionOpenDetached?: (selectionKey: string) => void;
     onTerminalSessionMarkDone?: (selectionKey: string, label: string) => void;
     pinnedTerminalSessionKeys?: string[];
   } = {}
 ) {
   await page.viewport(1024, 768);
-  render(<StickySidebarHarness {...props} />);
+  const renderResult = render(<StickySidebarHarness {...props} />);
   await expect
     .element(page.getByRole('navigation', { name: 'Projects' }))
     .toBeVisible();
+
+  return renderResult;
 }
 
 function getButtonByAriaLabel(label: string) {
@@ -315,6 +320,182 @@ function getReferenceColor(className: string) {
   return color;
 }
 
+test('starts Pinned and Projects expanded on every mount with accessible triggers', async () => {
+  const user = setupUser();
+  const renderResult = await renderDesktopStickySidebar();
+  const pinnedTrigger = page.getByRole('button', {
+    name: 'Toggle Pinned section',
+  });
+  const projectsTrigger = page.getByRole('button', {
+    name: 'Toggle Projects section',
+  });
+
+  await expect.element(pinnedTrigger).toHaveAttribute('aria-expanded', 'true');
+  await expect
+    .element(projectsTrigger)
+    .toHaveAttribute('aria-expanded', 'true');
+  await expect
+    .element(page.getByRole('button', { name: 'No pinned sessions' }))
+    .toBeVisible();
+  await expect
+    .element(page.getByRole('button', { name: 'Open Sticky Alpha board' }))
+    .toBeVisible();
+
+  await user.click(pinnedTrigger);
+  await user.click(projectsTrigger);
+  renderResult.unmount();
+
+  await renderDesktopStickySidebar();
+  await expect.element(pinnedTrigger).toHaveAttribute('aria-expanded', 'true');
+  await expect
+    .element(projectsTrigger)
+    .toHaveAttribute('aria-expanded', 'true');
+});
+
+test('toggles Pinned and Projects independently and releases the Projects flex height', async () => {
+  const user = setupUser();
+  await renderDesktopStickySidebar();
+  const pinnedTrigger = page.getByRole('button', {
+    name: 'Toggle Pinned section',
+  });
+  const projectsTrigger = page.getByRole('button', {
+    name: 'Toggle Projects section',
+  });
+  const projectsNav = page
+    .getByRole('navigation', {
+      name: 'Projects',
+    })
+    .element();
+
+  expect(Number(getComputedStyle(projectsNav).flexGrow)).toBeGreaterThan(0);
+
+  await user.click(pinnedTrigger);
+  await expect.element(pinnedTrigger).toHaveAttribute('aria-expanded', 'false');
+  await expect
+    .element(projectsTrigger)
+    .toHaveAttribute('aria-expanded', 'true');
+  await expect
+    .element(page.getByRole('button', { name: 'No pinned sessions' }))
+    .not.toBeInTheDocument();
+  await expect
+    .element(page.getByRole('button', { name: 'Open Sticky Alpha board' }))
+    .toBeVisible();
+
+  await user.click(projectsTrigger);
+  await expect
+    .element(projectsTrigger)
+    .toHaveAttribute('aria-expanded', 'false');
+  await expect
+    .element(page.getByRole('button', { name: 'Open Sticky Alpha board' }))
+    .not.toBeInTheDocument();
+  expect(Number(getComputedStyle(projectsNav).flexGrow)).toBe(0);
+
+  await user.click(pinnedTrigger);
+  await expect.element(pinnedTrigger).toHaveAttribute('aria-expanded', 'true');
+  await expect
+    .element(projectsTrigger)
+    .toHaveAttribute('aria-expanded', 'false');
+  await expect
+    .element(page.getByRole('button', { name: 'No pinned sessions' }))
+    .toBeVisible();
+});
+
+test('keeps Add project available without changing the Projects expanded state', async () => {
+  const user = setupUser();
+  let addProjectCallCount = 0;
+  await renderDesktopStickySidebar({
+    onAddProject: () => {
+      addProjectCallCount += 1;
+    },
+  });
+  const projectsTrigger = page.getByRole('button', {
+    name: 'Toggle Projects section',
+  });
+  const addProjectButton = page.getByRole('button', { name: 'Add project' });
+
+  await user.click(projectsTrigger);
+  await expect
+    .element(projectsTrigger)
+    .toHaveAttribute('aria-expanded', 'false');
+  await expect.element(addProjectButton).toBeVisible();
+
+  await user.click(addProjectButton);
+
+  expect(addProjectCallCount).toBe(1);
+  await expect
+    .element(projectsTrigger)
+    .toHaveAttribute('aria-expanded', 'false');
+});
+
+test('places subtle section chevrons beside labels and reveals them on hover and keyboard focus', async () => {
+  const user = setupUser();
+  await renderDesktopStickySidebar();
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const sectionLabels = ['Pinned', 'Projects'] as const;
+  const triggers = sectionLabels.map((label) =>
+    page.getByRole('button', { name: `Toggle ${label} section` })
+  );
+
+  for (const [index, trigger] of triggers.entries()) {
+    const label = sectionLabels[index];
+    const triggerElement = trigger.element();
+    const labelElement = triggerElement.querySelector('span');
+    const chevron = triggerElement.querySelector('svg');
+
+    expect(labelElement?.textContent).toBe(label);
+    expect(labelElement?.nextElementSibling).toBe(chevron);
+    expect(chevron).toBeTruthy();
+    expect(chevron?.getAttribute('aria-hidden')).toBe('true');
+    expect(getComputedStyle(chevron as SVGElement).opacity).toBe('0');
+    expect(getComputedStyle(chevron as SVGElement).transitionDuration).toBe(
+      reducedMotion ? '0s' : '0.15s'
+    );
+
+    const labelRect = (labelElement as HTMLElement).getBoundingClientRect();
+    const chevronRect = (chevron as SVGElement).getBoundingClientRect();
+    expect(chevronRect.left).toBeGreaterThanOrEqual(labelRect.right);
+    expect(chevronRect.left - labelRect.right).toBeLessThanOrEqual(4);
+
+    await trigger.hover();
+    expect(triggerElement.matches(':hover')).toBe(true);
+    await expect
+      .poll(() => Number(getComputedStyle(chevron as SVGElement).opacity))
+      .toBeGreaterThan(0);
+    await trigger.unhover();
+    await expect
+      .poll(() => getComputedStyle(chevron as SVGElement).opacity)
+      .toBe('0');
+  }
+
+  const addProjectButton = page.getByRole('button', { name: 'Add project' });
+
+  for (const [index, trigger] of triggers.entries()) {
+    const triggerElement = trigger.element();
+    const chevron = triggerElement.querySelector('svg') as SVGElement;
+    const followingFocusableElement =
+      index === 0 ? triggers[1]?.element() : addProjectButton.element();
+
+    if (!followingFocusableElement) {
+      throw new Error('Expected a control after the section trigger.');
+    }
+
+    followingFocusableElement.focus();
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(triggerElement);
+    await expect
+      .poll(() => Number(getComputedStyle(chevron).opacity))
+      .toBeGreaterThan(0);
+
+    const expandedRotation = getComputedStyle(chevron).rotate;
+    await user.keyboard('{Enter}');
+    await expect.element(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(triggerElement.hasAttribute('data-panel-open')).toBe(false);
+    await expect
+      .poll(() => getComputedStyle(chevron).rotate)
+      .not.toBe(expandedRotation);
+  }
+});
+
 test('uses the scroll fade affordance only on the projects scroller', async () => {
   await renderDesktopStickySidebar();
 
@@ -334,6 +515,32 @@ test('uses the scroll fade affordance only on the projects scroller', async () =
   expect(getPinnedGroupContent().classList.contains('scroll-fade-y')).toBe(
     false
   );
+});
+
+test('keeps the scroll-fade animation off the Projects collapsible panel', async () => {
+  const user = setupUser();
+  await renderDesktopStickySidebar();
+  const projectsNav = page
+    .getByRole('navigation', { name: 'Projects' })
+    .element();
+  const projectsPanel = projectsNav.querySelector<HTMLElement>(
+    '[data-slot="collapsible-content"]'
+  );
+  const scrollArea = getProjectsScrollArea();
+
+  expect(projectsPanel).toBeTruthy();
+  expect(projectsPanel).not.toBe(scrollArea);
+  expect(getComputedStyle(projectsPanel as HTMLElement).animationName).toBe(
+    'none'
+  );
+
+  await user.click(
+    page.getByRole('button', { name: 'Toggle Projects section' })
+  );
+
+  await vi.waitFor(() => {
+    expect(projectsPanel?.isConnected).toBe(false);
+  });
 });
 
 test('keeps matching worker state groups independently controllable across projects', async () => {

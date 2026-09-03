@@ -43,17 +43,18 @@ export function sessionFilesQueryOptions(input: {
   projectId?: string;
   sessionId?: string;
 }) {
+  const enabled =
+    input.enabled && typeof window !== 'undefined' && Boolean(input.sessionId);
+
   return queryOptions({
-    enabled:
-      input.enabled &&
-      typeof window !== 'undefined' &&
-      Boolean(input.sessionId),
+    enabled,
     queryFn: () =>
       fetchSessionFiles({
         projectId: input.projectId,
         sessionId: input.sessionId,
       }),
     queryKey: ['session-files', input.projectId ?? '', input.sessionId ?? ''],
+    refetchInterval: enabled ? 3_000 : false,
     refetchOnWindowFocus: false,
     retry: false,
     staleTime: 5000,
@@ -88,6 +89,23 @@ export function sessionFileContentQueryOptions(input: {
     retry: false,
     staleTime: 5000,
   });
+}
+
+/**
+ * URL for a workspace file's raw bytes, served with a media Content-Type and
+ * Range support. Consumed directly by media element `src` attributes.
+ */
+export function sessionFileRawUrl(input: {
+  path: string;
+  projectId?: string;
+  sessionId: string;
+}): string {
+  const params = new URLSearchParams({ path: input.path });
+  if (input.projectId) {
+    params.set('project', input.projectId);
+  }
+
+  return `/api/sessions/${encodeURIComponent(input.sessionId)}/files/raw?${params.toString()}`;
 }
 
 async function fetchSessionFiles(input: {

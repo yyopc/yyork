@@ -22,17 +22,14 @@ import (
 	pluginagent "github.com/yyopc/yyork/internal/plugin/agent"
 	"github.com/yyopc/yyork/internal/plugin/agent/claudecode"
 	"github.com/yyopc/yyork/internal/plugin/agent/codex"
+	"github.com/yyopc/yyork/internal/plugin/agent/cursor"
 	"github.com/yyopc/yyork/internal/session"
 	"github.com/yyopc/yyork/internal/store"
 	"github.com/yyopc/yyork/internal/terminalhost"
 	"github.com/yyopc/yyork/internal/worktree"
 )
 
-// Command groups, so help lists shipped verbs separately from planned surface.
-const (
-	groupCore    = "core"
-	groupPlanned = "planned"
-)
+const groupCore = "core"
 
 const defaultAgentPlugin = "claude-code"
 
@@ -73,10 +70,7 @@ func newRootCmd(runApp appRunner, webFS fs.FS) *cobra.Command {
 	root.Flags().StringVar(&addr, "addr", "127.0.0.1:7331", "address for the yyork local server")
 	root.Flags().BoolVar(&openBrowser, "open", true, "open the dashboard in the default browser")
 
-	root.AddGroup(
-		&cobra.Group{ID: groupCore, Title: "Commands"},
-		&cobra.Group{ID: groupPlanned, Title: "Planned"},
-	)
+	root.AddGroup(&cobra.Group{ID: groupCore, Title: "Commands"})
 	// Fold cobra's auto-generated help/completion commands into the core group
 	// so help shows a single "Commands" section instead of an ungrouped bucket
 	// with the same title.
@@ -84,7 +78,6 @@ func newRootCmd(runApp appRunner, webFS fs.FS) *cobra.Command {
 	root.SetCompletionCommandGroupID(groupCore)
 	root.AddCommand(newSpawnCmd(), newSessionCmd(), newStopCmd(), newSendCmd(), newDoctorCmd(), newHooksCmd(), newTerminalHostCmd())
 	root.AddCommand(newDevCmd(runApp, webFS))
-	root.AddCommand(plannedCmds()...)
 	return root
 }
 
@@ -161,7 +154,7 @@ func buildEngine(ctx context.Context) (*session.Engine, func(), error) {
 	}
 
 	registry := plugin.NewRegistry()
-	for _, p := range []plugin.Plugin{codex.New(), claudecode.New()} {
+	for _, p := range []plugin.Plugin{codex.New(), claudecode.New(), cursor.New()} {
 		if err := registry.Register(p); err != nil {
 			_ = dataStore.Close()
 			return nil, nil, fmt.Errorf("register %s plugin: %w", p.Manifest().ID, err)
@@ -212,7 +205,7 @@ func newSpawnCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&prompt, "prompt", "", "initial prompt for the spawned agent")
-	cmd.Flags().StringVar(&agentPlugin, "agent", defaultAgentPlugin, "agent plugin to launch, e.g. claude-code or codex")
+	cmd.Flags().StringVar(&agentPlugin, "agent", defaultAgentPlugin, "agent plugin to launch, e.g. claude-code, codex, or cursor")
 	cmd.Flags().StringVar(&systemPromptFile, "system-prompt-file", "", "path to a system prompt file for the spawned agent")
 	cmd.Flags().StringVar(&permissions, "permissions", "", "agent permission mode override")
 	cmd.Flags().StringVar(&sessionType, "type", spawnTypeWorker, "session type: worker or orchestrator")
@@ -229,7 +222,12 @@ func runSpawn(cmd *cobra.Command, req session.SpawnRequest, jsonOutput bool) err
 	if err != nil {
 		return err
 	}
-	req, err = applyConfiguredSpawnDefaults(cmd.Context(), req, projectPath)
+	req, err = applyConfiguredSpawnDefaults(
+		cmd.Context(),
+		req,
+		projectPath,
+		cmd.Flags().Changed("agent"),
+	)
 	if err != nil {
 		return err
 	}
@@ -251,7 +249,18 @@ func runSpawn(cmd *cobra.Command, req session.SpawnRequest, jsonOutput bool) err
 	return nil
 }
 
-func applyConfiguredSpawnDefaults(ctx context.Context, req session.SpawnRequest, projectPath string) (session.SpawnRequest, error) {
+// applyConfiguredSpawnDefaults fills a spawn request with the project's
+// configured worker defaults. agentPluginExplicit reports whether the caller
+// passed --agent; an explicitly requested plugin always wins over the stored
+// project setting, so `--agent claude-code` is honored in a project that
+// otherwise defaults its workers to Codex. WorkspaceMode needs no such flag
+// because it has no user-facing flag: an empty value already means "unset".
+func applyConfiguredSpawnDefaults(
+	ctx context.Context,
+	req session.SpawnRequest,
+	projectPath string,
+	agentPluginExplicit bool,
+) (session.SpawnRequest, error) {
 	req.ProjectPath = projectPath
 	if req.Kind != session.KindOrchestrator && req.WorkspaceMode == "" {
 		mode, ok, err := configuredWorkerWorkspaceMode(ctx, projectPath)
@@ -262,7 +271,7 @@ func applyConfiguredSpawnDefaults(ctx context.Context, req session.SpawnRequest,
 			req.WorkspaceMode = mode
 		}
 	}
-	if req.Kind != session.KindOrchestrator {
+	if req.Kind != session.KindOrchestrator && !agentPluginExplicit {
 		agentPlugin, ok, err := configuredWorkerAgentPlugin(ctx, projectPath)
 		if err != nil {
 			return session.SpawnRequest{}, err
@@ -365,6 +374,43 @@ func resolveProjectPathForSpawn() (string, error) {
 	return abs, nil
 }
 
+func resolveCurrentProjectID() (string, error) {
+	projectPath, err := resolveProjectPathForSpawn()
+	if err != nil {
+		return "", err
+	}
+	return session.ProjectID(projectPath), nil
+}
+
+func normalizeProjectIDFlag(commandName, raw string) (string, error) {
+	projectID := strings.TrimSpace(raw)
+	if projectID == "" {
+		return "", nil
+	}
+	if len(projectID) != 28 || !strings.HasPrefix(projectID, "p_") {
+		return "", fmt.Errorf("%s: --project must be a project id, got %q", commandName, raw)
+	}
+	for _, char := range projectID[2:] {
+		if (char < 'a' || char > 'z') && (char < '2' || char > '7') {
+			return "", fmt.Errorf("%s: --project must be a project id, got %q", commandName, raw)
+		}
+	}
+	return projectID, nil
+}
+
+func validateSessionProjectAccess(commandName, sessionID, ownerProjectID, currentProjectID, overrideProjectID string) error {
+	if overrideProjectID == ownerProjectID || (overrideProjectID == "" && currentProjectID == ownerProjectID) {
+		return nil
+	}
+	return fmt.Errorf(
+		"%s: blocked cross-project target: session %s belongs to project %s; rerun with --project %s to act intentionally",
+		commandName,
+		sessionID,
+		ownerProjectID,
+		ownerProjectID,
+	)
+}
+
 func resolveServerProjectPath(ctx context.Context, args []string) (string, error) {
 	if len(args) > 0 {
 		projectPath, err := resolveGitProjectRoot(ctx, args[0])
@@ -409,23 +455,39 @@ func newSessionCmd() *cobra.Command {
 	}
 
 	var project string
+	var allProjects bool
 	var jsonOutput bool
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "List running sessions.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runSessionList(cmd, project, jsonOutput)
+			return runSessionList(cmd, project, allProjects, jsonOutput)
 		},
 	}
-	list.Flags().StringVar(&project, "project", "", "filter to a single project path")
+	list.Flags().StringVar(&project, "project", "", "filter to a single project id")
+	list.Flags().BoolVar(&allProjects, "all", false, "include sessions from all projects")
 	list.Flags().BoolVar(&jsonOutput, "json", false, "write machine-readable JSON to stdout")
 	cmd.AddCommand(list)
 	return cmd
 }
 
-func runSessionList(cmd *cobra.Command, projectFilter string, jsonOutput bool) error {
+func runSessionList(cmd *cobra.Command, projectFilter string, allProjects bool, jsonOutput bool) error {
 	ctx := cmd.Context()
+	if allProjects && strings.TrimSpace(projectFilter) != "" {
+		return errors.New("session list: --all and --project cannot be used together")
+	}
+	projectFilter, err := normalizeProjectIDFlag("session list", projectFilter)
+	if err != nil {
+		return err
+	}
+	if !allProjects && projectFilter == "" {
+		projectFilter, err = resolveCurrentProjectID()
+		if err != nil {
+			return fmt.Errorf("session list: %w", err)
+		}
+	}
+
 	dbPath, err := store.DefaultPath()
 	if err != nil {
 		return fmt.Errorf("session list: %w", err)
@@ -443,10 +505,10 @@ func runSessionList(cmd *cobra.Command, projectFilter string, jsonOutput bool) e
 
 	rows := append([]session.Session{}, workspace.Orchestrators...)
 	rows = append(rows, workspace.Sessions...)
-	if projectFilter != "" {
+	if !allProjects {
 		filtered := rows[:0]
 		for _, row := range rows {
-			if session.SessionProjectMatches(row, projectFilter) {
+			if sessionProjectID(row) == projectFilter {
 				filtered = append(filtered, row)
 			}
 		}
@@ -484,6 +546,7 @@ func runSessionList(cmd *cobra.Command, projectFilter string, jsonOutput bool) e
 }
 
 func newStopCmd() *cobra.Command {
+	var projectID string
 	var jsonOutput bool
 
 	cmd := &cobra.Command{
@@ -499,11 +562,15 @@ func newStopCmd() *cobra.Command {
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
+				if strings.TrimSpace(projectID) != "" {
+					return errors.New("stop: --project requires a sessionID")
+				}
 				return runStopServer(cmd, jsonOutput)
 			}
-			return runStopSession(cmd, args[0], jsonOutput)
+			return runStopSession(cmd, args[0], projectID, jsonOutput)
 		},
 	}
+	cmd.Flags().StringVar(&projectID, "project", "", "owning project id for intentional cross-project access")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "write machine-readable JSON to stdout")
 	return cmd
 }
@@ -537,7 +604,27 @@ func runStopServer(cmd *cobra.Command, jsonOutput bool) error {
 	return nil
 }
 
-func runStopSession(cmd *cobra.Command, id string, jsonOutput bool) error {
+func runStopSession(cmd *cobra.Command, id, projectID string, jsonOutput bool) error {
+	projectID, err := normalizeProjectIDFlag("stop", projectID)
+	if err != nil {
+		return err
+	}
+
+	target, found, err := loadStoreSession(cmd.Context(), id)
+	if err != nil {
+		return fmt.Errorf("stop: %w", err)
+	}
+	if found {
+		currentProjectID, err := resolveCurrentProjectID()
+		if err != nil {
+			return fmt.Errorf("stop: %w", err)
+		}
+		ownerProjectID := session.ProjectID(target.ProjectPath)
+		if err := validateSessionProjectAccess("stop", id, ownerProjectID, currentProjectID, projectID); err != nil {
+			return err
+		}
+	}
+
 	eng, closeFn, err := buildEngine(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("stop: %w", err)
@@ -557,6 +644,27 @@ func runStopSession(cmd *cobra.Command, id string, jsonOutput bool) error {
 	return nil
 }
 
+func loadStoreSession(ctx context.Context, id string) (store.Session, bool, error) {
+	dbPath, err := store.DefaultPath()
+	if err != nil {
+		return store.Session{}, false, err
+	}
+	dataStore, err := store.Open(ctx, dbPath)
+	if err != nil {
+		return store.Session{}, false, fmt.Errorf("open store: %w", err)
+	}
+	defer func() { _ = dataStore.Close() }()
+
+	target, err := dataStore.Sessions().Get(ctx, id)
+	if errors.Is(err, store.ErrSessionNotFound) {
+		return store.Session{}, false, nil
+	}
+	if err != nil {
+		return store.Session{}, false, fmt.Errorf("load session: %w", err)
+	}
+	return target, true, nil
+}
+
 func newSendCmd() *cobra.Command {
 	var sessionID, projectID string
 	var jsonOutput bool
@@ -572,7 +680,7 @@ func newSendCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&sessionID, "session", "", "target session id (required)")
-	cmd.Flags().StringVar(&projectID, "project", "", "project id to disambiguate duplicate session ids")
+	cmd.Flags().StringVar(&projectID, "project", "", "owning project id for intentional cross-project access")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "write machine-readable JSON to stdout")
 	_ = cmd.MarkFlagRequired("session")
 	return cmd
@@ -587,6 +695,10 @@ func runSend(cmd *cobra.Command, sessionID, projectID string, args []string, jso
 	message := strings.TrimSpace(strings.Join(args, " "))
 	if message == "" {
 		return errors.New("send: a non-empty message argument is required")
+	}
+	projectID, err := normalizeProjectIDFlag("send", projectID)
+	if err != nil {
+		return err
 	}
 
 	dbPath, err := store.DefaultPath()
@@ -603,6 +715,18 @@ func runSend(cmd *cobra.Command, sessionID, projectID string, args []string, jso
 	if err != nil {
 		return fmt.Errorf("send: failed to read workspace: %w", err)
 	}
+	target, found := findWorkspaceSessionByID(workspace, sessionID)
+	if !found {
+		return fmt.Errorf("send: %w: %s", durabilityprovider.ErrSessionNotFound, sessionID)
+	}
+	currentProjectID, err := resolveCurrentProjectID()
+	if err != nil {
+		return fmt.Errorf("send: %w", err)
+	}
+	ownerProjectID := sessionProjectID(target)
+	if err := validateSessionProjectAccess("send", sessionID, ownerProjectID, currentProjectID, projectID); err != nil {
+		return err
+	}
 
 	// A session whose zellij runtime died with the machine (reboot) would
 	// swallow the message into a blank resurrected shell. Best-effort revive
@@ -617,16 +741,15 @@ func runSend(cmd *cobra.Command, sessionID, projectID string, args []string, jso
 	}
 
 	registry := durabilityprovider.NewDefaultRegistry()
-	if err := durabilityprovider.SendToSession(ctx, registry, workspace, projectID, sessionID, message); err != nil {
+	if err := durabilityprovider.Send(ctx, registry, target, message); err != nil {
 		return fmt.Errorf("send: %w", err)
 	}
-	resolvedProjectID, resolvedProjectPath := resolvedProjectForSend(workspace, projectID, sessionID)
 
 	if jsonOutput {
 		return writeJSON(cmd, cliSendOutput{
 			SessionID:   sessionID,
-			ProjectID:   resolvedProjectID,
-			ProjectPath: resolvedProjectPath,
+			ProjectID:   ownerProjectID,
+			ProjectPath: sessionProjectPath(target),
 			Sent:        true,
 		})
 	}
@@ -726,18 +849,22 @@ func sessionProjectPath(row session.Session) string {
 	return row.Project
 }
 
-func resolvedProjectForSend(workspace session.Workspace, projectID string, sessionID string) (string, string) {
+func sessionProjectID(row session.Session) string {
+	if row.Project != "" {
+		return row.Project
+	}
+	return session.ProjectID(sessionProjectPath(row))
+}
+
+func findWorkspaceSessionByID(workspace session.Workspace, sessionID string) (session.Session, bool) {
 	rows := append([]session.Session{}, workspace.Orchestrators...)
 	rows = append(rows, workspace.Sessions...)
 	for _, row := range rows {
-		if row.ID != sessionID {
-			continue
-		}
-		if projectID == "" || session.SessionProjectMatches(row, projectID) {
-			return row.Project, sessionProjectPath(row)
+		if row.ID == sessionID {
+			return row, true
 		}
 	}
-	return projectID, projectID
+	return session.Session{}, false
 }
 
 func decodeSessionMetadata(raw string) map[string]any {
@@ -819,7 +946,7 @@ func cliStringMetadata(metadata map[string]any, key string) string {
 // (agent name, event) intact.
 func newHooksCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:                "hooks <codex|claude-code> <session-start|user-prompt-submit|pre-tool-use|pre-tool-call|post-tool-use|post-tool-call|permission-request|stop|install|uninstall>",
+		Use:                "hooks <codex|claude-code|cursor> <session-start|user-prompt-submit|pre-tool-use|pre-tool-call|post-tool-use|post-tool-call|permission-request|assistant-response|stop|install|uninstall>",
 		Short:              "Internal agent lifecycle hook entrypoint.",
 		Hidden:             true,
 		DisableFlagParsing: true,
@@ -828,64 +955,4 @@ func newHooksCmd() *cobra.Command {
 			return nil
 		},
 	}
-}
-
-// plannedCommandOrder / plannedCommands list orchestration verbs that are not
-// implemented in yyork yet. They are
-// registered as real cobra subcommands grouped under "Planned" so they appear
-// in help and benefit from "did you mean" suggestions, but their RunE just
-// reports that they aren't implemented. Implemented verbs (spawn/session/stop/
-// send) and the no-verb server have first-class handlers above. Shell
-// completion graduated from this list — cobra/fang now generate it for real.
-var plannedCommandOrder = []string{
-	"status",
-	"batch-spawn",
-	"acknowledge",
-	"report",
-	"review-check",
-	"review",
-	"open",
-	"verify",
-	"update",
-	"setup",
-	"plugin",
-	"notify",
-	"migrate-storage",
-	"events",
-	"config",
-	"config-help",
-}
-
-var plannedCommands = map[string]string{
-	"acknowledge":     "Acknowledge session pickup",
-	"batch-spawn":     "Spawn sessions for multiple issues",
-	"config":          "Read or write global orchestration config",
-	"config-help":     "Show config schema guidance",
-	"events":          "Query the activity event log",
-	"migrate-storage": "Migrate legacy storage layouts",
-	"notify":          "Work with configured notification targets",
-	"open":            "Open sessions or dashboard targets",
-	"plugin":          "Browse and manage plugins",
-	"report":          "Declare a workflow transition",
-	"review":          "Manage local reviewer runs",
-	"review-check":    "Check PRs for review comments",
-	"setup":           "Set up integrations with external services",
-	"status":          "Show sessions and runtime status",
-	"update":          "Check for updates and upgrade",
-	"verify":          "Mark an issue as verified or failed",
-}
-
-func plannedCmds() []*cobra.Command {
-	cmds := make([]*cobra.Command, 0, len(plannedCommandOrder))
-	for _, name := range plannedCommandOrder {
-		cmds = append(cmds, &cobra.Command{
-			Use:     name,
-			GroupID: groupPlanned,
-			Short:   plannedCommands[name] + " [planned]",
-			RunE: func(_ *cobra.Command, _ []string) error {
-				return fmt.Errorf("command %q is part of yyork's planned orchestration surface, but is not implemented in yyork yet", name)
-			},
-		})
-	}
-	return cmds
 }

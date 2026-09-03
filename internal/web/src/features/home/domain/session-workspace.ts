@@ -52,7 +52,7 @@ export const sessionWorkspaceSchema = z.preprocess(
 
 export interface KanbanCardData {
   activeToolCall?: ParsedToolCall;
-  /** Formatted working-tool label for slot-text bulletin rendering. */
+  /** Formatted working-tool label for the active tool-call bulletin. */
   activeToolCallLabel?: string;
   activity: SessionActivity;
   activityLabel: string;

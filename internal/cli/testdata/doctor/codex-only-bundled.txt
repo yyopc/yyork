@@ -7,3 +7,4 @@ Runtime requirements
 Agent CLI availability
   MISSING  claude-code  optional  Claude Code is the default agent; install it or spawn with another available agent.
   OK       codex        optional  /Users/me/.local/bin/codex
+  MISSING  cursor       optional  Cursor sessions are unavailable until the agent CLI is on PATH.

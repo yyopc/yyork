@@ -36,11 +36,13 @@ import {
   useFileTreeExpansionState,
 } from '@/features/home/components/molecules/canvas-file-tree-controls';
 import { CanvasMarkdownPreview } from '@/features/home/components/molecules/canvas-markdown-preview';
+import { CanvasMediaPreview } from '@/features/home/components/molecules/canvas-media-preview';
 import { CanvasWebPreview } from '@/features/home/components/molecules/canvas-web-preview';
 import { CanvasDiffView } from '@/features/home/components/organisms/canvas-diff-view';
 import {
   type SessionFileContent,
   sessionFileContentQueryOptions,
+  sessionFileRawUrl,
   sessionFilesQueryOptions,
 } from '@/features/home/data/session-files';
 import {
@@ -52,6 +54,7 @@ import {
   isCanvasTab,
 } from '@/features/home/domain/canvas-tabs';
 import {
+  fileHasCodeView,
   type FileViewMode,
   getFilePreviewKind,
   resolveFileViewMode,
@@ -453,7 +456,22 @@ function CanvasFilePreview(props: {
   const { resolvedTheme } = useTheme();
   const [wrapLines, setWrapLines] = useState(false);
   const previewKind = getFilePreviewKind(props.selectedPath);
-  const effectiveViewMode = resolveFileViewMode(previewKind, props.viewMode);
+  const hasCodeView = fileHasCodeView(props.selectedPath);
+  const effectiveViewMode = resolveFileViewMode(
+    previewKind,
+    props.viewMode,
+    hasCodeView
+  );
+  const mediaKind =
+    previewKind && previewKind !== 'markdown' ? previewKind : null;
+  const mediaSrc =
+    mediaKind && props.selectedPath && props.target.sessionId
+      ? sessionFileRawUrl({
+          path: props.selectedPath,
+          projectId: props.target.projectId,
+          sessionId: props.target.sessionId,
+        })
+      : null;
   const fileCodeThemeType =
     resolvedTheme === 'dark' || resolvedTheme === 'light'
       ? resolvedTheme
@@ -465,7 +483,9 @@ function CanvasFilePreview(props: {
     isPending: fileIsPending,
   } = useQuery(
     sessionFileContentQueryOptions({
-      enabled: Boolean(props.selectedPath),
+      // Binary media renders straight from the raw-bytes URL; the JSON content
+      // response would only carry an empty-contents binary flag.
+      enabled: Boolean(props.selectedPath) && hasCodeView,
       path: props.selectedPath,
       projectId: props.target.projectId,
       sessionId: props.target.sessionId,
@@ -500,7 +520,7 @@ function CanvasFilePreview(props: {
         <div className="yyork-file-preview-header yyork-file-preview-header--with-action py-3">
           <span className="min-w-0 flex-1 truncate">{props.selectedPath}</span>
           <div className="yyork-file-preview-header-controls">
-            {previewKind ? (
+            {previewKind && hasCodeView ? (
               <FileViewModeToggle
                 onViewModeChange={props.onViewModeChange}
                 viewMode={effectiveViewMode}
@@ -541,6 +561,20 @@ function CanvasFilePreview(props: {
             }
             title="Open file"
           />
+        ) : mediaKind && !hasCodeView ? (
+          mediaSrc ? (
+            <CanvasMediaPreview
+              kind={mediaKind}
+              path={props.selectedPath}
+              src={mediaSrc}
+            />
+          ) : (
+            <CanvasPlaceholder
+              centered
+              title="Media file"
+              detail="Select a session to preview this file."
+            />
+          )
         ) : fileIsPending ? (
           <CanvasPlaceholder
             centered
@@ -574,6 +608,14 @@ function CanvasFilePreview(props: {
               <CanvasMarkdownPreview
                 key={fileData.path}
                 content={fileData.contents}
+              />
+            ) : effectiveViewMode === 'preview' && mediaKind && mediaSrc ? (
+              // SVG: text with a code view, previewed via the raw URL so even
+              // files beyond the JSON content cap render fully.
+              <CanvasMediaPreview
+                kind={mediaKind}
+                path={fileData.path}
+                src={mediaSrc}
               />
             ) : (
               <div

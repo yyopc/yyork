@@ -204,6 +204,10 @@ const CANVAS_DIFF_HEADER_UNSAFE_CSS = `
   padding-left: var(--diffs-gap-inline, var(--diffs-gap-fallback));
   background: var(--diffs-bg);
 }
+
+:host > div:first-child {
+  border-bottom: 1px solid var(--border);
+}
 `;
 
 interface CanvasDiffTarget {

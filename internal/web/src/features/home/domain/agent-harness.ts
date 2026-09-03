@@ -1,4 +1,4 @@
-export type AgentHarnessId = 'claude-code' | 'codex';
+export type AgentHarnessId = 'claude-code' | 'codex' | 'cursor';
 
 export type AgentHarnessAvailability = 'available' | 'unavailable';
 

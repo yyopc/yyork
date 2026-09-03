@@ -168,6 +168,7 @@ type XTermTerminalProps = {
   onReady?: (terminal: TerminalHandle) => void;
   onResize?: (cols: number, rows: number) => void;
   rows?: number;
+  wheelScrollsViewport?: boolean;
 };
 
 // xterm.js theme colors must be concrete strings its canvas renderer accepts.
@@ -249,6 +250,59 @@ function usesDarkColorScheme(host: HTMLElement): boolean {
     .filter(Boolean);
 
   return colorScheme.includes('dark');
+}
+
+function colorSchemeReport(usesDark: boolean): string {
+  return `\x1b[?997;${usesDark ? 1 : 2}n`;
+}
+
+function attachSchemeReporter(
+  term: XTerm,
+  getUsesDark: () => boolean,
+  callbacks: { current: XTermTerminalProps }
+) {
+  let notificationsEnabled = false;
+  const queryDisposable = term.parser.registerCsiHandler(
+    { prefix: '?', final: 'n' },
+    (params) => {
+      if (params.length !== 1 || params[0] !== 996) {
+        return false;
+      }
+      callbacks.current.onData?.(colorSchemeReport(getUsesDark()));
+      return true;
+    }
+  );
+  const enableDisposable = term.parser.registerCsiHandler(
+    { prefix: '?', final: 'h' },
+    (params) => {
+      if (params.includes(2031)) {
+        notificationsEnabled = true;
+      }
+      return false;
+    }
+  );
+  const disableDisposable = term.parser.registerCsiHandler(
+    { prefix: '?', final: 'l' },
+    (params) => {
+      if (params.includes(2031)) {
+        notificationsEnabled = false;
+      }
+      return false;
+    }
+  );
+
+  return {
+    dispose: () => {
+      queryDisposable.dispose();
+      enableDisposable.dispose();
+      disableDisposable.dispose();
+    },
+    notify: () => {
+      if (notificationsEnabled) {
+        callbacks.current.onData?.(colorSchemeReport(getUsesDark()));
+      }
+    },
+  };
 }
 
 // On the light theme, keep xterm's contrast correction so dim colors do not
@@ -370,8 +424,38 @@ function attachClipboardShortcuts(term: XTerm): void {
   });
 }
 
+function wheelEventLineDelta(term: XTerm, event: WheelEvent): number {
+  let lines: number;
+  switch (event.deltaMode) {
+    case 0: {
+      const screen = term.element?.querySelector<HTMLElement>('.xterm-screen');
+      const screenHeight = screen?.getBoundingClientRect().height ?? 0;
+      const fallbackCellHeight =
+        (term.options.fontSize ?? 12) * (term.options.lineHeight ?? 1);
+      const cellHeight =
+        screenHeight > 0 && term.rows > 0
+          ? screenHeight / term.rows
+          : fallbackCellHeight;
+      lines = cellHeight > 0 ? event.deltaY / cellHeight : 0;
+      break;
+    }
+    case 1:
+      lines = event.deltaY;
+      break;
+    case 2:
+      lines = event.deltaY * term.rows;
+      break;
+    default:
+      lines = 0;
+  }
+
+  const fastScrollMultiplier = event.altKey ? terminalFastScrollSensitivity : 1;
+  return lines * terminalScrollSensitivity * fastScrollMultiplier;
+}
+
 export function XTermTerminal(props: XTermTerminalProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const wheelLineRemainderRef = useRef(0);
   const setCodexBackgroundAdaptationRef = useRef<
     ((enabled: boolean) => void) | null
   >(null);
@@ -446,6 +530,35 @@ export function XTermTerminal(props: XTermTerminalProps) {
     term.open(host);
     loadRenderer(term);
     attachClipboardShortcuts(term);
+    const scheme = attachSchemeReporter(term, () => usesDark, callbacksRef);
+    term.attachCustomWheelEventHandler((event) => {
+      if (
+        !callbacksRef.current.wheelScrollsViewport ||
+        term.modes.mouseTrackingMode === 'none' ||
+        term.buffer.active.type === 'alternate'
+      ) {
+        wheelLineRemainderRef.current = 0;
+        return true;
+      }
+
+      const lineDelta = wheelEventLineDelta(term, event);
+      const previousRemainder = wheelLineRemainderRef.current;
+      if (
+        previousRemainder !== 0 &&
+        lineDelta !== 0 &&
+        Math.sign(previousRemainder) !== Math.sign(lineDelta)
+      ) {
+        wheelLineRemainderRef.current = 0;
+      }
+
+      const accumulatedLines = wheelLineRemainderRef.current + lineDelta;
+      const wholeLines = Math.trunc(accumulatedLines);
+      wheelLineRemainderRef.current = accumulatedLines - wholeLines;
+      if (wholeLines !== 0) {
+        term.scrollLines(wholeLines);
+      }
+      return false;
+    });
 
     // Codex re-queries OSC 10/11 when it receives FocusIn. Terminalhost restores
     // DECSET 1004 in each browser replay, so wait until xterm has parsed that
@@ -504,6 +617,7 @@ export function XTermTerminal(props: XTermTerminalProps) {
       usesDark = nextUsesDark;
       term.options.theme = buildTheme(host);
       term.options.minimumContrastRatio = minimumContrastRatioFor(usesDark);
+      scheme.notify();
       paletteSyncPending = true;
       if (codexBackgroundAdaptationEnabled) {
         term.write(buildCodexUserMessagePaletteSequence(host, usesDark), () => {
@@ -619,6 +733,7 @@ export function XTermTerminal(props: XTermTerminalProps) {
       }
       dataDisposable.dispose();
       resizeDisposable.dispose();
+      scheme.dispose();
       if (exposedWindow.__yyorkTerminal === term) {
         delete exposedWindow.__yyorkTerminal;
       }

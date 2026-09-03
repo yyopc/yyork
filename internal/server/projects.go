@@ -100,12 +100,12 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 
 	agentPlugin, ok := session.NormalizeAgentPlugin(payload.AgentPlugin)
 	if !ok {
-		http.Error(w, "agentPlugin must be claude-code or codex", http.StatusBadRequest)
+		http.Error(w, "agentPlugin must be claude-code, codex, or cursor", http.StatusBadRequest)
 		return
 	}
 	workerAgentPlugin, ok := session.NormalizeAgentPlugin(payload.WorkerAgentPlugin)
 	if !ok {
-		http.Error(w, "workerAgentPlugin must be claude-code or codex", http.StatusBadRequest)
+		http.Error(w, "workerAgentPlugin must be claude-code, codex, or cursor", http.StatusBadRequest)
 		return
 	}
 	workerWorkspaceModeValue := strings.TrimSpace(payload.WorkerWorkspaceMode)

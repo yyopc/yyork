@@ -111,10 +111,12 @@ Do not edit these files by hand:
    visual coverage.
 3. Before claiming UI work is done, open the relevant app or mock surface
    in the browser and verify the rendered result there. For the yyork app,
-   run root `pnpm dev` and open `https://yyork.localhost`; for HTML design
-   mocks, open `https://mock.yyork.localhost`; for Storybook regression,
-   run `pnpm storybook:dev` and open `https://storybook.yyork.localhost`. Do
-   not use `http://127.0.0.1:3000` or `http://localhost:3000` unless you are
+   prefer root `pnpm d3k:agent` when d3k is installed (reuse via
+   `d3k status --json`; open `https://yyork.localhost`); otherwise
+   `pnpm dev`. For HTML design mocks, run `pnpm dev:mock` and open
+   `https://mock.yyork.localhost`; for Storybook regression, run
+   `pnpm dev:sb` and open `https://storybook.yyork.localhost`. Do not use
+   `http://127.0.0.1:3000` or `http://localhost:3000` unless you are
    explicitly bypassing portless.
 4. Put pure TypeScript tests in `*.unit.spec.ts` and browser/component tests in
    `*.browser.spec.tsx`; Vitest is already configured for both projects.
@@ -124,13 +126,16 @@ Do not edit these files by hand:
    - `pnpm --filter @yyork/web test:browser`
    - `pnpm --filter @yyork/web test:ci` for the full web suite
    - `pnpm --filter @yyork/web build`
-   - `pnpm mock:dev` (from repo root; opens at `https://mock.yyork.localhost`)
-   - `pnpm storybook:dev` (from repo root; opens at `https://storybook.yyork.localhost`)
+   - `pnpm d3k:agent` / `pnpm d3k:dev` (app stack under d3k; `https://yyork.localhost`)
+   - `pnpm dev:mock` (from repo root; opens at `https://mock.yyork.localhost`)
+   - `pnpm dev:sb` (from repo root; opens at `https://storybook.yyork.localhost`)
+   - `pnpm dev:docs` (from repo root; opens at `https://docs.yyork.localhost`)
    - `pnpm --filter @yyork/web storybook:direct` (raw port 6006; bypass portless)
    - `pnpm --filter @yyork/web e2e`
-6. For full local development, root `pnpm dev` starts the Go backend and web dev
-   server together through portless, so the stable app URL is
-   `https://yyork.localhost`.
+6. For app local development, root `pnpm dev` (alias of `dev:stack`) starts the
+   Go backend and web dev server together through portless, so the stable app
+   URL is `https://yyork.localhost`. Docs, mock, and Storybook are opt-in via
+   `dev:docs` / `dev:mock` / `dev:sb` and are not started by `pnpm dev` or d3k.
 7. `pnpm --filter @yyork/web dev` and `pnpm --dir internal/web dev` run the Vite server
    directly on a strict port. Use them only for isolated web-package debugging,
    and set `VITE_PORT` when that direct port is occupied.

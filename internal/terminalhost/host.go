@@ -28,7 +28,40 @@ const (
 	// worker conversations.
 	defaultScrollback = 100000
 	clientQueueSize   = 64
+	// x/ansi does not currently name xterm's reverse-wraparound mode.
+	modeReverseWraparound = ansi.DECMode(45)
 )
+
+type replayedMode struct {
+	mode           ansi.Mode
+	defaultEnabled bool
+	enabledRefresh string
+}
+
+// replayedModes is the durable subset of terminal modes whose loss changes
+// rendering or browser input after an attach. Keep the terminal defaults here
+// so a snapshot also clears state left behind by a previously attached pane.
+var replayedModes = [...]replayedMode{
+	{mode: ansi.ModeInsertReplace},
+	{mode: ansi.ModeLineFeedNewLine},
+	{mode: ansi.ModeCursorKeys},
+	{mode: ansi.ModeOrigin},
+	{mode: ansi.ModeAutoWrap, defaultEnabled: true},
+	{mode: ansi.ModeMouseX10},
+	{mode: ansi.ModeTextCursorEnable, defaultEnabled: true},
+	{mode: modeReverseWraparound},
+	{mode: ansi.ModeNumericKeypad},
+	{mode: ansi.ModeMouseNormal},
+	{mode: ansi.ModeMouseButtonEvent},
+	{mode: ansi.ModeMouseAnyEvent},
+	{mode: ansi.ModeFocusEvent},
+	{mode: ansi.ModeMouseExtUtf8},
+	{mode: ansi.ModeMouseExtSgr},
+	{mode: ansi.ModeMouseExtUrxvt},
+	{mode: ansi.ModeMouseExtSgrPixel},
+	{mode: ansi.ModeBracketedPaste},
+	{mode: ansi.ModeLightDark, enabledRefresh: ansi.RequestLightDarkReport},
+}
 
 type Options struct {
 	Command []string
@@ -50,8 +83,8 @@ type Host struct {
 	doneErr            error
 	emulator           *vt.SafeEmulator
 	emulatorOK         bool
-	focusEventsEnabled bool
 	listener           net.Listener
+	replayedModeStates map[ansi.Mode]bool
 	mu                 sync.Mutex
 	process            terminal.Process
 	rows               int
@@ -126,26 +159,39 @@ func newHost(listener net.Listener, process terminal.Process, cols int, rows int
 	emulator.SetDefaultForegroundColor(color.RGBA{R: 10, G: 10, B: 10, A: 255})
 	emulator.SetDefaultBackgroundColor(color.White)
 	host := &Host{
-		clients:    make(map[chan []byte]struct{}),
-		cols:       cols,
-		done:       make(chan struct{}),
-		emulator:   emulator,
-		emulatorOK: true,
-		listener:   listener,
-		process:    process,
-		rows:       rows,
+		clients:            make(map[chan []byte]struct{}),
+		cols:               cols,
+		done:               make(chan struct{}),
+		emulator:           emulator,
+		emulatorOK:         true,
+		listener:           listener,
+		process:            process,
+		replayedModeStates: make(map[ansi.Mode]bool, len(replayedModes)),
+		rows:               rows,
+	}
+	for _, replayed := range replayedModes {
+		host.replayedModeStates[replayed.mode] = replayed.defaultEnabled
 	}
 	emulator.SetCallbacks(vt.Callbacks{
 		EnableMode: func(mode ansi.Mode) {
-			if mode == ansi.ModeFocusEvent {
-				host.focusEventsEnabled = true
+			if _, ok := host.replayedModeStates[mode]; ok {
+				host.replayedModeStates[mode] = true
 			}
 		},
 		DisableMode: func(mode ansi.Mode) {
-			if mode == ansi.ModeFocusEvent {
-				host.focusEventsEnabled = false
+			if _, ok := host.replayedModeStates[mode]; ok {
+				host.replayedModeStates[mode] = false
 			}
 		},
+	})
+	// x/vt's hard reset only callbacks its built-in mode inventory. Reset the
+	// extension modes in our replay table too, then let x/vt's own RIS handler
+	// run and apply its terminal defaults.
+	emulator.RegisterEscHandler('c', func() bool {
+		for _, replayed := range replayedModes {
+			host.replayedModeStates[replayed.mode] = replayed.defaultEnabled
+		}
+		return false
 	})
 	// x/vt supplies a synchronous fallback before any browser can attach. Once
 	// an xterm client is present, let that client answer OSC 10/11 from its live
@@ -399,13 +445,23 @@ func (h *Host) snapshotLocked() []byte {
 	altScreen := h.emulator.IsAltScreen()
 
 	b.WriteString("\x1b[0m")
-	if h.focusEventsEnabled {
-		b.WriteString(ansi.SetModeFocusEvent)
-	}
 	if altScreen {
 		b.WriteString("\x1b[?1049h")
 	} else {
 		b.WriteString("\x1b[?1049l")
+	}
+
+	// A browser terminal can still hold rendering modes from the prior pane.
+	// Normalize them before painting the snapshot, then restore the app's true
+	// mode state below. Ending synchronized output here also prevents an
+	// unmatched transaction from hiding the repaint indefinitely.
+	b.WriteString(ansi.ResetMode(ansi.ModeInsertReplace, ansi.ModeLineFeedNewLine))
+	b.WriteString(ansi.ResetMode(ansi.ModeOrigin, modeReverseWraparound))
+	b.WriteString(ansi.SetMode(ansi.ModeAutoWrap))
+	b.WriteString(ansi.ResetMode(ansi.ModeSynchronizedOutput))
+	b.WriteString("\x1b[r")
+
+	if !altScreen {
 		if sb := h.emulator.Scrollback(); sb != nil {
 			for _, line := range sb.Lines() {
 				b.WriteString(uv.Line(line).Render())
@@ -425,6 +481,14 @@ func (h *Host) snapshotLocked() []byte {
 	}
 
 	b.WriteString("\x1b[0m")
+	for _, replayed := range replayedModes {
+		if h.replayedModeStates[replayed.mode] {
+			b.WriteString(ansi.SetMode(replayed.mode))
+			b.WriteString(replayed.enabledRefresh)
+		} else {
+			b.WriteString(ansi.ResetMode(replayed.mode))
+		}
+	}
 	pos := h.emulator.CursorPosition()
 	fmt.Fprintf(&b, "\x1b[%d;%dH", pos.Y+1, pos.X+1)
 	return []byte(b.String())

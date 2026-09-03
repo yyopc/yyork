@@ -47,7 +47,7 @@ func noopApp() (appRunner, *bool) {
 	}, &called
 }
 
-func TestRootHelpListsImplementedAndPlannedSurface(t *testing.T) {
+func TestRootHelpListsImplementedSurface(t *testing.T) {
 	runApp, called := noopApp()
 
 	out, err := execCLI(t, runApp, "--help")
@@ -59,8 +59,6 @@ func TestRootHelpListsImplementedAndPlannedSurface(t *testing.T) {
 	}
 	for _, want := range []string{
 		"spawn", "session", "stop", "send", "doctor", // implemented verbs
-		"Planned",          // planned group title
-		"status",           // a planned verb
 		"--addr", "--open", // server flags
 	} {
 		if !strings.Contains(out, want) {
@@ -205,7 +203,7 @@ func TestApplyConfiguredSpawnDefaultsUsesPersistedWorkerWorkspaceMode(t *testing
 	got, err := applyConfiguredSpawnDefaults(ctx, session.SpawnRequest{
 		Kind:   session.KindWorker,
 		Prompt: "do it",
-	}, projectPath)
+	}, projectPath, false)
 	if err != nil {
 		t.Fatalf("apply configured defaults: %v", err)
 	}
@@ -225,7 +223,7 @@ func TestApplyConfiguredSpawnDefaultsLeavesWorkspaceModeUnsetWithoutProjectSetti
 	got, err := applyConfiguredSpawnDefaults(ctx, session.SpawnRequest{
 		Kind:   session.KindWorker,
 		Prompt: "do it",
-	}, projectPath)
+	}, projectPath, false)
 	if err != nil {
 		t.Fatalf("apply configured defaults: %v", err)
 	}
@@ -258,7 +256,7 @@ func TestApplyConfiguredSpawnDefaultsDoesNotOverrideInternalWorkspaceMode(t *tes
 		Kind:          session.KindWorker,
 		Prompt:        "do it",
 		WorkspaceMode: session.WorkerWorkspaceModeLocal,
-	}, projectPath)
+	}, projectPath, false)
 	if err != nil {
 		t.Fatalf("apply configured defaults: %v", err)
 	}
@@ -267,8 +265,79 @@ func TestApplyConfiguredSpawnDefaultsDoesNotOverrideInternalWorkspaceMode(t *tes
 	}
 }
 
+// An explicit --agent must beat the project's configured worker plugin.
+// Without this, `--agent claude-code` was silently swapped back to the stored
+// default and the user got the wrong agent with no diagnostic.
+func TestApplyConfiguredSpawnDefaultsPrefersExplicitAgentPlugin(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	ctx := context.Background()
+	projectPath := filepath.Join(t.TempDir(), "repo")
+
+	dbPath, err := store.DefaultPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dataStore, err := store.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dataStore.ProjectSettings().SetWorkerAgentPlugin(ctx, projectPath, "codex"); err != nil {
+		t.Fatal(err)
+	}
+	if err := dataStore.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := applyConfiguredSpawnDefaults(ctx, session.SpawnRequest{
+		AgentPlugin: "claude-code",
+		Kind:        session.KindWorker,
+		Prompt:      "do it",
+	}, projectPath, true)
+	if err != nil {
+		t.Fatalf("apply configured defaults: %v", err)
+	}
+	if got.AgentPlugin != "claude-code" {
+		t.Fatalf("AgentPlugin = %q, want explicit --agent to win over project setting", got.AgentPlugin)
+	}
+}
+
+// Without an explicit --agent the stored project default still applies.
+func TestApplyConfiguredSpawnDefaultsUsesConfiguredAgentPluginWhenFlagUnset(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	ctx := context.Background()
+	projectPath := filepath.Join(t.TempDir(), "repo")
+
+	dbPath, err := store.DefaultPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dataStore, err := store.Open(ctx, dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dataStore.ProjectSettings().SetWorkerAgentPlugin(ctx, projectPath, "codex"); err != nil {
+		t.Fatal(err)
+	}
+	if err := dataStore.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := applyConfiguredSpawnDefaults(ctx, session.SpawnRequest{
+		AgentPlugin: defaultAgentPlugin,
+		Kind:        session.KindWorker,
+		Prompt:      "do it",
+	}, projectPath, false)
+	if err != nil {
+		t.Fatalf("apply configured defaults: %v", err)
+	}
+	if got.AgentPlugin != "codex" {
+		t.Fatalf("AgentPlugin = %q, want configured project default", got.AgentPlugin)
+	}
+}
+
 func TestSessionListJSON(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("YYORK_PROJECT_PATH", "/repo/app")
 	ctx := context.Background()
 	dbPath, err := store.DefaultPath()
 	if err != nil {
@@ -399,7 +468,11 @@ func TestRootLeadingFlagsStartServer(t *testing.T) {
 }
 
 func TestRemovedVerbsDoNotStartServer(t *testing.T) {
-	for _, verb := range []string{"start", "dashboard"} {
+	// start/dashboard were removed as verbs; status was formerly a stub
+	// registered under the "Planned" command group. All three now fall
+	// through to the root's projectPath arg handling, same as any unknown
+	// verb.
+	for _, verb := range []string{"start", "dashboard", "status"} {
 		t.Run(verb, func(t *testing.T) {
 			runApp, called := noopApp()
 
@@ -414,22 +487,6 @@ func TestRemovedVerbsDoNotStartServer(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 		})
-	}
-}
-
-func TestPlannedCommandReportsNotImplemented(t *testing.T) {
-	runApp, called := noopApp()
-
-	// `status` is still a planned (unimplemented) command in v1.
-	_, err := execCLI(t, runApp, "status")
-	if err == nil {
-		t.Fatal("expected an error for a planned command")
-	}
-	if *called {
-		t.Fatal("planned command should not start the server")
-	}
-	if !strings.Contains(err.Error(), "not implemented in yyork yet") {
-		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

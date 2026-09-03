@@ -6,22 +6,35 @@ import {
   SelectTrigger,
 } from '@/components/ui/select';
 
-import type { AgentHarnessId } from '@/features/home/domain/agent-harness';
+import type {
+  AgentHarnessAvailability,
+  AgentHarnessId,
+} from '@/features/home/domain/agent-harness';
 
 const agentOptions: Array<{
+  availability: AgentHarnessAvailability;
   iconPath: string;
   id: AgentHarnessId;
   label: string;
 }> = [
   {
+    availability: 'available',
     iconPath: '/agent-icons/claude-agent.svg',
     id: 'claude-code',
     label: 'Claude Code',
   },
   {
+    availability: 'available',
     iconPath: '/agent-icons/codex-agent.svg',
     id: 'codex',
     label: 'Codex',
+  },
+  {
+    // The Cursor harness plugin is not implemented yet, so it stays selectable-but-disabled.
+    availability: 'unavailable',
+    iconPath: '/agent-icons/cursor-agent.svg',
+    id: 'cursor',
+    label: 'Cursor',
   },
 ];
 
@@ -36,13 +49,16 @@ export function SettingsAgentSelect(props: {
   return (
     <Select
       items={agentOptions.map((agent) => ({
+        disabled: agent.availability === 'unavailable',
         label: agent.label,
         value: agent.id,
       }))}
       value={props.value}
       onValueChange={(value) => {
-        if (value === 'claude-code' || value === 'codex') {
-          props.onValueChange(value);
+        // Resolve against agentOptions so new harness ids never need a literal guard here.
+        const nextAgent = agentOptions.find((agent) => agent.id === value);
+        if (nextAgent && nextAgent.availability === 'available') {
+          props.onValueChange(nextAgent.id);
         }
       }}
     >
@@ -57,7 +73,12 @@ export function SettingsAgentSelect(props: {
       <SelectContent align="start">
         <SelectGroup>
           {agentOptions.map((agent) => (
-            <SelectItem key={agent.id} data-value={agent.id} value={agent.id}>
+            <SelectItem
+              key={agent.id}
+              data-value={agent.id}
+              disabled={agent.availability === 'unavailable'}
+              value={agent.id}
+            >
               <AgentOption {...agent} />
             </SelectItem>
           ))}

@@ -137,6 +137,13 @@ func checkRuntimeDependencies(lookup executableLookup, zellijLookup zellijBinary
 			Required:       false,
 			MissingMessage: "Codex sessions are unavailable until the codex CLI is on PATH.",
 		},
+		{
+			ID:             "cursor",
+			Command:        "agent",
+			Category:       doctorCategoryAgent,
+			Required:       false,
+			MissingMessage: "Cursor sessions are unavailable until the agent CLI is on PATH.",
+		},
 	}
 
 	checks := make([]doctorCheckOutput, 0, len(specs)+2)
@@ -196,7 +203,7 @@ func checkRuntimeDependencies(lookup executableLookup, zellijLookup zellijBinary
 			Category: doctorCategoryAgent,
 			Required: true,
 			Status:   doctorStatusMissing,
-			Message:  "Install at least one supported agent CLI, such as Claude Code or Codex, before spawning sessions.",
+			Message:  "Install at least one supported agent CLI, such as Claude Code, Codex, or Cursor, before spawning sessions.",
 		})
 	}
 
@@ -381,7 +388,7 @@ func doctorNextSteps(checks []doctorCheckOutput) []string {
 		case "zellij":
 			steps = append(steps, "Install a yyork package with bundled zellij, set YYORK_ZELLIJ, or put zellij on PATH.")
 		case "agent-cli":
-			steps = append(steps, "Install Claude Code or Codex, then rerun `yyork doctor`.")
+			steps = append(steps, "Install Claude Code, Codex, or Cursor, then rerun `yyork doctor`.")
 		default:
 			steps = append(steps, check.Message)
 		}

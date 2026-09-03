@@ -7,3 +7,4 @@ Runtime requirements
 Agent CLI availability
   OK       claude-code  optional  /Users/me/.local/bin/claude
   OK       codex        optional  /Users/me/.local/bin/codex
+  OK       cursor       optional  /Users/me/.local/bin/agent

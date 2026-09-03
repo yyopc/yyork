@@ -6,6 +6,7 @@ packages:
   - npm/*
   - internal/web
   - internal/docs
+  - packages/logo-reveal
 
 catalog:
   react: 19.3.0-canary-d5736f09-20260507

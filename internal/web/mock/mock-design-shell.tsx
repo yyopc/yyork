@@ -56,13 +56,21 @@ function MockThemeToolbar() {
   );
 }
 
-export function MockDesignShell(props: { children: ReactNode }) {
+type MockDesignShellProps = {
+  children: ReactNode;
+  showThemeToolbar?: boolean;
+};
+
+export function MockDesignShell({
+  children,
+  showThemeToolbar = true,
+}: MockDesignShellProps) {
   return (
     <StrictMode>
       <Providers>
         <MockThemeUrlSync />
-        <MockThemeToolbar />
-        {props.children}
+        {showThemeToolbar ? <MockThemeToolbar /> : null}
+        {children}
       </Providers>
     </StrictMode>
   );

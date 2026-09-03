@@ -12,11 +12,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yyopc/yyork/internal/config"
 	"github.com/yyopc/yyork/internal/control"
 	"github.com/yyopc/yyork/internal/events"
 	"github.com/yyopc/yyork/internal/plugin/agent"
 	"github.com/yyopc/yyork/internal/plugin/agent/claudecode"
 	"github.com/yyopc/yyork/internal/plugin/agent/codex"
+	"github.com/yyopc/yyork/internal/plugin/agent/cursor"
 	"github.com/yyopc/yyork/internal/store"
 )
 
@@ -30,17 +32,19 @@ const (
 	hookMetadataCurrentTool            = "currentToolCall"
 	hookMetadataToolBulletins          = "toolCallBulletins"
 	hookMetadataTriageReason           = "triageReason"
+	hookMetadataSystemPrompt           = "systemPrompt"
 
 	hookStateWorking = "working"
 	hookStatePrompt  = "prompt"
 	hookStateTriage  = "triage"
 
-	hookTitleMaxLen        = 60
-	hookRecapMaxLen        = 240
-	hookToolBulletinMaxLen = 160
-	hookToolBulletinCount  = 3
+	hookTitleMaxLen               = 60
+	hookRecapMaxLen               = 240
+	hookToolBulletinMaxLen        = 160
+	hookToolBulletinCount         = 3
+	hookAdditionalContextMaxChars = 10_000
 
-	hookMetadataCommandTimeout = 20 * time.Second
+	hookMetadataCommandTimeout = 28 * time.Second
 	hookMetadataOutputMaxBytes = 32 << 10
 )
 
@@ -51,7 +55,7 @@ var runHookRecapCommand = runMetadataCommand
 
 func runHooks(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer) int {
 	if len(args) != 2 {
-		fmt.Fprintln(stderr, "hooks: expected `yyork hooks <codex|claude-code> <session-start|user-prompt-submit|pre-tool-use|pre-tool-call|post-tool-use|post-tool-call|permission-request|stop|install|uninstall>`")
+		fmt.Fprintln(stderr, "hooks: expected `yyork hooks <codex|claude-code|cursor> <session-start|user-prompt-submit|pre-tool-use|pre-tool-call|post-tool-use|post-tool-call|permission-request|assistant-response|stop|install|uninstall>`")
 		return 1
 	}
 	agentName, sub := args[0], args[1]
@@ -66,8 +70,10 @@ func runHooks(ctx context.Context, args []string, stdout io.Writer, stderr io.Wr
 		return runCodexHook(ctx, sub, os.Stdin, stdout, stderr)
 	case "claude-code":
 		return runClaudeHook(ctx, sub, os.Stdin, stdout, stderr)
+	case "cursor":
+		return runCursorHook(ctx, sub, os.Stdin, stdout, stderr)
 	default:
-		fmt.Fprintf(stderr, "hooks: unknown agent %q (want codex|claude-code)\n", agentName)
+		fmt.Fprintf(stderr, "hooks: unknown agent %q (want codex|claude-code|cursor)\n", agentName)
 		return 1
 	}
 }
@@ -86,7 +92,7 @@ type hookManager interface {
 func runInstallHooks(ctx context.Context, agentName string, stdout io.Writer, stderr io.Writer) int {
 	manager, ok := hooksManager(agentName)
 	if !ok {
-		fmt.Fprintf(stderr, "hooks: unknown agent %q (want codex|claude-code)\n", agentName)
+		fmt.Fprintf(stderr, "hooks: unknown agent %q (want codex|claude-code|cursor)\n", agentName)
 		return 1
 	}
 
@@ -96,7 +102,15 @@ func runInstallHooks(ctx context.Context, agentName string, stdout io.Writer, st
 		return 1
 	}
 
-	if err := manager.GetAgentHooks(ctx, agent.WorkspaceHookConfig{WorkspacePath: workspace}); err != nil {
+	agentConfig, err := hookAgentConfig(agentName)
+	if err != nil {
+		fmt.Fprintf(stderr, "hooks %s install: load config: %v\n", agentName, err)
+		return 1
+	}
+	if err := manager.GetAgentHooks(ctx, agent.WorkspaceHookConfig{
+		Config:        agentConfig,
+		WorkspacePath: workspace,
+	}); err != nil {
 		fmt.Fprintf(stderr, "hooks %s install: %v\n", agentName, err)
 		return 1
 	}
@@ -110,7 +124,7 @@ func runInstallHooks(ctx context.Context, agentName string, stdout io.Writer, st
 func runUninstallHooks(ctx context.Context, agentName string, stdout io.Writer, stderr io.Writer) int {
 	manager, ok := hooksManager(agentName)
 	if !ok {
-		fmt.Fprintf(stderr, "hooks: unknown agent %q (want codex|claude-code)\n", agentName)
+		fmt.Fprintf(stderr, "hooks: unknown agent %q (want codex|claude-code|cursor)\n", agentName)
 		return 1
 	}
 
@@ -144,6 +158,8 @@ func hooksManager(agentName string) (hookManager, bool) {
 		return codex.New(), true
 	case "claude-code":
 		return claudecode.New(), true
+	case "cursor":
+		return cursor.New(), true
 	default:
 		return nil, false
 	}
@@ -157,12 +173,16 @@ func runClaudeHook(ctx context.Context, event string, stdin io.Reader, stdout io
 	return runAgentHook(ctx, "claude-code", event, stdin, stdout, stderr)
 }
 
+func runCursorHook(ctx context.Context, event string, stdin io.Reader, stdout io.Writer, stderr io.Writer) int {
+	return runAgentHook(ctx, "cursor", event, stdin, stdout, stderr)
+}
+
 // runAgentHook is the shared hook driver for every agent: it reads
 // YYORK_SESSION_ID, parses the payload, merges any normalized session
-// metadata into the yyork store, and publishes session.updated. It always writes
-// the empty `{}` hook response and exits 0 when run outside a yyork session or
-// when the row is missing, so a hook firing in a non-yyork `claude`/`codex`
-// session is a harmless no-op. agentName is used only for diagnostics.
+// metadata into the yyork store, and publishes session.updated. It can return
+// an agent-specific verdict body; otherwise it writes `{}`. Hooks fired outside
+// a yyork session or for a missing row remain harmless no-ops. agentName also
+// selects agent-specific behavior and diagnostics.
 func runAgentHook(ctx context.Context, agentName, event string, stdin io.Reader, stdout io.Writer, stderr io.Writer) int {
 	if err := ctx.Err(); err != nil {
 		fmt.Fprintf(stderr, "hooks %s %s: %v\n", agentName, event, err)
@@ -194,6 +214,14 @@ func runAgentHook(ctx context.Context, agentName, event string, stdin io.Reader,
 	defer func() { _ = dataStore.Close() }()
 
 	repo := dataStore.Sessions()
+	// Hook configs can merge across agents (Cursor reads Claude's files too),
+	// so a foreign agent's hook may fire inside this session. The stored row
+	// owns the agent identity; empty ownership remains fail-open for legacy rows.
+	if row, err := repo.Get(ctx, aoSessionID); err == nil &&
+		row.AgentPlugin != "" && row.AgentPlugin != agentName {
+		writeHookResponse(stdout)
+		return 0
+	}
 	fields, err := hookFields(ctx, repo, agentName, aoSessionID, event, raw)
 	if errors.Is(err, store.ErrSessionNotFound) {
 		writeHookResponse(stdout)
@@ -215,15 +243,17 @@ func runAgentHook(ctx context.Context, agentName, event string, stdin io.Reader,
 		control.NewForwardingPublisher().Publish(events.NewSessionUpdated(aoSessionID))
 	}
 
-	writeHookResponse(stdout)
+	response, truncated := agentHookResponse(ctx, repo, agentName, aoSessionID, event, raw)
+	if truncated {
+		fmt.Fprintf(stderr, "hooks %s %s: additional_context truncated to %d characters\n", agentName, event, hookAdditionalContextMaxChars)
+	}
+	writeHookResponse(stdout, response)
 	return 0
 }
 
-// hookPayload projects the fields yyork reads from a hook's stdin JSON.
-// Codex and Claude Code expose these under identical names (session_id, prompt,
-// last_assistant_message — the latter verified present in Claude's Stop payload
-// despite older docs omitting it), so one shape serves both. Agent-specific
-// extras are ignored.
+// hookPayload projects the fields yyork reads from a hook's stdin JSON. Codex,
+// Claude Code, and Cursor use these names for the fields yyork consumes;
+// agent-specific extras are ignored.
 type hookPayload struct {
 	HookEventName        string        `json:"hook_event_name"`
 	SessionID            string        `json:"session_id"`
@@ -231,6 +261,7 @@ type hookPayload struct {
 	LastAssistantMessage *string       `json:"last_assistant_message"`
 	ToolInput            hookToolInput `json:"tool_input"`
 	ToolName             string        `json:"tool_name"`
+	Text                 string        `json:"text"`
 }
 
 type hookToolInput map[string]any
@@ -267,11 +298,22 @@ func hookFields(ctx context.Context, repo store.SessionRepo, agentName, aoSessio
 		return nil, fmt.Errorf("decode payload: %w", err)
 	}
 
+	normalizedEvent := normalizedHookEvent(event)
+	if normalizedEvent == "assistant-response" {
+		return recapFields(ctx, repo, agentName, aoSessionID, payload.Text)
+	}
+
 	fields := hookActivityFields(hookStateWorking)
-	switch normalizedHookEvent(event) {
+	switch normalizedEvent {
 	case "session-start":
 		if sessionID := strings.TrimSpace(payload.SessionID); sessionID != "" {
-			fields[hookMetadataAgentSessionID] = sessionID
+			row, err := repo.Get(ctx, aoSessionID)
+			if err != nil {
+				return nil, err
+			}
+			if stringMetadata(row.Metadata, hookMetadataAgentSessionID) == "" {
+				fields[hookMetadataAgentSessionID] = sessionID
+			}
 		}
 	case "user-prompt-submit":
 		title, err := titleFields(ctx, repo, agentName, aoSessionID, payload.Prompt)
@@ -284,6 +326,9 @@ func hookFields(ctx context.Context, repo store.SessionRepo, agentName, aoSessio
 		fields[hookMetadataCurrentTool] = ""
 		fields[hookMetadataToolBulletins] = []string{}
 	case "pre-tool-use":
+		if agentName == "cursor" && cursorToolNeedsApproval(cursorPermissionMode(), payload.ToolName) {
+			return permissionRequestFields(ctx, repo, aoSessionID, payload)
+		}
 		return toolCallFields(ctx, repo, aoSessionID, payload, "Running", true)
 	case "post-tool-use":
 		return toolCallFields(ctx, repo, aoSessionID, payload, "Finished", false)
@@ -295,6 +340,9 @@ func hookFields(ctx context.Context, repo store.SessionRepo, agentName, aoSessio
 			fields[hookMetadataLastAssistantMessageAt] = lastActivityAt
 		}
 		fields[hookMetadataCurrentTool] = ""
+		if agentName == "cursor" {
+			return fields, nil
+		}
 		if payload.LastAssistantMessage == nil {
 			return fields, nil
 		}
@@ -309,6 +357,73 @@ func hookFields(ctx context.Context, repo store.SessionRepo, agentName, aoSessio
 		return nil, fmt.Errorf("unknown hook event %q", event)
 	}
 	return fields, nil
+}
+
+func agentHookResponse(ctx context.Context, repo store.SessionRepo, agentName, aoSessionID, event string, raw []byte) (map[string]any, bool) {
+	if agentName != "cursor" {
+		return nil, false
+	}
+
+	switch normalizedHookEvent(event) {
+	case "session-start":
+		row, err := repo.Get(ctx, aoSessionID)
+		if err != nil {
+			return nil, false
+		}
+		contextText := stringMetadata(row.Metadata, hookMetadataSystemPrompt)
+		if strings.TrimSpace(contextText) == "" {
+			return nil, false
+		}
+		runes := []rune(contextText)
+		truncated := len(runes) > hookAdditionalContextMaxChars
+		if truncated {
+			contextText = string(runes[:hookAdditionalContextMaxChars])
+		}
+		return map[string]any{"additional_context": contextText}, truncated
+	case "pre-tool-use":
+		var payload hookPayload
+		if err := unmarshalHookPayload(raw, &payload); err != nil {
+			return nil, false
+		}
+		if cursorToolNeedsApproval(cursorPermissionMode(), payload.ToolName) {
+			return map[string]any{"permission": "ask"}, false
+		}
+	}
+	return nil, false
+}
+
+func cursorPermissionMode() agent.PermissionMode {
+	mode := agent.PermissionMode(strings.TrimSpace(os.Getenv("YYORK_PERMISSION_MODE")))
+	switch mode {
+	case agent.PermissionModeDefault,
+		agent.PermissionModeAcceptEdits,
+		agent.PermissionModeAuto,
+		agent.PermissionModeBypassPermissions:
+		return mode
+	default:
+		return agent.PermissionModeDefault
+	}
+}
+
+func cursorToolNeedsApproval(mode agent.PermissionMode, toolName string) bool {
+	tool := strings.ToLower(strings.TrimSpace(toolName))
+	isShellOrMCP := tool == "shell" || tool == "mcp" || strings.HasPrefix(tool, "mcp__")
+	switch mode {
+	case agent.PermissionModeAuto, agent.PermissionModeBypassPermissions:
+		return false
+	case agent.PermissionModeAcceptEdits:
+		return isShellOrMCP
+	default:
+		if isShellOrMCP {
+			return true
+		}
+		switch tool {
+		case "write", "edit", "delete", "notebookedit", "multiedit", "applypatch":
+			return true
+		default:
+			return false
+		}
+	}
 }
 
 func normalizedHookEvent(event string) string {
@@ -335,6 +450,18 @@ func toolCallFields(ctx context.Context, repo store.SessionRepo, aoSessionID str
 		return nil, err
 	}
 
+	if current && isUserInputTool(payload.ToolName) {
+		reason := userInputTriageReason(payload.ToolInput)
+		fields := hookActivityFields(hookStateTriage)
+		fields[hookMetadataCurrentTool] = ""
+		fields[hookMetadataTriageReason] = reason
+		fields[hookMetadataToolBulletins] = prependToolBulletin(
+			stringSliceMetadata(row.Metadata, hookMetadataToolBulletins),
+			reason,
+		)
+		return fields, nil
+	}
+
 	bulletin := summarizeToolCall(action, payload.ToolName, payload.ToolInput)
 	fields := hookActivityFields(hookStateWorking)
 	if current {
@@ -347,6 +474,30 @@ func toolCallFields(ctx context.Context, repo store.SessionRepo, aoSessionID str
 		bulletin,
 	)
 	return fields, nil
+}
+
+func isUserInputTool(toolName string) bool {
+	switch strings.ToLower(compactHookText(toolName, 48)) {
+	case "request_user_input", "askuserquestion":
+		return true
+	default:
+		return false
+	}
+}
+
+func userInputTriageReason(input hookToolInput) string {
+	question := metadataInputString(input, "question", "prompt")
+	if question == "" {
+		if questions, ok := input["questions"].([]any); ok && len(questions) > 0 {
+			if first, ok := questions[0].(map[string]any); ok {
+				question = metadataInputString(hookToolInput(first), "question")
+			}
+		}
+	}
+	if question == "" {
+		return "Waiting for your input."
+	}
+	return compactHookText("Needs your input: "+question, hookToolBulletinMaxLen)
 }
 
 func permissionRequestFields(ctx context.Context, repo store.SessionRepo, aoSessionID string, payload hookPayload) (map[string]any, error) {
@@ -409,7 +560,12 @@ func recapFields(ctx context.Context, repo store.SessionRepo, agentName, aoSessi
 }
 
 func generatedSessionTitle(ctx context.Context, agentName string, row store.Session, prompt string) (string, bool) {
+	agentConfig, err := hookAgentConfig(agentName)
+	if err != nil {
+		return "", false
+	}
 	cmd, err := buildHookTitleCommand(ctx, agentName, agent.TitleConfig{
+		Config:        agentConfig,
 		Prompt:        prompt,
 		SessionID:     row.ID,
 		WorkspacePath: row.WorkspacePath,
@@ -430,7 +586,12 @@ func generatedSessionTitle(ctx context.Context, agentName string, row store.Sess
 }
 
 func generatedSessionRecap(ctx context.Context, agentName string, row store.Session, lastAssistantMessage string) (string, bool) {
+	agentConfig, err := hookAgentConfig(agentName)
+	if err != nil {
+		return "", false
+	}
 	cmd, err := buildHookRecapCommand(ctx, agentName, agent.RecapConfig{
+		Config:               agentConfig,
 		LastAssistantMessage: lastAssistantMessage,
 		SessionID:            row.ID,
 		WorkspacePath:        row.WorkspacePath,
@@ -450,12 +611,30 @@ func generatedSessionRecap(ctx context.Context, agentName string, row store.Sess
 	return recap, true
 }
 
+func hookAgentConfig(agentName string) (agent.Config, error) {
+	loaded, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
+	configured := loaded.Agents[agentName]
+	if configured == nil {
+		return nil, nil
+	}
+	cloned := make(agent.Config, len(configured))
+	for key, value := range configured {
+		cloned[key] = value
+	}
+	return cloned, nil
+}
+
 func defaultHookTitleCommand(ctx context.Context, agentName string, cfg agent.TitleConfig) ([]string, error) {
 	switch agentName {
 	case "codex":
 		return codex.New().GetSessionTitleCommand(ctx, cfg)
 	case "claude-code":
 		return claudecode.New().GetSessionTitleCommand(ctx, cfg)
+	case "cursor":
+		return cursor.New().GetSessionTitleCommand(ctx, cfg)
 	default:
 		return nil, fmt.Errorf("unknown agent %q", agentName)
 	}
@@ -467,6 +646,8 @@ func defaultHookRecapCommand(ctx context.Context, agentName string, cfg agent.Re
 		return codex.New().GetSessionRecapCommand(ctx, cfg)
 	case "claude-code":
 		return claudecode.New().GetSessionRecapCommand(ctx, cfg)
+	case "cursor":
+		return cursor.New().GetSessionRecapCommand(ctx, cfg)
 	default:
 		return nil, fmt.Errorf("unknown agent %q", agentName)
 	}
@@ -481,6 +662,7 @@ func runMetadataCommand(ctx context.Context, cmd []string) (string, error) {
 	defer cancel()
 
 	command := exec.CommandContext(runCtx, cmd[0], cmd[1:]...)
+	command.Env = append(os.Environ(), "YYORK_SESSION_ID=")
 	var stdout limitedBuffer
 	var stderr limitedBuffer
 	command.Stdout = &stdout
@@ -668,6 +850,10 @@ func stringMetadata(metadata map[string]any, key string) string {
 	return ""
 }
 
-func writeHookResponse(stdout io.Writer) {
-	fmt.Fprintln(stdout, "{}")
+func writeHookResponse(stdout io.Writer, responses ...map[string]any) {
+	response := map[string]any{}
+	if len(responses) > 0 && responses[0] != nil {
+		response = responses[0]
+	}
+	_ = json.NewEncoder(stdout).Encode(response)
 }

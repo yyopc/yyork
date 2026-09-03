@@ -5,7 +5,13 @@
       "source": "vercel-labs/agent-browser",
       "sourceType": "github",
       "skillPath": "skills/agent-browser/SKILL.md",
-      "computedHash": "ecc7641aea05f85ca3b11e7759d32aaf52fe05946ab4b63739c7bf78a41237a2"
+      "computedHash": "a674b7d81066e3cc471a7512ddb4ae724418cbfefa75cbb050b0dc430e4d57a0"
+    },
+    "animate-text": {
+      "source": "pixel-point/animate-text",
+      "sourceType": "github",
+      "skillPath": "skills/animate-text/SKILL.md",
+      "computedHash": "7724b6f42dc2c33a98d48ca592402aed596830a55d469e83b3c5970d478e25ed"
     },
     "atomic-design-fundamentals": {
       "source": "thebushidocollective/han",
@@ -13,11 +19,23 @@
       "skillPath": "plugins/patterns/atomic-design/skills/atomic-design-fundamentals/SKILL.md",
       "computedHash": "4a2d3a077911fd8da7ac42c42ff120345e476078ede8f523c9a0a7b4e3eb7cc8"
     },
+    "d3k": {
+      "source": "vercel-labs/dev3000",
+      "sourceType": "github",
+      "skillPath": "skills/d3k/SKILL.md",
+      "computedHash": "6462ff3b28aaec3ba02f8419e4a6faace3ccb69165bf0da8f55a7da93393e2d3"
+    },
+    "gstack": {
+      "source": "garrytan/gstack",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "2b96e1db510df169809ba0e7db57ba1d293001b57f7f172f5401e938e85e44fc"
+    },
     "portless": {
       "source": "vercel-labs/portless",
       "sourceType": "github",
       "skillPath": "skills/portless/SKILL.md",
-      "computedHash": "9f948fd3fca141172af0a10605b3fc1bd7ab3d0dbc1ab0f3d7e7e4f5d6e9c3a0"
+      "computedHash": "0524d327402c4c29565791cb13dd959d0d03e4927c861dd22ab27d8fe8283460"
     },
     "shadcn": {
       "source": "shadcn/ui",

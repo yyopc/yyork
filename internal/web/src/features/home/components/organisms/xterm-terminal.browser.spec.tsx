@@ -54,6 +54,31 @@ const waitForTerminal = () =>
 const bufferLineText = (term: XTerm, index: number) =>
   term.buffer.active.getLine(index)?.translateToString(true);
 
+const writeTerminal = (term: XTerm, data: string) =>
+  new Promise<void>((resolve) => {
+    term.write(data, resolve);
+  });
+
+const waitForAnimationFrame = () =>
+  new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+
+function dispatchTerminalWheel(init: WheelEventInit): WheelEvent {
+  const screen = document.querySelector<HTMLElement>('.xterm-screen');
+  expect(screen).toBeTruthy();
+  const bounds = screen!.getBoundingClientRect();
+  const event = new WheelEvent('wheel', {
+    bubbles: true,
+    cancelable: true,
+    clientX: bounds.left + 10,
+    clientY: bounds.top + 10,
+    ...init,
+  });
+  screen!.dispatchEvent(event);
+  return event;
+}
+
 const focusGainedCalls = (onData: ReturnType<typeof vi.fn>) =>
   onData.mock.calls.filter(([data]) => data === '\x1b[I');
 
@@ -114,6 +139,69 @@ test('answers terminal color queries from the active light theme', async () => {
     '\x1b]10;rgb:0a0a/0a0a/0a0a\x1b\\',
     '\x1b]11;rgb:ffff/ffff/ffff\x1b\\',
   ]);
+});
+
+test('answers color-scheme queries from the active theme', async () => {
+  styleEl = document.createElement('style');
+  styleEl.textContent = themeStyle;
+  document.head.appendChild(styleEl);
+  document.documentElement.classList.remove('dark');
+  const onData = vi.fn();
+
+  await render(
+    <XTermTerminal aria-label="terminal" cols={80} onData={onData} rows={24} />
+  );
+  const term = await waitForTerminal();
+
+  await writeTerminal(term, '\x1b[?996n');
+  expect(onData).toHaveBeenLastCalledWith('\x1b[?997;2n');
+
+  document.documentElement.classList.add('dark');
+  await vi.waitFor(() => {
+    expect(term.options.theme?.background).toBe('rgb(10, 10, 10)');
+  });
+  onData.mockClear();
+
+  await writeTerminal(term, '\x1b[?996n');
+  expect(onData).toHaveBeenCalledOnce();
+  expect(onData).toHaveBeenCalledWith('\x1b[?997;1n');
+});
+
+test('notifies an opted-in application when the color scheme changes', async () => {
+  styleEl = document.createElement('style');
+  styleEl.textContent = themeStyle;
+  document.head.appendChild(styleEl);
+  document.documentElement.classList.remove('dark');
+  const onData = vi.fn();
+
+  await render(
+    <XTermTerminal aria-label="terminal" cols={80} onData={onData} rows={24} />
+  );
+  const term = await waitForTerminal();
+
+  await writeTerminal(term, '\x1b[?2031h');
+  onData.mockClear();
+
+  document.documentElement.classList.add('dark');
+  await vi.waitFor(() => {
+    expect(term.options.theme?.background).toBe('rgb(10, 10, 10)');
+    expect(onData).toHaveBeenCalledWith('\x1b[?997;1n');
+  });
+
+  onData.mockClear();
+  document.documentElement.classList.remove('dark');
+  await vi.waitFor(() => {
+    expect(term.options.theme?.background).toBe('rgb(255, 255, 255)');
+    expect(onData).toHaveBeenCalledWith('\x1b[?997;2n');
+  });
+
+  await writeTerminal(term, '\x1b[?2031l');
+  onData.mockClear();
+  document.documentElement.classList.add('dark');
+  await vi.waitFor(() => {
+    expect(term.options.theme?.background).toBe('rgb(10, 10, 10)');
+  });
+  expect(onData).not.toHaveBeenCalled();
 });
 
 test('requests one palette refresh after a replay enables focus reporting', async () => {
@@ -364,7 +452,72 @@ test('retains the beginning of long inline worker transcripts', async () => {
   expect(term.buffer.active.baseY).toBeGreaterThan(10_000);
 });
 
-test('lets xterm own normal-buffer wheel scrolling without emitting PTY input', async () => {
+test('scrolls a Codex normal buffer locally while mouse tracking is on', async () => {
+  const onData = vi.fn();
+  await render(
+    <XTermTerminal
+      aria-label="terminal"
+      cols={24}
+      onData={onData}
+      rows={5}
+      wheelScrollsViewport
+    />
+  );
+  const term = await waitForTerminal();
+  const lines = Array.from({ length: 30 }, (_, index) => `line-${index + 1}`);
+
+  await writeTerminal(term, `${lines.join('\r\n')}\r\n`);
+  await writeTerminal(term, '\x1b[?1002h\x1b[?1006h');
+  expect(term.modes.mouseTrackingMode).toBe('drag');
+  expect(document.querySelector('.xterm.enable-mouse-events')).toBeTruthy();
+  term.scrollToLine(Math.floor(term.buffer.active.baseY / 2));
+  await waitForAnimationFrame();
+  const viewportBefore = term.buffer.active.viewportY;
+  onData.mockClear();
+
+  dispatchTerminalWheel({
+    deltaMode: 0,
+    deltaY: 120,
+  });
+
+  await vi.waitFor(() => {
+    expect(term.buffer.active.viewportY).toBeGreaterThan(viewportBefore);
+  });
+  expect(onData).not.toHaveBeenCalled();
+});
+
+test('keeps xterm default wheel scrolling when Codex mouse tracking is off', async () => {
+  const onData = vi.fn();
+  await render(
+    <XTermTerminal
+      aria-label="terminal"
+      cols={24}
+      onData={onData}
+      rows={5}
+      wheelScrollsViewport
+    />
+  );
+  const term = await waitForTerminal();
+  const lines = Array.from({ length: 30 }, (_, index) => `line-${index + 1}`);
+
+  await writeTerminal(term, `${lines.join('\r\n')}\r\n`);
+  expect(term.modes.mouseTrackingMode).toBe('none');
+  term.scrollToLine(Math.floor(term.buffer.active.baseY / 2));
+  await waitForAnimationFrame();
+  const viewportBefore = term.buffer.active.viewportY;
+
+  dispatchTerminalWheel({
+    deltaMode: 0,
+    deltaY: 120,
+  });
+
+  await vi.waitFor(() => {
+    expect(term.buffer.active.viewportY).not.toBe(viewportBefore);
+  });
+  expect(onData).not.toHaveBeenCalled();
+});
+
+test('forwards tracked wheel events for non-Codex sessions', async () => {
   const onData = vi.fn();
   await render(
     <XTermTerminal aria-label="terminal" cols={24} onData={onData} rows={5} />
@@ -372,23 +525,92 @@ test('lets xterm own normal-buffer wheel scrolling without emitting PTY input', 
   const term = await waitForTerminal();
   const lines = Array.from({ length: 30 }, (_, index) => `line-${index + 1}`);
 
-  await new Promise<void>((resolve) => {
-    term.write(`${lines.join('\r\n')}\r\n`, resolve);
+  await writeTerminal(term, `${lines.join('\r\n')}\r\n`);
+  await writeTerminal(term, '\x1b[?1002h\x1b[?1006h');
+  expect(term.modes.mouseTrackingMode).toBe('drag');
+  term.scrollToBottom();
+  const viewportBefore = term.buffer.active.viewportY;
+  onData.mockClear();
+
+  dispatchTerminalWheel({
+    deltaMode: WheelEvent.DOM_DELTA_LINE,
+    deltaY: -3,
   });
+
+  await vi.waitFor(() => {
+    expect(onData).toHaveBeenCalled();
+  });
+  expect(term.buffer.active.viewportY).toBe(viewportBefore);
+});
+
+test('passes tracked wheel events through in the alternate buffer', async () => {
+  const onData = vi.fn();
+  await render(
+    <XTermTerminal
+      aria-label="terminal"
+      cols={24}
+      onData={onData}
+      rows={5}
+      wheelScrollsViewport
+    />
+  );
+  const term = await waitForTerminal();
+
+  await writeTerminal(term, '\x1b[?1049h\x1b[?1002h\x1b[?1006h');
+  expect(term.buffer.active.type).toBe('alternate');
+  expect(term.modes.mouseTrackingMode).toBe('drag');
+  onData.mockClear();
+
+  dispatchTerminalWheel({
+    deltaMode: WheelEvent.DOM_DELTA_LINE,
+    deltaY: -3,
+  });
+
+  await vi.waitFor(() => {
+    expect(onData).toHaveBeenCalled();
+  });
+});
+
+test('accumulates fractional Codex pixel-wheel deltas into whole lines', async () => {
+  const onData = vi.fn();
+  await render(
+    <XTermTerminal
+      aria-label="terminal"
+      cols={24}
+      onData={onData}
+      rows={5}
+      wheelScrollsViewport
+    />
+  );
+  const term = await waitForTerminal();
+  const lines = Array.from({ length: 30 }, (_, index) => `line-${index + 1}`);
+
+  await writeTerminal(term, `${lines.join('\r\n')}\r\n`);
+  await writeTerminal(term, '\x1b[?1002h\x1b[?1006h');
+  term.scrollToLine(Math.floor(term.buffer.active.baseY / 2));
+  await waitForAnimationFrame();
   const viewportBefore = term.buffer.active.viewportY;
   const screen = document.querySelector<HTMLElement>('.xterm-screen');
   expect(screen).toBeTruthy();
+  const fractionalPixelDelta =
+    (screen!.getBoundingClientRect().height / term.rows) * 0.26;
+  onData.mockClear();
 
-  screen!.dispatchEvent(
-    new WheelEvent('wheel', {
-      bubbles: true,
-      cancelable: true,
-      deltaY: 120,
-    })
-  );
+  for (let index = 0; index < 3; index += 1) {
+    dispatchTerminalWheel({
+      deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+      deltaY: fractionalPixelDelta,
+    });
+  }
+  expect(term.buffer.active.viewportY).toBe(viewportBefore);
+
+  dispatchTerminalWheel({
+    deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+    deltaY: fractionalPixelDelta,
+  });
 
   await vi.waitFor(() => {
-    expect(term.buffer.active.viewportY).not.toBe(viewportBefore);
+    expect(term.buffer.active.viewportY).toBeGreaterThan(viewportBefore);
   });
   expect(onData).not.toHaveBeenCalled();
 });

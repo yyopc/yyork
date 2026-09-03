@@ -1,0 +1,70 @@
+.recap-video-player {
+  aspect-ratio: 8 / 5;
+  overflow: hidden;
+  background: #0a0a0a;
+}
+
+.recap-video-player .media-minimal-skin {
+  --media-border-radius: 0;
+  --media-object-fit: cover;
+
+  width: 100%;
+  height: 100%;
+}
+
+.recap-video-player[data-maximized] {
+  position: fixed;
+  inset: clamp(1rem, 4vw, 3rem);
+  z-index: 60;
+  aspect-ratio: auto;
+  border-radius: 0.5rem;
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 10%),
+    0 24px 80px rgb(0 0 0 / 45%);
+}
+
+.recap-video-player[data-maximized] .media-minimal-skin {
+  --media-border-radius: 0.5rem;
+  --media-object-fit: contain;
+}
+
+.recap-video-player .media-button--fullscreen {
+  display: none;
+}
+
+.recap-video-player .media-controls .media-button-group:last-child {
+  padding-right: 2.45rem;
+}
+
+.recap-video-player .recap-maximize-button {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  z-index: 20;
+  color: white;
+  pointer-events: none;
+  opacity: 0;
+  translate: 0 100%;
+  filter: blur(8px);
+  transition-timing-function: var(--media-controls-transition-timing-function);
+  transition-duration: var(--media-controls-transition-duration);
+  transition-property: translate, filter, opacity;
+}
+
+.recap-video-player
+  .media-minimal-skin:has(.media-controls[data-visible])
+  .recap-maximize-button,
+.recap-video-player .recap-maximize-button:focus-visible {
+  pointer-events: auto;
+  opacity: 1;
+  translate: 0;
+  filter: blur(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recap-video-player .recap-maximize-button {
+    translate: 0;
+    filter: none;
+    transition: none;
+  }
+}

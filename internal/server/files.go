@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"mime"
 	"net/http"
 	"os"
 	"os/exec"
@@ -74,6 +75,79 @@ func (s *Server) handleSessionFileContent(w http.ResponseWriter, r *http.Request
 	}
 
 	writeJSON(w, http.StatusOK, payload)
+}
+
+// rawFileContentTypes pins the Content-Type for media extensions the dashboard
+// renders inline. Go's builtin mime table lacks most audio/video types (it
+// consults per-OS mime files, which vary across machines) and sniffing
+// misidentifies svg, so the in-scope extensions are mapped explicitly.
+var rawFileContentTypes = map[string]string{
+	".avif": "image/avif",
+	".gif":  "image/gif",
+	".jpeg": "image/jpeg",
+	".jpg":  "image/jpeg",
+	".m4a":  "audio/mp4",
+	".mp3":  "audio/mpeg",
+	".mp4":  "video/mp4",
+	".ogg":  "audio/ogg",
+	".png":  "image/png",
+	".svg":  "image/svg+xml",
+	".wav":  "audio/wav",
+	".webm": "video/webm",
+	".webp": "image/webp",
+}
+
+// handleSessionFileRaw streams a workspace file's bytes with a media
+// Content-Type. Serving goes through http.ServeContent for Range/206 support
+// (required for video scrubbing; Safari refuses media without it), HEAD
+// handling, and Last-Modified revalidation.
+func (s *Server) handleSessionFileRaw(w http.ResponseWriter, r *http.Request) {
+	cwd, status, err := s.workspaceDirectoryForSessionRequest(r)
+	if err != nil {
+		http.Error(w, err.Error(), status)
+		return
+	}
+
+	_, resolvedPath, status, err := resolveWorkspaceFilePath(cwd, r.URL.Query().Get("path"))
+	if err != nil {
+		http.Error(w, err.Error(), status)
+		return
+	}
+
+	file, err := os.Open(resolvedPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+
+	info, err := file.Stat()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !info.Mode().IsRegular() {
+		http.Error(w, "path is not a regular file", http.StatusBadRequest)
+		return
+	}
+
+	extension := strings.ToLower(filepath.Ext(resolvedPath))
+	contentType := rawFileContentTypes[extension]
+	if contentType == "" {
+		contentType = mime.TypeByExtension(extension)
+	}
+	if contentType != "" {
+		w.Header().Set("Content-Type", contentType)
+	}
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Content-Security-Policy", "sandbox")
+
+	http.ServeContent(w, r, filepath.Base(resolvedPath), info.ModTime(), file)
 }
 
 func (s *Server) workspaceDirectoryForSessionRequest(r *http.Request) (string, int, error) {

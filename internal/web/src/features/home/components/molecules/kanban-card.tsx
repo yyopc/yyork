@@ -13,6 +13,7 @@ const agentIconUrls: Record<string, string> = {
   'claude-code': '/agent-icons/claude-agent.svg',
   claude: '/agent-icons/claude-agent.svg',
   codex: '/agent-icons/codex-agent.svg',
+  cursor: '/agent-icons/cursor-agent.svg',
 };
 
 export interface KanbanSessionActionProps {

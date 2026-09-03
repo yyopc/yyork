@@ -53,6 +53,11 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.local/
+
+# local secrets / credentials (never commit)
+.local/**/*.md
+**/x-api-credentials.md
 
 # vercel
 .vercel
@@ -107,3 +112,4 @@ opencode.json
 internal/web/output/
 .yyoreel/
 .gstack/
+.claude/settings.local.json

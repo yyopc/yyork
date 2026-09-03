@@ -7,3 +7,4 @@ Runtime requirements
 Agent CLI availability
   OK       claude-code  optional  /Users/me/.local/bin/claude
   MISSING  codex        optional  Codex sessions are unavailable until the codex CLI is on PATH.
+  MISSING  cursor       optional  Cursor sessions are unavailable until the agent CLI is on PATH.

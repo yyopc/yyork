@@ -594,6 +594,8 @@ function useTerminalPanel(props: TerminalPanelProps): TerminalPanelViewProps {
 function TerminalPanelView(props: TerminalPanelViewProps) {
   const terminalPanelRef = useRef<HTMLElement | null>(null);
   const [isTerminalFullscreen, setIsTerminalFullscreen] = useState(false);
+  const isCodexSession =
+    (props.session?.agentPluginId ?? props.session?.agent) === 'codex';
   const fullscreenButtonLabel = isTerminalFullscreen
     ? 'Restore terminal'
     : 'Maximize terminal';
@@ -658,9 +660,7 @@ function TerminalPanelView(props: TerminalPanelViewProps) {
           (see the connect effect + reset-on-switch above).
         */}
         <XTermTerminal
-          adaptCodexUserMessageBackground={
-            (props.session?.agentPluginId ?? props.session?.agent) === 'codex'
-          }
+          adaptCodexUserMessageBackground={isCodexSession}
           aria-label={props.terminalLabel}
           className="ao-terminal"
           cols={props.terminalSize.cols}
@@ -670,6 +670,7 @@ function TerminalPanelView(props: TerminalPanelViewProps) {
           onError={props.onTerminalError}
           onReady={props.onTerminalReady}
           rows={props.terminalSize.rows}
+          wheelScrollsViewport={isCodexSession}
         />
       </div>
 

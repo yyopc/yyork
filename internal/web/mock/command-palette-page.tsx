@@ -22,12 +22,15 @@ import {
 
 const mockBoards = ['yyork', 'agent-orchestrator', 'browser preview research'];
 
+const mockPinnedSessions = [
+  'yyork / Hook Confirmation Probe',
+  'browser preview research / Annotation transport',
+];
+
 const mockSessions = [
   'yyork / orchestrator',
-  'yyork / Hook Confirmation Probe',
   'yyork / Configure HyperFrames Popover',
   'agent-orchestrator / Session wiring cleanup',
-  'browser preview research / Annotation transport',
 ];
 
 export function CommandPaletteMockPage() {
@@ -43,6 +46,22 @@ export function CommandPaletteMockPage() {
         <CommandInput placeholder="Search boards, sessions, actions..." />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
+          {mockPinnedSessions.length > 0 ? (
+            <>
+              <CommandGroup heading="Pinned sessions">
+                {mockPinnedSessions.map((session) => (
+                  <CommandItem
+                    key={session}
+                    value={`pinned session ${session}`}
+                  >
+                    <TerminalIcon aria-hidden="true" />
+                    <span className="min-w-0 flex-1 truncate">{session}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+              <CommandSeparator className="my-1" />
+            </>
+          ) : null}
           <CommandGroup heading="Boards">
             {mockBoards.map((board) => (
               <CommandItem key={board} value={`board ${board}`}>

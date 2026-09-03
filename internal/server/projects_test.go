@@ -125,6 +125,28 @@ func TestHandleCreateProjectPassesAgentPlugins(t *testing.T) {
 	}
 }
 
+func TestHandleCreateProjectAcceptsCursorAgentPlugins(t *testing.T) {
+	root := initGitRepo(t)
+	ensurer := &fakeOrchestratorEnsurer{created: true}
+	settings := &fakeProjectSettingsRepo{}
+	server := New(Config{Orchestrators: ensurer, ProjectSettings: settings})
+
+	response := postProject(
+		t,
+		server,
+		`{"path":`+jsonString(root)+`,"agentPlugin":"cursor","workerAgentPlugin":"cursor"}`,
+	)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected Cursor project to succeed, got %d: %s", response.Code, response.Body.String())
+	}
+	if ensurer.gotReq.AgentPlugin != "cursor" {
+		t.Fatalf("orchestrator agent = %q, want cursor", ensurer.gotReq.AgentPlugin)
+	}
+	if settings.gotWorkerAgentPlugin != "cursor" {
+		t.Fatalf("worker agent = %q, want cursor", settings.gotWorkerAgentPlugin)
+	}
+}
+
 func TestHandleCreateProjectRejectsUnknownWorkerWorkspaceMode(t *testing.T) {
 	root := initGitRepo(t)
 	ensurer := &fakeOrchestratorEnsurer{}

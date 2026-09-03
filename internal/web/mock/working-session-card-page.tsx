@@ -34,8 +34,8 @@ export function WorkingSessionCardMockPage() {
         <h1 className="text-lg font-medium">Working session card</h1>
         <p className="text-sm leading-6 text-muted-foreground">
           Side-by-side comparison of the current kanban card, V2 (active tool
-          call panel), and V3 (production-style bulletin with slot-text on live
-          hook updates). Use the theme control for light/dark review; share with{' '}
+          call panel), and V3 (stable tool-call text with a restrained shimmer).
+          Use the theme control for light/dark review; share with{' '}
           <code className="font-mono text-xs">?theme=dark</code>.
         </p>
       </header>
@@ -49,7 +49,7 @@ export function WorkingSessionCardMockPage() {
         third={
           <WorkingSessionCardV3 card={liveCard} onSelect={setSelectedKey} />
         }
-        thirdLabel="V3 moving bulletin (hover to pause)"
+        thirdLabel="V3 subtle shimmer"
       />
 
       <ComparisonPanel
@@ -61,16 +61,16 @@ export function WorkingSessionCardMockPage() {
         third={
           <WorkingSessionCardV3 card={claudeCard} onSelect={setSelectedKey} />
         }
-        thirdLabel="V3 live bulletin (slot-text)"
+        thirdLabel="V3 stable shimmer"
       />
 
       <section className="flex min-w-0 flex-col gap-3">
-        <h3 className="text-sm font-medium">V3 focus — live bulletin</h3>
+        <h3 className="text-sm font-medium">V3 focus — subtle shimmer</h3>
         <p className="max-w-2xl text-xs leading-5 text-muted-foreground">
-          Shows the active hook tool call with formatted labels. Each metadata
-          update rolls in with{' '}
-          <code className="font-mono text-[11px]">slot-text</code>. When no tool
-          is running, the card falls back to recap text.
+          Keeps the active tool call stable while a narrow, low-contrast
+          highlight provides activity feedback. Reduced motion renders plain
+          static text. When no tool is running, the card falls back to recap
+          text.
         </p>
         <div className="flex flex-wrap items-start gap-6">
           <MockColumnShell count={2} label="Working">

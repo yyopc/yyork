@@ -6,6 +6,7 @@ import { defineConfig, loadEnv } from 'vite';
 import tsConfigPaths from 'vite-tsconfig-paths';
 
 const configDir = dirname(fileURLToPath(import.meta.url));
+const workspaceRoot = resolve(configDir, '../..');
 
 /**
  * Design surface for mock.yyork.localhost. Pages are top-level documents (no
@@ -28,7 +29,7 @@ export default defineConfig(({ mode }) => {
       port: process.env.PORT ? Number(process.env.PORT) : 4173,
       strictPort: false,
       fs: {
-        allow: [configDir],
+        allow: [workspaceRoot],
       },
     },
     optimizeDeps: {

@@ -18,6 +18,7 @@ import (
 	"github.com/yyopc/yyork/internal/plugin"
 	"github.com/yyopc/yyork/internal/plugin/agent/claudecode"
 	"github.com/yyopc/yyork/internal/plugin/agent/codex"
+	"github.com/yyopc/yyork/internal/plugin/agent/cursor"
 	"github.com/yyopc/yyork/internal/server"
 	"github.com/yyopc/yyork/internal/session"
 	"github.com/yyopc/yyork/internal/store"
@@ -254,6 +255,7 @@ func registerBuiltInPlugins(registry *plugin.Registry) error {
 	for _, builtIn := range []plugin.Plugin{
 		codex.New(),
 		claudecode.New(),
+		cursor.New(),
 	} {
 		if err := registry.Register(builtIn); err != nil {
 			return err

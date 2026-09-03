@@ -16,6 +16,91 @@ import (
 	"github.com/yyopc/yyork/internal/store"
 )
 
+func TestRunMetadataCommandScrubsYYORKSessionID(t *testing.T) {
+	t.Setenv("YYORK_METADATA_ENV_PROBE", "1")
+	t.Setenv("YYORK_SESSION_ID", "parent-session")
+
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runMetadataCommand(context.Background(), []string{
+		executable,
+		"-test.run=^TestMetadataCommandEnvironmentProbe$",
+	}); err != nil {
+		t.Fatalf("metadata subprocess inherited YYORK_SESSION_ID: %v", err)
+	}
+}
+
+func TestMetadataCommandEnvironmentProbe(t *testing.T) {
+	if os.Getenv("YYORK_METADATA_ENV_PROBE") != "1" {
+		return
+	}
+	if os.Getenv("YYORK_SESSION_ID") != "" {
+		os.Exit(3)
+	}
+	os.Exit(0)
+}
+
+func TestHookMetadataCommandsReceiveAgentConfig(t *testing.T) {
+	ctx := context.Background()
+	home := t.TempDir()
+	configDir := filepath.Join(home, ".yyork")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte("agents:\n  codex:\n    model: configured-model\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+	t.Setenv("YYORK_SESSION_ID", "configured-hook-session")
+	insertHookTestSession(t, ctx, "configured-hook-session")
+
+	previousBuildTitle := buildHookTitleCommand
+	previousRunTitle := runHookTitleCommand
+	previousBuildRecap := buildHookRecapCommand
+	previousRunRecap := runHookRecapCommand
+	var titleConfig agent.TitleConfig
+	var recapConfig agent.RecapConfig
+	buildHookTitleCommand = func(_ context.Context, _ string, cfg agent.TitleConfig) ([]string, error) {
+		titleConfig = cfg
+		return []string{"fake-title"}, nil
+	}
+	runHookTitleCommand = func(context.Context, []string) (string, error) {
+		return "Configured title\n", nil
+	}
+	buildHookRecapCommand = func(_ context.Context, _ string, cfg agent.RecapConfig) ([]string, error) {
+		recapConfig = cfg
+		return []string{"fake-recap"}, nil
+	}
+	runHookRecapCommand = func(context.Context, []string) (string, error) {
+		return "Configured recap\n", nil
+	}
+	t.Cleanup(func() {
+		buildHookTitleCommand = previousBuildTitle
+		runHookTitleCommand = previousRunTitle
+		buildHookRecapCommand = previousBuildRecap
+		runHookRecapCommand = previousRunRecap
+	})
+
+	for event, payload := range map[string]string{
+		"user-prompt-submit": `{"prompt":"Configure this session."}`,
+		"stop":               `{"last_assistant_message":"Configured."}`,
+	} {
+		var stdout, stderr bytes.Buffer
+		if code := runCodexHook(ctx, event, strings.NewReader(payload), &stdout, &stderr); code != 0 {
+			t.Fatalf("%s exit = %d, stderr: %s", event, code, stderr.String())
+		}
+	}
+
+	if got := titleConfig.Config["model"]; got != "configured-model" {
+		t.Fatalf("title config model = %#v, want configured-model", got)
+	}
+	if got := recapConfig.Config["model"]; got != "configured-model" {
+		t.Fatalf("recap config model = %#v, want configured-model", got)
+	}
+}
+
 func TestRunCodexHookPersistsHookMetadata(t *testing.T) {
 	ctx := context.Background()
 	sessionID := "ao-session-1"
@@ -62,6 +147,32 @@ func TestRunCodexHookPersistsHookMetadata(t *testing.T) {
 	}
 	if got := row.Metadata["prompt"]; got != "stored launch prompt" {
 		t.Fatalf("prompt metadata = %#v, want preserved launch prompt", got)
+	}
+}
+
+func TestRunCodexHookPreservesFirstAgentSessionID(t *testing.T) {
+	ctx := context.Background()
+	sessionID := "ao-session-stable-native-id"
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("YYORK_SESSION_ID", sessionID)
+	insertHookTestSession(t, ctx, sessionID)
+
+	runSessionStart := func(agentSessionID string) {
+		t.Helper()
+		var stdout, stderr bytes.Buffer
+		payload := `{"session_id":"` + agentSessionID + `"}`
+		code := runCodexHook(ctx, "session-start", strings.NewReader(payload), &stdout, &stderr)
+		if code != 0 {
+			t.Fatalf("session-start exit = %d, stderr: %s", code, stderr.String())
+		}
+	}
+
+	runSessionStart("codex-canonical-1")
+	runSessionStart("codex-transient-2")
+
+	row := readHookTestSession(t, ctx, sessionID)
+	if got := row.Metadata[hookMetadataAgentSessionID]; got != "codex-canonical-1" {
+		t.Fatalf("agentSessionId = %#v, want first native id", got)
 	}
 }
 
@@ -133,6 +244,163 @@ func TestRunCodexHookPersistsKanbanActivityMetadata(t *testing.T) {
 		t.Fatalf("lastAssistantMessageAt not set after stop: %#v", row.Metadata)
 	} else if _, err := time.Parse(time.RFC3339Nano, got.(string)); err != nil {
 		t.Fatalf("lastAssistantMessageAt = %#v, want RFC3339Nano timestamp: %v", got, err)
+	}
+}
+
+func TestRunAgentHookIgnoresForeignHookOwner(t *testing.T) {
+	ctx := context.Background()
+	sessionID := "ao-session-owned-by-codex"
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("YYORK_SESSION_ID", sessionID)
+	insertHookTestSessionWithAgent(t, ctx, sessionID, "codex")
+	payload := `{"tool_name":"Shell","tool_input":{"command":"echo probe"}}`
+
+	run := func(agentName string) {
+		t.Helper()
+		var stdout, stderr bytes.Buffer
+		code := runAgentHook(ctx, agentName, "pre-tool-use", strings.NewReader(payload), &stdout, &stderr)
+		if code != 0 {
+			t.Fatalf("%s hook exit = %d, stderr: %s", agentName, code, stderr.String())
+		}
+		if stdout.String() != "{}\n" {
+			t.Fatalf("%s stdout = %q, want empty hook response", agentName, stdout.String())
+		}
+	}
+
+	run("claude-code")
+	row := readHookTestSession(t, ctx, sessionID)
+	if got := row.Metadata[hookMetadataState]; got != nil {
+		t.Fatalf("foreign hook changed state to %#v", got)
+	}
+	if got := row.Metadata[hookMetadataCurrentTool]; got != nil {
+		t.Fatalf("foreign hook changed current tool to %#v", got)
+	}
+
+	run("codex")
+	row = readHookTestSession(t, ctx, sessionID)
+	if got := row.Metadata[hookMetadataState]; got != hookStateWorking {
+		t.Fatalf("owning hook state = %#v, want working", got)
+	}
+	if got := row.Metadata[hookMetadataCurrentTool]; got != "Running shell command: echo probe" {
+		t.Fatalf("owning hook current tool = %#v, want shell bulletin", got)
+	}
+}
+
+func TestRunAgentPreToolUseClassifiesHumanInputTools(t *testing.T) {
+	tests := []struct {
+		name            string
+		agentName       string
+		payload         string
+		wantState       string
+		wantCurrentTool string
+		wantReason      string
+		wantBulletin    string
+	}{
+		{
+			name:         "Codex flat question",
+			agentName:    "codex",
+			payload:      `{"tool_name":"request_user_input","tool_input":{"question":"Which environment should I deploy to?"}}`,
+			wantState:    hookStateTriage,
+			wantReason:   "Needs your input: Which environment should I deploy to?",
+			wantBulletin: "Needs your input: Which environment should I deploy to?",
+		},
+		{
+			name:         "Codex flat prompt",
+			agentName:    "codex",
+			payload:      `{"tool_name":"request_user_input","tool_input":{"prompt":"Choose a release channel."}}`,
+			wantState:    hookStateTriage,
+			wantReason:   "Needs your input: Choose a release channel.",
+			wantBulletin: "Needs your input: Choose a release channel.",
+		},
+		{
+			name:         "Claude questions array",
+			agentName:    "claude-code",
+			payload:      `{"tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"Which database should this use?","header":"Database","options":[]}]}}`,
+			wantState:    hookStateTriage,
+			wantReason:   "Needs your input: Which database should this use?",
+			wantBulletin: "Needs your input: Which database should this use?",
+		},
+		{
+			name:         "empty input fallback",
+			agentName:    "claude-code",
+			payload:      `{"tool_name":"AskUserQuestion","tool_input":{}}`,
+			wantState:    hookStateTriage,
+			wantReason:   "Waiting for your input.",
+			wantBulletin: "Waiting for your input.",
+		},
+		{
+			name:            "unrelated tool stays working",
+			agentName:       "codex",
+			payload:         `{"tool_name":"bash","tool_input":{"command":"go test ./internal/cli"}}`,
+			wantState:       hookStateWorking,
+			wantCurrentTool: "Running shell command: go test ./internal/cli",
+			wantBulletin:    "Running shell command: go test ./internal/cli",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			sessionID := "ao-session-user-input-" + strings.ReplaceAll(strings.ToLower(tt.name), " ", "-")
+			t.Setenv("HOME", t.TempDir())
+			t.Setenv("YYORK_SESSION_ID", sessionID)
+			insertHookTestSessionWithAgent(t, ctx, sessionID, tt.agentName)
+
+			var stdout, stderr bytes.Buffer
+			code := runAgentHook(ctx, tt.agentName, "pre-tool-use", strings.NewReader(tt.payload), &stdout, &stderr)
+			if code != 0 {
+				t.Fatalf("pre-tool-use exit = %d, stderr: %s", code, stderr.String())
+			}
+
+			row := readHookTestSession(t, ctx, sessionID)
+			if got := row.Metadata[hookMetadataState]; got != tt.wantState {
+				t.Fatalf("state = %#v, want %q", got, tt.wantState)
+			}
+			if got := row.Metadata[hookMetadataCurrentTool]; got != tt.wantCurrentTool {
+				t.Fatalf("currentToolCall = %#v, want %q", got, tt.wantCurrentTool)
+			}
+			if tt.wantReason != "" {
+				if got := row.Metadata[hookMetadataTriageReason]; got != tt.wantReason {
+					t.Fatalf("triageReason = %#v, want %q", got, tt.wantReason)
+				}
+			}
+			if got := metadataStrings(row.Metadata[hookMetadataToolBulletins]); len(got) != 1 || got[0] != tt.wantBulletin {
+				t.Fatalf("toolCallBulletins = %#v, want first bulletin %q", got, tt.wantBulletin)
+			}
+		})
+	}
+}
+
+func TestRunCodexPostToolUseRestoresWorkingAfterHumanInput(t *testing.T) {
+	ctx := context.Background()
+	sessionID := "ao-session-user-input-complete"
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("YYORK_SESSION_ID", sessionID)
+	insertHookTestSession(t, ctx, sessionID)
+
+	runHook := func(event string) {
+		t.Helper()
+		var stdout, stderr bytes.Buffer
+		payload := `{"tool_name":"request_user_input","tool_input":{"question":"Continue?"}}`
+		code := runCodexHook(ctx, event, strings.NewReader(payload), &stdout, &stderr)
+		if code != 0 {
+			t.Fatalf("%s exit = %d, stderr: %s", event, code, stderr.String())
+		}
+	}
+
+	runHook("pre-tool-use")
+	row := readHookTestSession(t, ctx, sessionID)
+	if got := row.Metadata[hookMetadataState]; got != hookStateTriage {
+		t.Fatalf("pre-tool-use state = %#v, want triage", got)
+	}
+
+	runHook("post-tool-use")
+	row = readHookTestSession(t, ctx, sessionID)
+	if got := row.Metadata[hookMetadataState]; got != hookStateWorking {
+		t.Fatalf("post-tool-use state = %#v, want working", got)
+	}
+	if got := row.Metadata[hookMetadataCurrentTool]; got != "" {
+		t.Fatalf("post-tool-use currentToolCall = %#v, want cleared", got)
 	}
 }
 
@@ -262,7 +530,7 @@ func TestRunClaudeHookPersistsHookMetadata(t *testing.T) {
 	t.Setenv("YYORK_SESSION_ID", sessionID)
 	stubHookTitleCommand(t, "Generated Claude redirect title")
 	stubHookRecapCommand(t, "Generated Claude redirect recap")
-	insertHookTestSession(t, ctx, sessionID)
+	insertHookTestSessionWithAgent(t, ctx, sessionID, "claude-code")
 
 	runHook := func(event string, payload string) {
 		t.Helper()
@@ -296,6 +564,202 @@ func TestRunClaudeHookPersistsHookMetadata(t *testing.T) {
 	}
 	if got := row.Metadata["prompt"]; got != "stored launch prompt" {
 		t.Fatalf("prompt metadata = %#v, want preserved launch prompt", got)
+	}
+}
+
+func TestRunCursorAssistantResponseUpdatesRecapWithoutChangingState(t *testing.T) {
+	ctx := context.Background()
+	sessionID := "ao-session-cursor-response"
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("YYORK_SESSION_ID", sessionID)
+	stubHookRecapCommand(t, "Generated Cursor response recap")
+	insertHookTestSessionWithAgentAndMetadata(t, ctx, sessionID, "cursor", map[string]any{
+		"prompt":          "stored launch prompt",
+		hookMetadataState: hookStateWorking,
+	})
+
+	var stdout, stderr bytes.Buffer
+	code := runCursorHook(
+		ctx,
+		"assistant-response",
+		strings.NewReader(`{"text":"Implemented Cursor response hooks."}`),
+		&stdout,
+		&stderr,
+	)
+	if code != 0 {
+		t.Fatalf("assistant-response exit = %d, stderr: %s", code, stderr.String())
+	}
+	if stdout.String() != "{}\n" {
+		t.Fatalf("assistant-response stdout = %q, want empty verdict", stdout.String())
+	}
+
+	row := readHookTestSession(t, ctx, sessionID)
+	if got := row.Metadata[hookMetadataRecap]; got != "Generated Cursor response recap" {
+		t.Fatalf("recap = %#v, want generated Cursor recap", got)
+	}
+	if got := row.Metadata[hookMetadataState]; got != hookStateWorking {
+		t.Fatalf("state = %#v, want unchanged working state", got)
+	}
+}
+
+func TestRunCursorStopChangesStateWithoutGeneratingRecap(t *testing.T) {
+	ctx := context.Background()
+	sessionID := "ao-session-cursor-stop"
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("YYORK_SESSION_ID", sessionID)
+	insertHookTestSessionWithAgentAndMetadata(t, ctx, sessionID, "cursor", map[string]any{
+		"prompt":          "stored launch prompt",
+		hookMetadataState: hookStateWorking,
+		hookMetadataRecap: "Existing response recap",
+	})
+
+	var stdout, stderr bytes.Buffer
+	code := runCursorHook(ctx, "stop", strings.NewReader(`{"text":"must not be used here"}`), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("stop exit = %d, stderr: %s", code, stderr.String())
+	}
+
+	row := readHookTestSession(t, ctx, sessionID)
+	if got := row.Metadata[hookMetadataState]; got != hookStatePrompt {
+		t.Fatalf("state = %#v, want prompt", got)
+	}
+	if got := row.Metadata[hookMetadataRecap]; got != "Existing response recap" {
+		t.Fatalf("recap = %#v, want existing recap preserved", got)
+	}
+	if got := row.Metadata[hookMetadataLastAssistantMessageAt]; got == "" {
+		t.Fatal("stop did not set lastAssistantMessageAt")
+	}
+}
+
+func TestRunCursorSessionStartReturnsStoredSystemPrompt(t *testing.T) {
+	ctx := context.Background()
+	sessionID := "ao-session-cursor-context"
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("YYORK_SESSION_ID", sessionID)
+	longPrompt := strings.Repeat("Z", hookAdditionalContextMaxChars+5)
+	insertHookTestSessionWithAgentAndMetadata(t, ctx, sessionID, "cursor", map[string]any{
+		"systemPrompt": longPrompt,
+	})
+
+	var stdout, stderr bytes.Buffer
+	code := runCursorHook(ctx, "session-start", strings.NewReader(`{"session_id":"cursor-native-context"}`), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("session-start exit = %d, stderr: %s", code, stderr.String())
+	}
+	var response map[string]string
+	if err := json.Unmarshal(stdout.Bytes(), &response); err != nil {
+		t.Fatalf("decode hook response: %v\n%s", err, stdout.String())
+	}
+	contextText := response["additional_context"]
+	if len([]rune(contextText)) != hookAdditionalContextMaxChars {
+		t.Fatalf("additional_context length = %d, want %d", len([]rune(contextText)), hookAdditionalContextMaxChars)
+	}
+	if !strings.Contains(stderr.String(), "additional_context truncated") {
+		t.Fatalf("stderr = %q, want truncation log", stderr.String())
+	}
+	row := readHookTestSession(t, ctx, sessionID)
+	if got := row.Metadata[hookMetadataAgentSessionID]; got != "cursor-native-context" {
+		t.Fatalf("agentSessionId = %#v, want cursor-native-context", got)
+	}
+}
+
+func TestRunCursorPreToolUseReturnsApprovalVerdictAndTriage(t *testing.T) {
+	ctx := context.Background()
+	sessionID := "ao-session-cursor-approval"
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("YYORK_SESSION_ID", sessionID)
+	t.Setenv("YYORK_PERMISSION_MODE", string(agent.PermissionModeDefault))
+	insertHookTestSessionWithAgent(t, ctx, sessionID, "cursor")
+
+	var stdout, stderr bytes.Buffer
+	payload := `{"tool_name":"Shell","tool_input":{"command":"git push origin main"}}`
+	code := runCursorHook(ctx, "pre-tool-use", strings.NewReader(payload), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("pre-tool-use exit = %d, stderr: %s", code, stderr.String())
+	}
+	if stdout.String() != "{\"permission\":\"ask\"}\n" {
+		t.Fatalf("pre-tool-use stdout = %q, want ask verdict", stdout.String())
+	}
+	row := readHookTestSession(t, ctx, sessionID)
+	if got := row.Metadata[hookMetadataState]; got != hookStateTriage {
+		t.Fatalf("state = %#v, want triage", got)
+	}
+	if got := row.Metadata[hookMetadataTriageReason]; got != "Needs approval for shell command: git push origin main" {
+		t.Fatalf("triageReason = %#v", got)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = runCursorHook(ctx, "post-tool-use", strings.NewReader(payload), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("post-tool-use-failure mapping exit = %d, stderr: %s", code, stderr.String())
+	}
+	row = readHookTestSession(t, ctx, sessionID)
+	if got := row.Metadata[hookMetadataState]; got != hookStateWorking {
+		t.Fatalf("state after failure mapping = %#v, want working", got)
+	}
+}
+
+func TestRunCursorPreToolUseDoesNotSynthesizeQuestionTriage(t *testing.T) {
+	ctx := context.Background()
+	sessionID := "ao-session-cursor-question"
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("YYORK_SESSION_ID", sessionID)
+	t.Setenv("YYORK_PERMISSION_MODE", string(agent.PermissionModeDefault))
+	insertHookTestSessionWithAgent(t, ctx, sessionID, "cursor")
+
+	var stdout, stderr bytes.Buffer
+	payload := `{"tool_name":"AskQuestion","tool_input":{"questions":[{"prompt":"Which option?"}]}}`
+	code := runCursorHook(ctx, "pre-tool-use", strings.NewReader(payload), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("pre-tool-use exit = %d, stderr: %s", code, stderr.String())
+	}
+	if stdout.String() != "{}\n" {
+		t.Fatalf("pre-tool-use stdout = %q, want empty verdict", stdout.String())
+	}
+	row := readHookTestSession(t, ctx, sessionID)
+	if got := row.Metadata[hookMetadataState]; got != hookStateWorking {
+		t.Fatalf("state = %#v, want working", got)
+	}
+	if got := row.Metadata[hookMetadataTriageReason]; got != nil {
+		t.Fatalf("triageReason = %#v, want absent", got)
+	}
+}
+
+func TestRunCursorAcceptEditsOnlyAsksForShellAndMcp(t *testing.T) {
+	ctx := context.Background()
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("YYORK_PERMISSION_MODE", string(agent.PermissionModeAcceptEdits))
+
+	tests := []struct {
+		name       string
+		tool       string
+		wantOutput string
+		wantState  string
+	}{
+		{name: "edit is silent", tool: "Edit", wantOutput: "{}\n", wantState: hookStateWorking},
+		{name: "shell asks", tool: "Shell", wantOutput: "{\"permission\":\"ask\"}\n", wantState: hookStateTriage},
+		{name: "mcp asks", tool: "Mcp", wantOutput: "{\"permission\":\"ask\"}\n", wantState: hookStateTriage},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sessionID := "ao-cursor-accept-edits-" + strings.ReplaceAll(tt.name, " ", "-")
+			t.Setenv("YYORK_SESSION_ID", sessionID)
+			insertHookTestSessionWithAgent(t, ctx, sessionID, "cursor")
+			var stdout, stderr bytes.Buffer
+			payload := `{"tool_name":"` + tt.tool + `","tool_input":{}}`
+			code := runCursorHook(ctx, "pre-tool-use", strings.NewReader(payload), &stdout, &stderr)
+			if code != 0 {
+				t.Fatalf("exit = %d, stderr: %s", code, stderr.String())
+			}
+			if stdout.String() != tt.wantOutput {
+				t.Fatalf("stdout = %q, want %q", stdout.String(), tt.wantOutput)
+			}
+			row := readHookTestSession(t, ctx, sessionID)
+			if got := row.Metadata[hookMetadataState]; got != tt.wantState {
+				t.Fatalf("state = %#v, want %s", got, tt.wantState)
+			}
+		})
 	}
 }
 
@@ -470,6 +934,37 @@ func TestRunHooksInstallCreatesClaudeHooks(t *testing.T) {
 	}
 	if got := strings.Count(string(data), " hooks claude-code "); got != 6 {
 		t.Fatalf("yyork Claude hook count = %d, want 6 in %s", got, data)
+	}
+	if !strings.Contains(string(data), "my own stop hook") {
+		t.Fatalf("user hook not preserved: %s", data)
+	}
+}
+
+func TestRunHooksInstallCreatesCursorHooks(t *testing.T) {
+	dir := t.TempDir()
+	hooksPath := filepath.Join(dir, ".cursor", "hooks.json")
+	if err := os.MkdirAll(filepath.Dir(hooksPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	existing := `{"version":1,"hooks":{"stop":[{"command":"my own stop hook","type":"command","timeout":3,"failClosed":false,"matcher":""}]}}`
+	if err := os.WriteFile(hooksPath, []byte(existing), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(dir)
+
+	var stdout, stderr bytes.Buffer
+	if code := runHooks(context.Background(), []string{"cursor", "install"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit = %d, stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Installed yyork cursor hooks") {
+		t.Fatalf("stdout = %q, want install message", stdout.String())
+	}
+	data, err := os.ReadFile(hooksPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Count(string(data), " hooks cursor "); got != 7 {
+		t.Fatalf("yyork Cursor hook count = %d, want 7 in %s", got, data)
 	}
 	if !strings.Contains(string(data), "my own stop hook") {
 		t.Fatalf("user hook not preserved: %s", data)
@@ -658,6 +1153,11 @@ esac
 
 func insertHookTestSessionWithAgent(t *testing.T, ctx context.Context, id string, agent string) {
 	t.Helper()
+	insertHookTestSessionWithAgentAndMetadata(t, ctx, id, agent, map[string]any{"prompt": "stored launch prompt"})
+}
+
+func insertHookTestSessionWithAgentAndMetadata(t *testing.T, ctx context.Context, id string, agent string, metadata map[string]any) {
+	t.Helper()
 	dataStore := openHookTestStore(t, ctx)
 	defer func() { _ = dataStore.Close() }()
 
@@ -668,7 +1168,7 @@ func insertHookTestSessionWithAgent(t *testing.T, ctx context.Context, id string
 		AgentPlugin:   agent,
 		WorkspacePath: filepath.Join(t.TempDir(), "worktree"),
 		ZellijSession: id,
-		Metadata:      map[string]any{"prompt": "stored launch prompt"},
+		Metadata:      metadata,
 	})
 	if err != nil {
 		t.Fatal(err)

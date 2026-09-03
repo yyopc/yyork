@@ -174,15 +174,18 @@ export function ProjectOrchestratorSidebar(props: {
           workerSessionGroups={props.workerSessionGroups}
         />
 
-        <SidebarGroup
-          role="navigation"
-          className="min-h-0 flex-1 gap-1 overflow-hidden px-0"
-          aria-label="Projects"
+        <Collapsible
+          defaultOpen
+          render={<SidebarGroup role="navigation" aria-label="Projects" />}
+          className={(state) =>
+            cn(
+              'gap-1 overflow-hidden px-0',
+              state.open ? 'min-h-0 flex-1' : 'shrink-0'
+            )
+          }
         >
           <div className="flex h-5 shrink-0 items-center justify-between px-1">
-            <SidebarGroupLabel className="h-auto px-0 text-xs leading-4 font-medium opacity-60">
-              Projects
-            </SidebarGroupLabel>
+            <SidebarSectionTrigger label="Projects" className="px-0" />
             <ActionTooltip
               label="Add project"
               trigger={
@@ -207,64 +210,70 @@ export function ProjectOrchestratorSidebar(props: {
               <PlusIcon aria-hidden="true" />
             </ActionTooltip>
           </div>
-          <SidebarGroupContent
-            className={cn(
-              'min-h-0 flex-1 scroll-fade-y overflow-y-auto [--scroll-fade-reveal:calc(var(--spacing)*6)] scroll-fade-6',
-              projectSidebarScrollContextClassName
-            )}
-          >
-            <SidebarMenu className="min-w-0">
-              {props.projects.map((project) => (
-                <ProjectNavItem
-                  key={project.id}
-                  project={project}
-                  isBoardActive={project.id === props.activeBoardProjectId}
-                  open={
-                    props.openProjectIds
-                      ? props.openProjectIds.includes(project.id)
-                      : project.id === props.selectedProjectId
-                  }
-                  onOpenChange={(open) =>
-                    props.onProjectOpenChange(project.id, open)
-                  }
-                  onProjectBoardSelect={props.onProjectBoardSelect}
-                  onProjectDelete={props.onProjectDelete}
-                  onProjectIdeOpen={props.onProjectIdeOpen}
-                  onProjectRename={props.onProjectRename}
-                  onTerminalSessionDelete={props.onTerminalSessionDelete}
-                  onTerminalSessionMarkDone={props.onTerminalSessionMarkDone}
-                  onTerminalSessionOpenDetached={
-                    props.onTerminalSessionOpenDetached
-                  }
-                  onTerminalSessionPinToggle={props.onTerminalSessionPinToggle}
-                  onTerminalSessionRename={props.onTerminalSessionRename}
-                  onTerminalSessionRestart={props.onTerminalSessionRestart}
-                  selectedTerminalSessionKey={props.selectedTerminalSessionKey}
-                  orchestrators={props.orchestrators}
-                  onOrchestratorSessionSelect={
-                    props.onOrchestratorSessionSelect
-                  }
-                  pinnedTerminalSessionKeys={pinnedTerminalSessionKeys}
-                  openWorkerSessionGroupIds={
-                    props.openWorkerSessionGroupIdsByProject?.[project.id]
-                  }
-                  onWorkerSessionGroupOpenChange={(groupId, open) =>
-                    props.onWorkerSessionGroupOpenChange(
-                      project.id,
-                      groupId,
-                      open
-                    )
-                  }
-                  onWorkerSessionSelect={props.onWorkerSessionSelect}
-                  tooltipDevtoolActionsVisible={
-                    props.tooltipDevtoolActionsVisible
-                  }
-                  workerSessionGroups={props.workerSessionGroups}
-                />
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+          <CollapsibleContent className="min-h-0 flex-1 overflow-hidden">
+            <SidebarGroupContent
+              className={cn(
+                'h-full min-h-0 scroll-fade-y overflow-y-auto [--scroll-fade-reveal:calc(var(--spacing)*6)] scroll-fade-6',
+                projectSidebarScrollContextClassName
+              )}
+            >
+              <SidebarMenu className="min-w-0">
+                {props.projects.map((project) => (
+                  <ProjectNavItem
+                    key={project.id}
+                    project={project}
+                    isBoardActive={project.id === props.activeBoardProjectId}
+                    open={
+                      props.openProjectIds
+                        ? props.openProjectIds.includes(project.id)
+                        : project.id === props.selectedProjectId
+                    }
+                    onOpenChange={(open) =>
+                      props.onProjectOpenChange(project.id, open)
+                    }
+                    onProjectBoardSelect={props.onProjectBoardSelect}
+                    onProjectDelete={props.onProjectDelete}
+                    onProjectIdeOpen={props.onProjectIdeOpen}
+                    onProjectRename={props.onProjectRename}
+                    onTerminalSessionDelete={props.onTerminalSessionDelete}
+                    onTerminalSessionMarkDone={props.onTerminalSessionMarkDone}
+                    onTerminalSessionOpenDetached={
+                      props.onTerminalSessionOpenDetached
+                    }
+                    onTerminalSessionPinToggle={
+                      props.onTerminalSessionPinToggle
+                    }
+                    onTerminalSessionRename={props.onTerminalSessionRename}
+                    onTerminalSessionRestart={props.onTerminalSessionRestart}
+                    selectedTerminalSessionKey={
+                      props.selectedTerminalSessionKey
+                    }
+                    orchestrators={props.orchestrators}
+                    onOrchestratorSessionSelect={
+                      props.onOrchestratorSessionSelect
+                    }
+                    pinnedTerminalSessionKeys={pinnedTerminalSessionKeys}
+                    openWorkerSessionGroupIds={
+                      props.openWorkerSessionGroupIdsByProject?.[project.id]
+                    }
+                    onWorkerSessionGroupOpenChange={(groupId, open) =>
+                      props.onWorkerSessionGroupOpenChange(
+                        project.id,
+                        groupId,
+                        open
+                      )
+                    }
+                    onWorkerSessionSelect={props.onWorkerSessionSelect}
+                    tooltipDevtoolActionsVisible={
+                      props.tooltipDevtoolActionsVisible
+                    }
+                    workerSessionGroups={props.workerSessionGroups}
+                  />
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </CollapsibleContent>
+        </Collapsible>
 
         <AppShortcutHints />
       </SidebarContent>
@@ -319,15 +328,13 @@ function PinnedSidebarGroup(props: {
   });
 
   return (
-    <SidebarGroup
-      role="navigation"
+    <Collapsible
+      defaultOpen
+      render={<SidebarGroup role="navigation" aria-label="Pinned" />}
       className="shrink-0 gap-1 px-0"
-      aria-label="Pinned"
     >
-      <SidebarGroupLabel className="h-5 px-1 text-xs leading-4 font-medium opacity-60">
-        Pinned
-      </SidebarGroupLabel>
-      <SidebarGroupContent>
+      <SidebarSectionTrigger label="Pinned" />
+      <CollapsibleContent render={<SidebarGroupContent />}>
         <SidebarMenu className="min-w-0">
           {pinnedProjects.length === 0 &&
           pinnedTerminalSessions.length === 0 ? (
@@ -388,8 +395,28 @@ function PinnedSidebarGroup(props: {
             />
           ))}
         </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function SidebarSectionTrigger(props: { className?: string; label: string }) {
+  return (
+    <CollapsibleTrigger
+      type="button"
+      aria-label={`Toggle ${props.label} section`}
+      className={cn(
+        'flex h-5 shrink-0 items-center gap-0.5 rounded-sm px-1 text-xs leading-4 font-medium text-sidebar-foreground/60 ring-sidebar-ring outline-hidden focus-visible:ring-2 hover:[&>svg]:opacity-60 focus-visible:[&>svg]:opacity-60 data-panel-open:[&>svg]:rotate-0',
+        props.className
+      )}
+    >
+      <span>{props.label}</span>
+      <ChevronDownIcon
+        data-icon="inline-end"
+        aria-hidden="true"
+        className="size-3 -rotate-90 opacity-0 transition-[transform,opacity] duration-150 ease-out motion-reduce:transition-none"
+      />
+    </CollapsibleTrigger>
   );
 }
 

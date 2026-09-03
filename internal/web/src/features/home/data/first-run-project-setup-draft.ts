@@ -7,7 +7,7 @@ const firstRunProjectSetupDraftStorageKey =
   'yyork.home.first-run-project-setup-draft';
 const firstRunProjectSetupDraftVersion = 1;
 
-const agentHarnessIds: AgentHarnessId[] = ['claude-code', 'codex'];
+const agentHarnessIds: AgentHarnessId[] = ['claude-code', 'codex', 'cursor'];
 
 export type FirstRunProjectSetupDraft = ProjectSetupHarnessSelection & {
   projectPath: string;

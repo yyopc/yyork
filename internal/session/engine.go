@@ -5,11 +5,13 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/yyopc/yyork/internal/config"
 	"github.com/yyopc/yyork/internal/events"
 	"github.com/yyopc/yyork/internal/plugin"
 	"github.com/yyopc/yyork/internal/plugin/agent"
@@ -104,6 +106,11 @@ type EngineConfig struct {
 	// ~/.yyork/config.toml), the config loader populates this field.
 	DefaultPermissions agent.PermissionMode
 
+	// AgentConfigs overrides the per-agent sections loaded from
+	// ~/.yyork/config.yaml. A non-nil map is primarily useful to callers that
+	// already loaded configuration and to tests; nil loads the user config.
+	AgentConfigs map[string]agent.Config
+
 	// now is injected by tests; defaults to time.Now.
 	now func() time.Time
 
@@ -124,6 +131,7 @@ type Engine struct {
 	worktreeBase       string
 	defaultAgent       string
 	defaultPermissions agent.PermissionMode
+	agentConfigs       map[string]agent.Config
 	now                func() time.Time
 	newID              func() string
 
@@ -190,6 +198,15 @@ func NewEngine(cfg EngineConfig) (*Engine, error) {
 		defaultPermissions = agent.PermissionModeBypassPermissions
 	}
 
+	agentConfigs := cfg.AgentConfigs
+	if agentConfigs == nil {
+		loaded, err := config.Load()
+		if err != nil {
+			return nil, fmt.Errorf("session.NewEngine: load agent config: %w", err)
+		}
+		agentConfigs = loaded.Agents
+	}
+
 	now := cfg.now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
@@ -208,6 +225,7 @@ func NewEngine(cfg EngineConfig) (*Engine, error) {
 		worktreeBase:       base,
 		defaultAgent:       defaultAgent,
 		defaultPermissions: defaultPermissions,
+		agentConfigs:       agentConfigs,
 		now:                now,
 		newID:              newID,
 	}, nil
@@ -305,6 +323,7 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 	if err != nil {
 		return store.Session{}, err
 	}
+	agentConfig := e.agentConfig(pluginID)
 
 	permissions := req.Permissions
 	if permissions == "" {
@@ -356,6 +375,14 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 			return store.Session{}, fmt.Errorf("session.Spawn: render default system prompt: %w", err)
 		}
 	}
+	hookSystemPrompt := systemPrompt
+	if strings.TrimSpace(req.SystemPromptFile) != "" {
+		data, readErr := os.ReadFile(req.SystemPromptFile)
+		if readErr != nil {
+			return store.Session{}, fmt.Errorf("session.Spawn: read system prompt file: %w", readErr)
+		}
+		hookSystemPrompt = string(data)
+	}
 
 	// Step 1: create the worktree when this session is isolated. Local
 	// workers and orchestrators run directly in the project worktree.
@@ -368,6 +395,7 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 	// Step 2: get the agent's launch command. The plugin uses the workspace
 	// path so its prompt-file resolution etc. can be workspace-relative.
 	launchCfg := agent.LaunchConfig{
+		Config:           agentConfig,
 		Permissions:      permissions,
 		Prompt:           req.Prompt,
 		SessionID:        id,
@@ -383,6 +411,7 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 
 	// Step 2b: install workspace-local hooks before the native agent starts.
 	if err := agentPlugin.GetAgentHooks(ctx, agent.WorkspaceHookConfig{
+		Config:        agentConfig,
 		SessionID:     id,
 		WorkspacePath: workspacePath,
 		DataDir:       filepath.Dir(e.worktreeBase),
@@ -414,6 +443,9 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 	metadata["kind"] = string(kind)
 	metadata["role"] = string(kind)
 	metadata["workspaceMode"] = string(workspaceMode)
+	if hookSystemPrompt != "" {
+		metadata["systemPrompt"] = hookSystemPrompt
+	}
 	if kind == KindOrchestrator {
 		metadata["title"] = "Orchestrator"
 	}
@@ -439,9 +471,10 @@ func (e *Engine) Spawn(ctx context.Context, req SpawnRequest) (store.Session, er
 		LaunchCmd: launchCmd,
 		Cwd:       workspacePath,
 		Env: map[string]string{
-			"YYORK_PROJECT_PATH": req.ProjectPath,
-			"YYORK_SESSION_ID":   id,
-			"YYORK_SESSION_KIND": string(kind),
+			"YYORK_PROJECT_PATH":    req.ProjectPath,
+			"YYORK_SESSION_ID":      id,
+			"YYORK_SESSION_KIND":    string(kind),
+			"YYORK_PERMISSION_MODE": string(permissions),
 		},
 	}); err != nil {
 		_ = e.repo.Delete(ctx, id)
@@ -483,6 +516,7 @@ func (e *Engine) Fork(ctx context.Context, req ForkRequest) (store.Session, erro
 	if err != nil {
 		return store.Session{}, err
 	}
+	agentConfig := e.agentConfig(source.AgentPlugin)
 	forker, ok := agentPlugin.(agent.Forker)
 	if !ok {
 		return store.Session{}, fmt.Errorf("%w: agent %q does not support native session forks", ErrForkUnsupported, source.AgentPlugin)
@@ -524,6 +558,7 @@ func (e *Engine) Fork(ctx context.Context, req ForkRequest) (store.Session, erro
 	}
 
 	launchCfg := agent.LaunchConfig{
+		Config:        agentConfig,
 		Permissions:   permissions,
 		Prompt:        prompt,
 		SessionID:     id,
@@ -531,6 +566,7 @@ func (e *Engine) Fork(ctx context.Context, req ForkRequest) (store.Session, erro
 		WorkspacePath: workspacePath,
 	}
 	forkCmd, ok, err := forker.GetForkCommand(ctx, agent.ForkConfig{
+		Config:        agentConfig,
 		Permissions:   permissions,
 		Prompt:        prompt,
 		Session:       sessionRef(source),
@@ -547,6 +583,7 @@ func (e *Engine) Fork(ctx context.Context, req ForkRequest) (store.Session, erro
 	}
 
 	if err := agentPlugin.GetAgentHooks(ctx, agent.WorkspaceHookConfig{
+		Config:        agentConfig,
 		SessionID:     id,
 		WorkspacePath: workspacePath,
 		DataDir:       filepath.Dir(e.worktreeBase),
@@ -570,6 +607,7 @@ func (e *Engine) Fork(ctx context.Context, req ForkRequest) (store.Session, erro
 		"prompt":          prompt,
 		"role":            string(KindWorker),
 		"workspaceMode":   string(WorkerWorkspaceModeNewWorktree),
+		"systemPrompt":    systemPrompt,
 	}
 	if sourceAgentSessionID := stringField(source.Metadata, "agentSessionId"); sourceAgentSessionID != "" {
 		metadata["forkedFromAgentSessionId"] = sourceAgentSessionID
@@ -602,9 +640,10 @@ func (e *Engine) Fork(ctx context.Context, req ForkRequest) (store.Session, erro
 		LaunchCmd: forkCmd,
 		Cwd:       workspacePath,
 		Env: map[string]string{
-			"YYORK_PROJECT_PATH": source.ProjectPath,
-			"YYORK_SESSION_ID":   id,
-			"YYORK_SESSION_KIND": string(KindWorker),
+			"YYORK_PROJECT_PATH":    source.ProjectPath,
+			"YYORK_SESSION_ID":      id,
+			"YYORK_SESSION_KIND":    string(KindWorker),
+			"YYORK_PERMISSION_MODE": string(permissions),
 		},
 	}); err != nil {
 		_ = e.repo.Delete(ctx, id)
@@ -656,12 +695,14 @@ func (e *Engine) restartLocked(ctx context.Context, id string, requestedPermissi
 	if err != nil {
 		return store.Session{}, err
 	}
+	agentConfig := e.agentConfig(source.AgentPlugin)
 	permissions := requestedPermissions
 	if permissions == "" {
 		permissions = e.defaultPermissions
 	}
 
 	restoreCmd, ok, err := agentPlugin.GetRestoreCommand(ctx, agent.RestoreConfig{
+		Config:      agentConfig,
 		Permissions: permissions,
 		Session:     sessionRef(source),
 	})
@@ -673,6 +714,7 @@ func (e *Engine) restartLocked(ctx context.Context, id string, requestedPermissi
 	}
 
 	if err := agentPlugin.GetAgentHooks(ctx, agent.WorkspaceHookConfig{
+		Config:        agentConfig,
 		SessionID:     source.ID,
 		WorkspacePath: source.WorkspacePath,
 		DataDir:       filepath.Dir(e.worktreeBase),
@@ -682,6 +724,7 @@ func (e *Engine) restartLocked(ctx context.Context, id string, requestedPermissi
 
 	if pre, ok := agentPlugin.(preLauncher); ok {
 		if err := pre.PreLaunch(ctx, agent.LaunchConfig{
+			Config:        agentConfig,
 			Permissions:   permissions,
 			SessionID:     source.ID,
 			WorkspacePath: source.WorkspacePath,
@@ -704,9 +747,10 @@ func (e *Engine) restartLocked(ctx context.Context, id string, requestedPermissi
 		LaunchCmd: restoreCmd,
 		Cwd:       source.WorkspacePath,
 		Env: map[string]string{
-			"YYORK_PROJECT_PATH": source.ProjectPath,
-			"YYORK_SESSION_ID":   source.ID,
-			"YYORK_SESSION_KIND": string(kind),
+			"YYORK_PROJECT_PATH":    source.ProjectPath,
+			"YYORK_SESSION_ID":      source.ID,
+			"YYORK_SESSION_KIND":    string(kind),
+			"YYORK_PERMISSION_MODE": string(permissions),
 		},
 	}); err != nil {
 		return store.Session{}, fmt.Errorf("session.Restart: create durability session: %w", err)
@@ -993,6 +1037,18 @@ func (e *Engine) resolveAgent(id string) (agent.Agent, error) {
 		return nil, fmt.Errorf("session: plugin %q does not implement the agent interface", id)
 	}
 	return a, nil
+}
+
+func (e *Engine) agentConfig(id string) agent.Config {
+	configured := e.agentConfigs[id]
+	if configured == nil {
+		return nil
+	}
+	cloned := make(agent.Config, len(configured))
+	for key, value := range configured {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func (e *Engine) rollbackWorktree(ctx context.Context, projectPath, worktreePath, branchName string, createdWorktree bool) {

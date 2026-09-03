@@ -9,8 +9,10 @@ import { CanvasPanel, type CanvasTab } from './canvas-panel';
 const SESSION_ID = 'canvas-search';
 const PROJECT_ID = 'yyork';
 const FILE_PATHS = ['README.md', 'src/zebra-alpha.ts', 'src/zebra-beta.ts'];
+const FILES_REFRESH_INTERVAL_MS = 3_000;
 
 afterEach(() => {
+  vi.useRealTimers();
   queryClient.clear();
   window.localStorage.removeItem('yyork.files.layout');
   window.localStorage.removeItem('yyork.files.view-mode');
@@ -146,6 +148,101 @@ test('closes search with Escape without changing the selected file', async () =>
     .toHaveTextContent('README.md');
 });
 
+test('refreshes an active Files tab when the workspace file response changes', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  let paths = FILE_PATHS;
+  stubCanvasFiles({ getPaths: () => paths });
+  renderCanvas(vi.fn(), 'README.md');
+
+  await expect
+    .element(page.getByRole('treeitem', { name: 'README.md' }))
+    .toBeVisible();
+  await expect
+    .element(page.getByRole('treeitem', { name: 'new-worker-file.md' }))
+    .not.toBeInTheDocument();
+
+  paths = [...FILE_PATHS, 'new-worker-file.md'];
+  await vi.advanceTimersByTimeAsync(FILES_REFRESH_INTERVAL_MS);
+
+  await expect
+    .element(page.getByRole('treeitem', { name: 'new-worker-file.md' }))
+    .toBeVisible();
+  await expect
+    .element(page.getByLabelText('Selected file'))
+    .toHaveTextContent('README.md');
+});
+
+test('stops refreshing workspace files when the Files tab is inactive', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const onFilesRequest = vi.fn();
+  stubCanvasFiles({ onFilesRequest });
+  const onSelectedFilePathChange = vi.fn();
+  const { rerender } = await renderCanvas(onSelectedFilePathChange);
+
+  await expect
+    .element(page.getByRole('treeitem', { name: 'README.md' }))
+    .toBeVisible();
+  expect(onFilesRequest).toHaveBeenCalledTimes(1);
+
+  await rerender(getCanvasPanel(onSelectedFilePathChange, undefined, 'review'));
+  await vi.advanceTimersByTimeAsync(FILES_REFRESH_INTERVAL_MS * 2);
+
+  expect(onFilesRequest).toHaveBeenCalledTimes(1);
+});
+
+test('routes binary media to the raw endpoint without fetching JSON content', async () => {
+  stubCanvasFiles({ getPaths: () => [...FILE_PATHS, 'assets/logo.png'] });
+  renderCanvas(vi.fn(), 'assets/logo.png');
+
+  const expectedSrc = `/api/sessions/${SESSION_ID}/files/raw?path=${encodeURIComponent(
+    'assets/logo.png'
+  )}&project=${PROJECT_ID}`;
+
+  // The test server has no raw endpoint, so the mounted <img> may already
+  // have transitioned to the load-failure placeholder; both states prove the
+  // media branch rendered CanvasMediaPreview for this path.
+  await expect
+    .poll(
+      () =>
+        document.querySelector(`img[src="${expectedSrc}"]`) !== null ||
+        (document.body.textContent ?? '').includes('Unable to display media')
+    )
+    .toBe(true);
+
+  // Binary media never issues the JSON content request and has no view toggle.
+  const fetchMock = window.fetch as ReturnType<typeof vi.fn>;
+  const contentCalls = fetchMock.mock.calls.filter(([input]) =>
+    String(input).includes('/files/content')
+  );
+  expect(contentCalls).toHaveLength(0);
+  await expect
+    .element(page.getByRole('button', { name: 'Preview' }))
+    .not.toBeInTheDocument();
+  await expect.element(page.getByText('Binary file')).not.toBeInTheDocument();
+});
+
+test('keeps the code/preview toggle for svg files', async () => {
+  stubCanvasFiles({ getPaths: () => [...FILE_PATHS, 'icons/arrow.svg'] });
+  renderCanvas(vi.fn(), 'icons/arrow.svg');
+  const user = setupUser();
+
+  await expect
+    .element(page.getByRole('button', { name: 'Preview' }))
+    .toBeVisible();
+
+  await user.click(page.getByRole('button', { name: 'Code' }));
+
+  // The code view sources the JSON content endpoint like any text file.
+  await expect
+    .poll(() => {
+      const fetchMock = window.fetch as ReturnType<typeof vi.fn>;
+      return fetchMock.mock.calls.some(([input]) =>
+        String(input).includes('/files/content')
+      );
+    })
+    .toBe(true);
+});
+
 function renderCanvas(
   onSelectedFilePathChange: (path: string | null) => void,
   selectedFilePath?: string
@@ -177,7 +274,10 @@ async function focusWorkspaceTree() {
   (treeItem.element() as HTMLElement).focus();
 }
 
-function stubCanvasFiles() {
+function stubCanvasFiles(options?: {
+  getPaths?: () => string[];
+  onFilesRequest?: () => void;
+}) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
@@ -185,9 +285,10 @@ function stubCanvasFiles() {
       const filesPath = `/api/sessions/${SESSION_ID}/files`;
 
       if (url.pathname === filesPath) {
+        options?.onFilesRequest?.();
         return Response.json({
           gitStatus: [],
-          paths: FILE_PATHS,
+          paths: options?.getPaths?.() ?? FILE_PATHS,
           truncated: false,
           workspacePath: '/tmp/yyork',
         });

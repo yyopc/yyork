@@ -8,7 +8,8 @@ Runtime requirements
 Agent CLI availability
   MISSING  claude-code  optional  Claude Code is the default agent; install it or spawn with another available agent.
   MISSING  codex        optional  Codex sessions are unavailable until the codex CLI is on PATH.
-  MISSING  agent-cli    required  Install at least one supported agent CLI, such as Claude Code or Codex, before spawning sessions.
+  MISSING  cursor       optional  Cursor sessions are unavailable until the agent CLI is on PATH.
+  MISSING  agent-cli    required  Install at least one supported agent CLI, such as Claude Code, Codex, or Cursor, before spawning sessions.
 
 Next steps
-  - Install Claude Code or Codex, then rerun `yyork doctor`.
+  - Install Claude Code, Codex, or Cursor, then rerun `yyork doctor`.

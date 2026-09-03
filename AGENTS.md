@@ -5,11 +5,19 @@
 
 # Local development
 
-- For yyork frontend/app verification, start the stack from the repo root with `pnpm dev`.
-- `pnpm dev` runs the yyork stack, docs, and design mock in parallel through portless; after the ready banners appear, use `https://yyork.localhost` for the app, `https://docs.yyork.localhost` for docs, and `https://mock.yyork.localhost` for HTML/CSS design mocks.
-- For Storybook UI review, run `pnpm storybook:dev` and open `https://storybook.yyork.localhost`.
+- For yyork frontend/app verification and browser debugging, prefer d3k when it is installed:
+  - Agent path: `pnpm d3k:agent` (or equivalent `d3k --no-agent --no-tui -t --no-portless --command "pnpm run dev" --app-url https://yyork.localhost --startup-timeout 120`).
+  - Human/TUI path: `pnpm d3k:dev`.
+  - Check readiness with `d3k status --json`; reuse an already-running project session. Do not also run bare `pnpm dev` alongside d3k.
+  - Use `d3k errors --context`, `d3k logs`, and `d3k agent-browser` for unified browser/server evidence.
+  - Browser binary: set once in `~/.d3k.json` as `"browser": "/path/to/Chrome-compatible binary"`. Override per run with `d3k --browser <path>`. d3k needs real Chromium **page** CDP targets (Google Chrome, Chrome for Testing, Chromium). Dia/Arc (ArcCore) can launch but only exposes extension service workers, so `browserConnected` stays false with Dia.
+- If d3k is unavailable, start the app stack from the repo root with `pnpm dev` (`dev:stack` through portless). After the ready banner, open `https://yyork.localhost`.
+- Optional surfaces are opt-in (not started by `pnpm dev` or d3k):
+  - Docs: `pnpm dev:docs` → `https://docs.yyork.localhost` (source: `internal/docs/content/docs/`)
+  - Design mock: `pnpm dev:mock` → `https://mock.yyork.localhost`
+  - Storybook: `pnpm dev:sb` → `https://storybook.yyork.localhost`
 - Do not open or report `http://127.0.0.1:3000` or `http://localhost:3000` for normal yyork frontend verification. Treat raw Vite ports as implementation details for explicit non-portless debugging or isolated test fixtures.
-- To run docs alone, use `pnpm docs:dev`. Docs source lives in `internal/docs/content/docs/`.
+- yyork owns Portless names (`yyork`, `docs.yyork`, `mock.yyork`, `storybook.yyork`). d3k scripts use `--no-portless` so they do not invent a second Portless URL.
 
 # Release and installability
 

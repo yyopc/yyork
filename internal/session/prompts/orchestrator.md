@@ -23,9 +23,16 @@ You are the yyork project orchestrator for `{{.ProjectName}}` (`{{.ProjectPath}}
   session workspace menu to choose `new worktree` for that worker. The dashboard
   will fork the native Codex/Claude conversation and send `Start implementation.`
   to the new worker.
-- Use `yyork session list --json` to inspect sessions.
-- Use `yyork send --json --session <id> "<message>"` to follow up.
-- Use `yyork stop --json <id>` to stop work.
+- Use `yyork session list --json` to inspect sessions in this project. Use
+  `yyork session list --json --all` only for intentional cross-project
+  discovery.
+- Use `yyork send --json --session <id> "<message>"` to follow up within this
+  project. For an intentional cross-project follow-up, use
+  `yyork send --json --project <projectID> --session <id> "<message>"`.
+- Use `yyork stop --json <id>` to stop work in this project. For an intentional
+  cross-project stop, use `yyork stop --json --project <projectID> <id>`.
+- Project overrides accept the `projectId` reported by JSON session-list output,
+  not a filesystem path.
 - Use `--json` whenever you need to parse yyork CLI output; human output is for
   display only.
 

@@ -292,6 +292,175 @@ func TestHostSnapshotRestoresFocusReporting(t *testing.T) {
 	if !bytes.Contains(replay, []byte(ansi.SetModeFocusEvent)) {
 		t.Fatalf("snapshot does not restore focus reporting mode: %q", replay)
 	}
+	if bytes.Contains(replay, []byte(ansi.ResetModeFocusEvent)) {
+		t.Fatalf("snapshot unexpectedly disables active focus reporting mode: %q", replay)
+	}
+
+	host.broadcast([]byte(ansi.ResetModeFocusEvent))
+	host.mu.Lock()
+	replay = host.snapshotLocked()
+	host.mu.Unlock()
+	if !bytes.Contains(replay, []byte(ansi.ResetModeFocusEvent)) {
+		t.Fatalf("snapshot does not explicitly disable inactive focus reporting mode: %q", replay)
+	}
+	if bytes.Contains(replay, []byte(ansi.SetModeFocusEvent)) {
+		t.Fatalf("snapshot re-enables inactive focus reporting mode: %q", replay)
+	}
+}
+
+func TestHostSnapshotRestoresStatefulTerminalModes(t *testing.T) {
+	tests := []struct {
+		name           string
+		setSequence    string
+		resetSequence  string
+		defaultEnabled bool
+	}{
+		{name: "insert mode", setSequence: "\x1b[4h", resetSequence: "\x1b[4l"},
+		{name: "line feed new line", setSequence: "\x1b[20h", resetSequence: "\x1b[20l"},
+		{name: "application cursor keys", setSequence: "\x1b[?1h", resetSequence: "\x1b[?1l"},
+		{name: "origin", setSequence: "\x1b[?6h", resetSequence: "\x1b[?6l"},
+		{name: "autowrap", setSequence: "\x1b[?7h", resetSequence: "\x1b[?7l", defaultEnabled: true},
+		{name: "cursor visibility", setSequence: "\x1b[?25h", resetSequence: "\x1b[?25l", defaultEnabled: true},
+		{name: "application keypad", setSequence: "\x1b[?66h", resetSequence: "\x1b[?66l"},
+		{name: "reverse wraparound", setSequence: "\x1b[?45h", resetSequence: "\x1b[?45l"},
+		{name: "x10 mouse", setSequence: "\x1b[?9h", resetSequence: "\x1b[?9l"},
+		{name: "sgr pixel mouse", setSequence: "\x1b[?1016h", resetSequence: "\x1b[?1016l"},
+		{name: "bracketed paste", setSequence: "\x1b[?2004h", resetSequence: "\x1b[?2004l"},
+		{name: "light dark notifications", setSequence: "\x1b[?2031h", resetSequence: "\x1b[?2031l"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			host := newTestHost(80, 24)
+			t.Cleanup(func() { host.finish(nil) })
+
+			host.mu.Lock()
+			replay := host.snapshotLocked()
+			host.mu.Unlock()
+			defaultSequence := tt.resetSequence
+			unexpectedDefaultSequence := tt.setSequence
+			if tt.defaultEnabled {
+				defaultSequence = tt.setSequence
+				unexpectedDefaultSequence = tt.resetSequence
+			}
+			assertLatestModeSequence(t, replay, defaultSequence, unexpectedDefaultSequence)
+
+			nonDefaultSequence := tt.setSequence
+			unexpectedNonDefaultSequence := tt.resetSequence
+			if tt.defaultEnabled {
+				nonDefaultSequence = tt.resetSequence
+				unexpectedNonDefaultSequence = tt.setSequence
+			}
+			host.broadcast([]byte(nonDefaultSequence))
+			host.mu.Lock()
+			replay = host.snapshotLocked()
+			host.mu.Unlock()
+			assertLatestModeSequence(t, replay, nonDefaultSequence, unexpectedNonDefaultSequence)
+
+			host.broadcast([]byte(ansi.RIS))
+			host.mu.Lock()
+			replay = host.snapshotLocked()
+			host.mu.Unlock()
+			assertLatestModeSequence(t, replay, defaultSequence, unexpectedDefaultSequence)
+		})
+	}
+}
+
+func assertLatestModeSequence(t *testing.T, replay []byte, want string, stale string) {
+	t.Helper()
+	wantIndex := bytes.LastIndex(replay, []byte(want))
+	if wantIndex == -1 {
+		t.Fatalf("snapshot does not restore mode state %q: %q", want, replay)
+	}
+	if staleIndex := bytes.LastIndex(replay, []byte(stale)); staleIndex > wantIndex {
+		t.Fatalf("snapshot restores stale mode state %q after %q: %q", stale, want, replay)
+	}
+}
+
+func TestHostSnapshotRefreshesEnabledLightDarkMode(t *testing.T) {
+	host := newTestHost(80, 24)
+	t.Cleanup(func() { host.finish(nil) })
+
+	host.broadcast([]byte(ansi.SetModeLightDark))
+	host.mu.Lock()
+	replay := host.snapshotLocked()
+	host.mu.Unlock()
+	want := ansi.SetModeLightDark + ansi.RequestLightDarkReport
+	if !bytes.Contains(replay, []byte(want)) {
+		t.Fatalf("snapshot does not request the current scheme after restoring light-dark mode: %q", replay)
+	}
+
+	host.broadcast([]byte(ansi.ResetModeLightDark))
+	host.mu.Lock()
+	replay = host.snapshotLocked()
+	host.mu.Unlock()
+	if bytes.Contains(replay, []byte(ansi.RequestLightDarkReport)) {
+		t.Fatalf("snapshot requests the color scheme while light-dark mode is disabled: %q", replay)
+	}
+}
+
+func TestHostSnapshotRestoresEnabledMouseModes(t *testing.T) {
+	host := newTestHost(80, 24)
+	t.Cleanup(func() { host.finish(nil) })
+
+	host.broadcast([]byte(ansi.SetModeMouseButtonEvent + ansi.SetModeMouseExtSgr))
+	host.mu.Lock()
+	replay := host.snapshotLocked()
+	host.mu.Unlock()
+
+	for _, sequence := range []string{
+		ansi.SetModeMouseButtonEvent,
+		ansi.SetModeMouseExtSgr,
+	} {
+		if !bytes.Contains(replay, []byte(sequence)) {
+			t.Fatalf("snapshot does not restore enabled mouse mode %q: %q", sequence, replay)
+		}
+	}
+
+	host.broadcast([]byte(ansi.ResetModeMouseButtonEvent + ansi.ResetModeMouseExtSgr))
+	host.mu.Lock()
+	replay = host.snapshotLocked()
+	host.mu.Unlock()
+	for _, sequence := range []string{
+		ansi.ResetModeMouseButtonEvent,
+		ansi.ResetModeMouseExtSgr,
+	} {
+		if !bytes.Contains(replay, []byte(sequence)) {
+			t.Fatalf("snapshot does not restore latest disabled mouse mode %q: %q", sequence, replay)
+		}
+	}
+	for _, sequence := range []string{
+		ansi.SetModeMouseButtonEvent,
+		ansi.SetModeMouseExtSgr,
+	} {
+		if bytes.Contains(replay, []byte(sequence)) {
+			t.Fatalf("snapshot re-enables disabled mouse mode %q: %q", sequence, replay)
+		}
+	}
+}
+
+func TestHostSnapshotExplicitlyDisablesInactiveMouseModes(t *testing.T) {
+	host := newTestHost(80, 24)
+	t.Cleanup(func() { host.finish(nil) })
+
+	host.mu.Lock()
+	replay := host.snapshotLocked()
+	host.mu.Unlock()
+
+	for _, sequence := range []string{
+		ansi.ResetModeMouseX10,
+		ansi.ResetModeMouseNormal,
+		ansi.ResetModeMouseButtonEvent,
+		ansi.ResetModeMouseAnyEvent,
+		ansi.ResetModeMouseExtUtf8,
+		ansi.ResetModeMouseExtSgr,
+		ansi.ResetModeMouseExtUrxvt,
+		ansi.ResetModeMouseExtSgrPixel,
+	} {
+		if !bytes.Contains(replay, []byte(sequence)) {
+			t.Fatalf("snapshot does not explicitly disable inactive mouse mode %q: %q", sequence, replay)
+		}
+	}
 }
 
 func TestHostForwardsBrowserColorResponseToProcessUnchanged(t *testing.T) {

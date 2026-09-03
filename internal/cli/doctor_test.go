@@ -50,6 +50,7 @@ func TestDoctorJSONCompatibility(t *testing.T) {
 			"git":    "/usr/bin/git",
 			"claude": "/Users/me/.local/bin/claude",
 			"codex":  "/Users/me/.local/bin/codex",
+			"agent":  "/Users/me/.local/bin/agent",
 		}),
 		fakeZellijLookup("/opt/yyork/bin/zellij", durabilityprovider.ZellijBinarySourceBundled),
 	)
@@ -61,7 +62,7 @@ func TestDoctorJSONCompatibility(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	want := `{"ok":true,"checks":[{"id":"zellij","command":"zellij","category":"runtime","required":true,"status":"ok","path":"/opt/yyork/bin/zellij","source":"bundled"},{"id":"git","command":"git","category":"runtime","required":true,"status":"ok","path":"/usr/bin/git"},{"id":"claude-code","command":"claude","category":"agent","required":false,"status":"ok","path":"/Users/me/.local/bin/claude"},{"id":"codex","command":"codex","category":"agent","required":false,"status":"ok","path":"/Users/me/.local/bin/codex"}]}
+	want := `{"ok":true,"checks":[{"id":"zellij","command":"zellij","category":"runtime","required":true,"status":"ok","path":"/opt/yyork/bin/zellij","source":"bundled"},{"id":"git","command":"git","category":"runtime","required":true,"status":"ok","path":"/usr/bin/git"},{"id":"claude-code","command":"claude","category":"agent","required":false,"status":"ok","path":"/Users/me/.local/bin/claude"},{"id":"codex","command":"codex","category":"agent","required":false,"status":"ok","path":"/Users/me/.local/bin/codex"},{"id":"cursor","command":"agent","category":"agent","required":false,"status":"ok","path":"/Users/me/.local/bin/agent"}]}
 `
 	if out.String() != want {
 		t.Fatalf("doctor --json changed:\nwant:\n%s\ngot:\n%s", want, out.String())
@@ -94,6 +95,33 @@ func TestDoctorTextPassesWithRuntimeAndAgentCLI(t *testing.T) {
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("doctor output missing %q:\n%s", want, text)
+		}
+	}
+}
+
+func TestDoctorRecognizesCursorAgentBinary(t *testing.T) {
+	cmd := newDoctorCmdWithLookup(fakeLookup(map[string]string{
+		"git":    "/usr/bin/git",
+		"zellij": "/usr/local/bin/zellij",
+		"agent":  "/Users/me/.local/bin/agent",
+	}))
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{"--json"})
+
+	if err := cmd.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("doctor rejected available Cursor Agent: %v\n%s", err, out.String())
+	}
+	var got doctorOutput
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if !doctorHasCheck(got, "cursor", doctorStatusOK) {
+		t.Fatalf("Cursor check missing: %#v", got.Checks)
+	}
+	for _, check := range got.Checks {
+		if check.ID == "cursor" && check.Command != "agent" {
+			t.Fatalf("Cursor doctor command = %q, want agent", check.Command)
 		}
 	}
 }
@@ -191,6 +219,14 @@ func doctorPreviewAllOKBundledBoth() doctorOutput {
 				Status:   doctorStatusOK,
 				Path:     "/Users/me/.local/bin/codex",
 			},
+			{
+				ID:       "cursor",
+				Command:  "agent",
+				Category: doctorCategoryAgent,
+				Required: false,
+				Status:   doctorStatusOK,
+				Path:     "/Users/me/.local/bin/agent",
+			},
 		},
 	}
 }
@@ -232,6 +268,14 @@ func doctorPreviewClaudeOnlyPath() doctorOutput {
 				Status:   doctorStatusMissing,
 				Message:  "Codex sessions are unavailable until the codex CLI is on PATH.",
 			},
+			{
+				ID:       "cursor",
+				Command:  "agent",
+				Category: doctorCategoryAgent,
+				Required: false,
+				Status:   doctorStatusMissing,
+				Message:  "Cursor sessions are unavailable until the agent CLI is on PATH.",
+			},
 		},
 	}
 }
@@ -272,6 +316,14 @@ func doctorPreviewCodexOnlyBundled() doctorOutput {
 				Required: false,
 				Status:   doctorStatusOK,
 				Path:     "/Users/me/.local/bin/codex",
+			},
+			{
+				ID:       "cursor",
+				Command:  "agent",
+				Category: doctorCategoryAgent,
+				Required: false,
+				Status:   doctorStatusMissing,
+				Message:  "Cursor sessions are unavailable until the agent CLI is on PATH.",
 			},
 		},
 	}
@@ -315,11 +367,19 @@ func doctorPreviewNoAgentCLI() doctorOutput {
 				Message:  "Codex sessions are unavailable until the codex CLI is on PATH.",
 			},
 			{
+				ID:       "cursor",
+				Command:  "agent",
+				Category: doctorCategoryAgent,
+				Required: false,
+				Status:   doctorStatusMissing,
+				Message:  "Cursor sessions are unavailable until the agent CLI is on PATH.",
+			},
+			{
 				ID:       "agent-cli",
 				Category: doctorCategoryAgent,
 				Required: true,
 				Status:   doctorStatusMissing,
-				Message:  "Install at least one supported agent CLI, such as Claude Code or Codex, before spawning sessions.",
+				Message:  "Install at least one supported agent CLI, such as Claude Code, Codex, or Cursor, before spawning sessions.",
 			},
 		},
 	}
@@ -361,6 +421,14 @@ func doctorPreviewRuntimeMissing() doctorOutput {
 				Status:   doctorStatusMissing,
 				Message:  "Codex sessions are unavailable until the codex CLI is on PATH.",
 			},
+			{
+				ID:       "cursor",
+				Command:  "agent",
+				Category: doctorCategoryAgent,
+				Required: false,
+				Status:   doctorStatusMissing,
+				Message:  "Cursor sessions are unavailable until the agent CLI is on PATH.",
+			},
 		},
 	}
 }
@@ -401,6 +469,14 @@ func doctorPreviewGitMissing() doctorOutput {
 				Required: false,
 				Status:   doctorStatusMissing,
 				Message:  "Codex sessions are unavailable until the codex CLI is on PATH.",
+			},
+			{
+				ID:       "cursor",
+				Command:  "agent",
+				Category: doctorCategoryAgent,
+				Required: false,
+				Status:   doctorStatusMissing,
+				Message:  "Cursor sessions are unavailable until the agent CLI is on PATH.",
 			},
 		},
 	}

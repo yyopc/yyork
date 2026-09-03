@@ -278,6 +278,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/sessions/{sessionID}/ide", s.handleSessionIDE)
 	mux.HandleFunc("GET /api/sessions/{sessionID}/files", s.handleSessionFiles)
 	mux.HandleFunc("GET /api/sessions/{sessionID}/files/content", s.handleSessionFileContent)
+	mux.HandleFunc("GET /api/sessions/{sessionID}/files/raw", s.handleSessionFileRaw)
 	mux.HandleFunc("GET /api/sessions/{sessionID}/canvas/diff", s.handleSessionCanvasDiff)
 	mux.HandleFunc("GET /api/sessions/{sessionID}/terminal", s.handleSessionTerminal)
 	mux.HandleFunc("POST /api/sessions/{sessionID}/fork", s.handleForkSession)

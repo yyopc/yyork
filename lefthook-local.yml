@@ -1,0 +1,17 @@
+pre-commit:
+  commands:
+    launch-video-local-guard:
+      run: |
+        blocked_paths=$(
+          git diff --cached --name-only --diff-filter=ACMR \
+            | grep -E '^(launch-video/|output/launch-video/|lefthook-local\.yml$)' || true
+        )
+
+        if [ -n "$blocked_paths" ]; then
+          echo "Refusing to commit local yyork launch-video files:"
+          echo "$blocked_paths"
+          echo
+          echo "These files are intentionally local so agents can reference them without committing them."
+          echo "Unstage with: git restore --staged -- <path>"
+          exit 1
+        fi

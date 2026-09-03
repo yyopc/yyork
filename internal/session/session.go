@@ -44,7 +44,7 @@ func NormalizeAgentPlugin(raw string) (string, bool) {
 	switch strings.TrimSpace(raw) {
 	case "":
 		return "", true
-	case "claude-code", "codex":
+	case "claude-code", "codex", "cursor":
 		return strings.TrimSpace(raw), true
 	default:
 		return "", false

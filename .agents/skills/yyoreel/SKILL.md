@@ -10,10 +10,10 @@ yyoreel records scripted browser demos as MP4, GIF, or WebM with cursor animatio
 ## Choose the recorder in yyork
 
 - Use the vendored `yyoreel` CLI for standalone-URL recordings. It provides default-on autozoom and 2x physical output dimensions at quality 80 or higher.
-- Use the patched `webreel@0.1.4` path for current in-app shared-browser recordings. Run it through `pnpm browser:webreel -- <args>` so it receives the shared Chrome endpoint.
-- The vendored fork now accepts `YYOREEL_CDP_ENDPOINT` as an HTTP(S) endpoint, WebSocket debugger URL, or port. This is yyork's forthcoming shared-browser attach path; migrate the wrapper only after equivalent integration coverage exists.
+- Use `pnpm browser:yyoreel -- <args>` for in-app recordings that must reuse yyork's shared Chrome. The wrapper discovers the active d3k/shared-browser endpoint and passes it through `YYOREEL_CDP_ENDPOINT`.
 
-Legacy in-app note: yyork intentionally keeps the patched `webreel` dependency, patches, shared-browser wrapper, and patch tests alongside yyoreel until the wrapper migration is verified.
+The shared-browser wrapper owns endpoint selection. Do not set
+`YYOREEL_CDP_ENDPOINT` manually when using `pnpm browser:yyoreel`.
 
 ## Installation
 
