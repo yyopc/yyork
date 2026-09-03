@@ -1,0 +1,12 @@
+{
+  "name": "launch-video",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "portless hf.yyork --app-port 3002 -- pnpm dlx hyperframes@0.7.17 preview --port 3002 --no-open",
+    "dev:direct": "pnpm dlx hyperframes@0.7.17 preview --port 3002 --no-open",
+    "check": "pnpm dlx hyperframes@0.7.17 lint && pnpm dlx hyperframes@0.7.17 validate && pnpm dlx hyperframes@0.7.17 inspect",
+    "render": "pnpm dlx hyperframes@0.7.17 render",
+    "publish": "pnpm dlx hyperframes@0.7.17 publish"
+  }
+}

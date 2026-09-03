@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1442, height=817">
+    <script src="https://cdn.jsdelivr.net/npm/animejs@4.0.2/lib/anime.iife.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { margin: 0; width: 1442px; height: 817px; overflow: hidden; background: #000; }
+      body { font-family: "Inter", sans-serif; -webkit-font-smoothing: antialiased; color: #e7e9ea; }
+
+      :root {
+        --text: #e6e9ea; --muted: #71757a; --blue: #1e9cf1;
+        --b-outer: #2f3336; --b-list: #2b2e31; --b-line: #202327;
+        --in: #202327; --icbg: #16181d; --avbg: #3d4043; --daysep: #64696d;
+      }
+
+      #stage { position: absolute; inset: 0; background: #000; }
+      .x-app { display: flex; width: 1442px; height: 817px; background: #000; }
+      .ic { fill: currentColor; display: block; flex: 0 0 auto; }
+
+      /* ---------- nav rail (157px container, 68px column right-aligned) ---------- */
+      .rail { flex: 0 0 auto; width: 157px; height: 817px; display: flex; }
+      .rail__col { width: 68px; margin-left: auto; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 4px 8px 10px; }
+      .rail__top { display: flex; flex-direction: column; align-items: center; }
+      .rail__logo { width: 49px; height: 49px; display: flex; align-items: center; justify-content: center; color: var(--text); }
+      .rail__logo .ic { width: 23px; height: 28px; }
+      .rail__item { width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text); position: relative; margin: 4px 0; }
+      .rail__item .ic { width: 24.5px; height: 24.5px; }
+      .rail__dot { position: absolute; top: 9px; right: 11px; width: 6px; height: 6px; border-radius: 50%; background: var(--blue); }
+      .rail__bottom { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+      .rail__compose { width: 46px; height: 46px; border-radius: 50%; background: #eff3f4; color: #0f1419; display: flex; align-items: center; justify-content: center; }
+      .rail__compose .ic { width: 23px; height: 23px; }
+      .rail__me { width: 38px; height: 38px; border-radius: 50%; background: var(--avbg) center/cover; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.03); }
+
+      /* ---------- content block (bordered) ---------- */
+      .content { display: flex; height: 817px; border-left: 1px solid var(--b-outer); border-right: 1px solid var(--b-outer); }
+
+      /* ---------- chat list ---------- */
+      .list { flex: 0 0 auto; width: 415px; border-right: 1px solid var(--b-list); display: flex; flex-direction: column; min-height: 0; }
+      .list__head { height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; }
+      .list__title { font-size: 20px; font-weight: 800; color: var(--text); letter-spacing: -0.2px; }
+      .list__acts { display: flex; align-items: center; gap: 8px; }
+      .allpill { height: 36px; display: flex; align-items: center; gap: 4px; padding: 0 10px 0 16px; border-radius: 18px; border: 1px solid var(--b-list); font-size: 15px; font-weight: 500; color: var(--text); }
+      .allpill .ic { width: 16px; height: 16px; fill: var(--muted); }
+      .icbtn { height: 36px; min-width: 36px; border-radius: 18px; border: 1px solid var(--b-list); display: flex; align-items: center; justify-content: center; color: var(--text); }
+      .icbtn .ic { width: 20px; height: 20px; }
+      .searchwrap { padding: 4px 16px 8px; }
+      .search { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 20px; background: var(--icbg); border: 1px solid var(--b-line); color: var(--muted); font-size: 15px; }
+      .search .ic { width: 20px; height: 20px; fill: var(--muted); }
+      .rows { flex: 1 1 auto; overflow: hidden; }
+      .conv { display: flex; gap: 16px; padding: 0 16px; height: 80px; }
+      .conv__av { flex: 0 0 auto; width: 56px; height: 56px; border-radius: 50%; background: var(--avbg) center/cover; margin: 12px 0; }
+      .conv__body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; border-bottom: 1px solid var(--b-line); }
+      .conv__top { display: flex; align-items: center; }
+      .conv__nm { display: flex; align-items: center; gap: 2px; min-width: 0; }
+      .conv__nm b { font-size: 15px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .conv__nm .ic { width: 15px; height: 15px; fill: var(--blue); flex: 0 0 auto; }
+      .conv__time { margin-left: auto; font-size: 15px; font-weight: 500; color: var(--muted); flex: 0 0 auto; padding-left: 8px; }
+      .conv__pv { font-size: 15px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+      /* ---------- conversation pane (772px, message area border) ---------- */
+      .pane { flex: 0 0 auto; width: 772px; display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--b-line); position: relative; }
+      .pane__head { height: 80px; flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 0 16px; }
+      .pane__av { width: 48px; height: 48px; border-radius: 50%; background: var(--avbg) center/cover; flex: 0 0 auto; }
+      .pane__nm { display: flex; align-items: center; gap: 4px; font-size: 17px; font-weight: 500; color: var(--text); }
+      .pane__nm .ic { width: 17px; height: 17px; fill: var(--blue); }
+      .pane__acts { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+      .headbtn { width: 40px; height: 40px; border-radius: 50%; background: var(--icbg); display: flex; align-items: center; justify-content: center; color: var(--text); }
+      .headbtn .ic { width: 22px; height: 22px; }
+
+      .thread { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; padding: 4px 0 8px; overflow: hidden; }
+      .profile { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 20px 16px 24px; }
+      .profile__av { width: 64px; height: 64px; border-radius: 50%; background: var(--avbg) center/cover; margin-bottom: 12px; }
+      .profile__nm { display: flex; align-items: center; gap: 4px; font-size: 17px; font-weight: 700; color: var(--text); }
+      .profile__nm .ic { width: 17px; height: 17px; fill: var(--blue); }
+      .profile__handle { font-size: 15px; color: var(--muted); margin-top: 2px; }
+      .profile__meta { font-size: 15px; color: var(--muted); }
+      .profile__btn { margin-top: 20px; height: 36px; padding: 0 16px; border-radius: 18px; background: var(--text); color: #000; font-size: 15px; font-weight: 700; display: flex; align-items: center; }
+
+      .daysep { align-self: center; font-size: 13px; font-weight: 500; color: var(--daysep); margin: 8px 0; }
+
+      .row { display: flex; width: 100%; padding: 1px 16px; }
+      .row--in { justify-content: flex-start; }
+      .row--out { justify-content: flex-end; }
+      .row.gap-top { margin-top: 10px; }
+
+      .bubble { max-width: 424px; padding: 8px 16px; font-size: 15px; line-height: 20px; border-radius: 14px; word-wrap: break-word; }
+      .bubble--out { background: var(--blue); color: #fff; }
+      .bubble--in  { background: var(--in); color: var(--text); }
+      .incol { display: flex; flex-direction: column; align-items: flex-start; }
+      .edited { font-size: 11px; color: var(--muted); margin: 4px 0 0 4px; }
+
+      /* ---------- compose ---------- */
+      .compose { flex: 0 0 auto; display: flex; justify-content: center; padding: 12px 16px 16px; }
+      .compose__inner { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 720px; }
+      .composebtn { width: 40px; height: 40px; border-radius: 50%; background: var(--icbg); display: flex; align-items: center; justify-content: center; color: var(--text); flex: 0 0 auto; }
+      .composebtn .ic { width: 22px; height: 22px; }
+      .compose__field { flex: 1 1 auto; height: 44px; display: flex; align-items: center; padding: 0 16px; background: var(--in); border-radius: 22px; color: var(--muted); font-size: 15px; }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-2shj" id="root" data-composition-id="main" data-start="0" data-duration="5" data-width="1442" data-height="817">
+      <div data-hf-id="hf-paha" id="intro" class="clip" data-start="0" data-duration="5" data-track-index="1">
+        <div data-hf-id="hf-1rt5" id="stage">
+          <div data-hf-id="hf-69b2" class="x-app">
+
+            <!-- nav rail -->
+            <div data-hf-id="hf-qzq8" class="rail">
+              <div data-hf-id="hf-toto" class="rail__col">
+                <div data-hf-id="hf-s62z" class="rail__top">
+                  <div data-hf-id="hf-db7v" class="rail__logo"><svg data-hf-id="hf-dphw" class="ic" viewBox="0 0 24 24"><path data-hf-id="hf-18vs" d="M21.742 21.75l-7.563-11.179 7.056-8.321h-2.456l-5.691 6.714-4.54-6.714H2.359l7.29 10.776L2.25 21.75h2.456l6.035-7.118 4.818 7.118h6.191-.008zM7.739 3.818L18.81 20.182h-2.447L5.29 3.818h2.447z" /></svg></div>
+                  <div data-hf-id="hf-d5in" class="rail__item"><span data-hf-id="hf-7ajs" class="rail__dot"></span><svg data-hf-id="hf-83fw" class="ic" viewBox="0 0 24 24"><path data-hf-id="hf-rkiv" d="M20 9.838c0-.502-.25-.97-.668-1.248l-6.5-4.333c-.504-.336-1.16-.336-1.664 0l-6.5 4.333C4.251 8.868 4 9.336 4 9.838V18.5c0 .828.672 1.5 1.5 1.5h3v-3.5c0-1.933 1.567-3.5 3.5-3.5s3.5 1.567 3.5 3.5V20h3c.828 0 1.5-.672 1.5-1.5V9.838zm2 8.662c0 1.933-1.567 3.5-3.5 3.5h-5v-5.5c0-.829-.672-1.5-1.5-1.5s-1.5.671-1.5 1.5V22h-5C3.567 22 2 20.433 2 18.5V9.838c0-1.17.585-2.263 1.559-2.912l6.5-4.333c1.175-.784 2.707-.784 3.882 0l6.5 4.333C21.415 7.575 22 8.668 22 9.838V18.5z" /></svg></div>
+                  <div data-hf-id="hf-oojz" class="rail__item"><svg data-hf-id="hf-6wit" class="ic" viewBox="0 0 24 24"><path data-hf-id="hf-3v6j" d="M10.25 3.75c-3.59 0-6.5 2.91-6.5 6.5s2.91 6.5 6.5 6.5c1.795 0 3.419-.726 4.596-1.904 1.178-1.177 1.904-2.801 1.904-4.596 0-3.59-2.91-6.5-6.5-6.5zm-8.5 6.5c0-4.694 3.806-8.5 8.5-8.5s8.5 3.806 8.5 8.5c0 1.986-.682 3.815-1.824 5.262l4.781 4.781-1.414 1.414-4.781-4.781c-1.447 1.142-3.276 1.824-5.262 1.824-4.694 0-8.5-3.806-8.5-8.5z" /></svg></div>
+                  <div data-hf-id="hf-oa8y" class="rail__item"><svg data-hf-id="hf-7atu" class="ic" viewBox="0 0 24 24"><path data-hf-id="hf-5bj0" d="M19.993 9.042C19.48 5.017 16.054 2 11.996 2s-7.49 3.021-7.999 7.051L2.866 18H7.1c.463 2.282 2.481 4 4.9 4s4.437-1.718 4.9-4h4.236l-1.143-8.958zM12 20c-1.306 0-2.417-.835-2.829-2h5.658c-.412 1.165-1.523 2-2.829 2zm-6.866-4l.847-6.698C6.364 6.272 8.941 4 11.996 4s5.627 2.268 6.013 5.295L18.864 16H5.134z" /></svg></div>
+                  <div data-hf-id="hf-nvxx" class="rail__item"><svg data-hf-id="hf-9acz" class="ic" viewBox="0 0 24 24"><path data-hf-id="hf-myui" d="M12.001 1.5c5.858 0 10.7 4.518 10.7 10.2-.001 5.683-4.842 10.2-10.7 10.2-1.785 0-2.96-.555-3.95-1.095-1.876.768-4.02 1.2-6.245-.075l-.885-.505.523-.875c.54-.904.77-1.581.849-2.118.077-.526.02-.98-.11-1.463-.066-.25-.15-.502-.247-.788-.095-.277-.204-.59-.301-.92-.2-.674-.36-1.449-.332-2.39C1.319 6.002 6.153 1.5 12 1.5z" /></svg></div>
+                  <div data-hf-id="hf-qo34" class="rail__item"><svg data-hf-id="hf-0ypl" class="ic" viewBox="0 0 33 32"><path data-hf-id="hf-sl8b" d="M12.745 20.54l10.97-8.19c.539-.4 1.307-.244 1.564.38 1.349 3.288.746 7.241-1.938 9.955-2.683 2.714-6.417 3.31-9.83 1.954l-3.728 1.745c5.347 3.697 11.84 2.782 15.898-1.324 3.219-3.255 4.216-7.692 3.284-11.693l.008.009c-1.351-5.878.332-8.227 3.782-13.031L33 0l-4.54 4.59v-.014L12.743 20.544m-2.263 1.987c-3.837-3.707-3.175-9.446.1-12.755 2.42-2.449 6.388-3.448 9.852-1.979l3.72-1.737c-.67-.49-1.53-1.017-2.515-1.387-4.455-1.854-9.789-.931-13.41 2.728-3.483 3.523-4.579 8.94-2.697 13.561 1.405 3.454-.899 5.898-3.22 8.364C1.49 30.2.666 31.074 0 32l10.478-9.466" /></svg></div>
+                  <div data-hf-id="hf-q9s3" class="rail__item"><svg data-hf-id="hf-9oo0" class="ic" viewBox="0 0 24 24"><path data-hf-id="hf-86ko" d="M8.52 3.59c.8-1.1 2.04-1.84 3.48-1.84s2.68.74 3.49 1.84c1.34-.21 2.74.14 3.76 1.16s1.37 2.42 1.16 3.77c1.1.8 1.84 2.04 1.84 3.48s-.74 2.68-1.84 3.48c.21 1.34-.14 2.75-1.16 3.77s-2.42 1.37-3.76 1.16c-.8 1.1-2.05 1.84-3.49 1.84s-2.68-.74-3.48-1.84c-1.34.21-2.75-.14-3.77-1.16-1.01-1.02-1.37-2.42-1.16-3.77-1.09-.8-1.84-2.04-1.84-3.48s.75-2.68 1.84-3.48c-.21-1.35.14-2.75 1.16-3.77s2.43-1.37 3.77-1.16zm3.48.16c-.85 0-1.66.53-2.12 1.43l-.38.77-.82-.27c-.96-.32-1.91-.12-2.51.49-.6.6-.8 1.54-.49 2.51l.27.81-.77.39c-.9.46-1.43 1.27-1.43 2.12s.53 1.66 1.43 2.12l.77.39-.27.81c-.31.97-.11 1.91.49 2.51.6.61 1.55.81 2.51.49l.82-.27.38.77c.46.9 1.27 1.43 2.12 1.43s1.66-.53 2.12-1.43l.39-.77.82.27c.96.32 1.9.12 2.51-.49.6-.6.8-1.55.48-2.51l-.26-.81.76-.39c.91-.46 1.43-1.27 1.43-2.12s-.52-1.66-1.43-2.12l-.77-.39.27-.81c.32-.97.12-1.91-.48-2.51-.61-.61-1.55-.81-2.51-.49l-.82.27-.39-.77c-.46-.9-1.27-1.43-2.12-1.43zm4.74 5.68l-6.2 6.77-3.74-3.74 1.41-1.42 2.26 2.26 4.8-5.23 1.47 1.36z" /></svg></div>
+                  <div data-hf-id="hf-pvh2" class="rail__item"><svg data-hf-id="hf-8hqx" class="ic" viewBox="0 0 24 24"><path data-hf-id="hf-ovfd" d="M4 4.5C4 3.12 5.119 2 6.5 2h11C18.881 2 20 3.12 20 4.5v18.44l-8-5.71-8 5.71V4.5zM6.5 4c-.276 0-.5.22-.5.5v14.56l6-4.29 6 4.29V4.5c0-.28-.224-.5-.5-.5h-11z" /></svg></div>
+                  <div data-hf-id="hf-ph61" class="rail__item"><svg data-hf-id="hf-8w1y" class="ic" viewBox="0 0 24 24"><path data-hf-id="hf-gz6z" d="M18.067 12.701c1.169-1.168 3.063-1.168 4.232 0 1.168 1.169 1.168 3.063 0 4.232L17.83 21.4c-.827.827-1.918 1.339-3.083 1.445l-2.851.259.258-2.852c.106-1.165.618-2.256 1.445-3.083l4.468-4.469zM16 2c.684 0 1.257-.001 1.724.037.478.04.933.125 1.365.345.658.335 1.194.87 1.53 1.53.22.43.305.886.344 1.364C21 5.743 21 6.316 21 7v2h-2V7c0-.717 0-1.194-.03-1.56-.03-.355-.08-.518-.133-.62-.144-.283-.374-.513-.656-.657-.103-.052-.266-.104-.62-.133C17.194 4 16.716 4 16 4H8c-.717 0-1.194 0-1.56.03-.355.03-.518.08-.62.133-.283.144-.513.374-.657.656-.052.103-.104.266-.133.62C5 5.806 5 6.283 5 7v10c0 .716 0 1.194.03 1.56.03.355.08.518.133.62.144.283.374.513.656.657.103.052.266.104.62.133.367.03.844.03 1.561.03h1v2H8c-.684 0-1.257.001-1.724-.037-.478-.04-.933-.125-1.365-.345-.658-.335-1.194-.87-1.53-1.53-.22-.43-.305-.886-.344-1.364C3 18.257 3 17.684 3 17V7c0-.684-.001-1.257.037-1.724.04-.478.125-.933.345-1.365.335-.658.87-1.194 1.53-1.53.43-.22.886-.305 1.364-.344C6.743 2 7.316 2 8 2h8z" /></svg></div>
+                  <div data-hf-id="hf-lwes" class="rail__item"><svg data-hf-id="hf-4ion" class="ic" viewBox="0 0 24 24"><path data-hf-id="hf-tr05" d="M5.651 19h12.698c-.337-1.8-1.023-3.21-1.945-4.19C15.318 13.65 13.838 13 12 13s-3.317.65-4.404 1.81c-.922.98-1.608 2.39-1.945 4.19zm.486-5.56C7.627 11.85 9.648 11 12 11s4.373.85 5.863 2.44c1.477 1.58 2.366 3.8 2.632 6.46l.11 1.1H3.395l.11-1.1c.266-2.66 1.155-4.88 2.632-6.46zM12 4c-1.105 0-2 .9-2 2s.895 2 2 2 2-.9 2-2-.895-2-2-2zM8 6c0-2.21 1.791-4 4-4s4 1.79 4 4-1.791 4-4 4-4-1.79-4-4z" /></svg></div>
+                  <div data-hf-id="hf-li3r" class="rail__item"><svg data-hf-id="hf-4wzo" class="ic" viewBox="0 0 24 24"><path data-hf-id="hf-af6r" d="M3.75 12c0-4.56 3.69-8.25 8.25-8.25s8.25 3.69 8.25 8.25-3.69 8.25-8.25 8.25S3.75 16.56 3.75 12zM12 1.75C6.34 1.75 1.75 6.34 1.75 12S6.34 22.25 12 22.25 22.25 17.66 22.25 12 17.66 1.75 12 1.75zm-4.75 11.5c.69 0 1.25-.56 1.25-1.25s-.56-1.25-1.25-1.25S6 11.31 6 12s.56 1.25 1.25 1.25zm9.5 0c.69 0 1.25-.56 1.25-1.25s-.56-1.25-1.25-1.25-1.25.56-1.25 1.25.56 1.25 1.25 1.25zM13.25 12c0 .69-.56 1.25-1.25 1.25s-1.25-.56-1.25-1.25.56-1.25 1.25-1.25 1.25.56 1.25 1.25z" /></svg></div>
+                </div>
+                <div data-hf-id="hf-bwx3" class="rail__bottom">
+                  <div data-hf-id="hf-60pe" class="rail__compose"><svg data-hf-id="hf-s5hw" class="ic" viewBox="0 0 24 24"><path data-hf-id="hf-veni" d="M10.938 4.5H9.9c-1.136 0-1.929 0-2.546.05-.605.05-.953.143-1.216.277-.564.288-1.023.747-1.31 1.31-.135.264-.228.612-.277 1.218C4.5 7.97 4.5 8.765 4.5 9.9v4.2c0 1.136 0 1.929.05 2.546.05.605.143.953.277 1.216.288.565.747 1.023 1.31 1.31.264.135.612.228 1.217.277.617.05 1.41.051 2.546.051h4.2c1.136 0 1.929 0 2.545-.05.606-.05.954-.143 1.217-.277.565-.288 1.023-.746 1.31-1.31.135-.264.228-.612.277-1.217.05-.617.051-1.41.051-2.546v-1.037h2V14.1c0 1.103.001 1.992-.058 2.709-.06.728-.185 1.368-.487 1.96-.48.941-1.245 1.707-2.185 2.186-.593.302-1.233.428-1.961.488-.718.058-1.606.057-2.71.057H9.9c-1.103 0-1.991.001-2.709-.058-.728-.06-1.368-.185-1.96-.487-.941-.48-1.707-1.245-2.186-2.185-.302-.593-.428-1.233-.487-1.961-.059-.718-.058-1.606-.058-2.71V9.9c0-1.103-.001-1.991.058-2.709.06-.728.185-1.368.487-1.96.48-.941 1.245-1.707 2.185-2.186.593-.302 1.233-.428 1.961-.487.718-.059 1.606-.058 2.71-.058h1.037v2z" /><path data-hf-id="hf-druh" d="M16.293 3.293c1.219-1.219 3.195-1.219 4.414 0 1.219 1.219 1.219 3.195 0 4.414l-5.491 5.491c-.533.533-.89.896-1.31 1.179-.356.24-.742.433-1.148.574-.478.167-.983.234-1.729.341l-2.708.387.387-2.708c.107-.746.174-1.25.34-1.729.142-.405.335-.792.575-1.148.283-.42.646-.777 1.179-1.31l5.491-5.491zm3 1.414c-.438-.438-1.148-.438-1.586 0l-5.491 5.491c-.587.587-.784.79-.934 1.013-.144.214-.26.445-.345.688-.088.254-.131.533-.248 1.354l-.01.067.068-.008c.82-.118 1.1-.161 1.354-.25.243-.084.474-.2.688-.344.223-.15.426-.347 1.013-.934l5.491-5.491c.438-.438.438-1.148 0-1.586z" /></svg></div>
+                  <div data-hf-id="hf-g2ct" class="rail__me" style="background-image:url(assets/x/me-v2.jpg)"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- content block -->
+            <div data-hf-id="hf-mcm7" class="content">
+              <!-- chat list -->
+              <div data-hf-id="hf-33o8" class="list">
+                <div data-hf-id="hf-9z8o" class="list__head">
+                  <div data-hf-id="hf-cvx2" class="list__title">Chat</div>
+                  <div data-hf-id="hf-fkzt" class="list__acts">
+                    <span data-hf-id="hf-soka" class="allpill">All <svg data-hf-id="hf-rr6v" class="ic" viewBox="0 0 24 24"><path data-hf-id="hf-5qjr" d="M3.543 8.96l1.414-1.42L12 14.59l7.043-7.05 1.414 1.42L12 17.41 3.543 8.96z" /></svg></span>
+                    <span data-hf-id="hf-6dzv" class="icbtn"><svg data-hf-id="hf-rcvu" class="ic" viewBox="0 0 24 24"><path data-hf-id="hf-rbrv" fill-rule="evenodd" d="M15.44 4C16.292 4 16.965 3.986 17.572 4.202C18.075 4.381 18.53 4.672 18.903 5.054C19.354 5.515 19.623 6.131 19.98 6.904L21.613 10.442C21.713 10.658 21.801 10.845 21.863 11.045C21.915 11.21 21.952 11.379 21.975 11.551C22.002 11.759 22 11.966 22 12.203V12.6C22 13.703 22.001 14.591 21.942 15.309C21.883 16.037 21.757 16.677 21.455 17.27C20.976 18.21 20.21 18.976 19.27 19.455C18.677 19.757 18.037 19.883 17.309 19.942C16.591 20.001 15.703 20 14.6 20H9.4C8.297 20 7.409 20.001 6.691 19.942C5.963 19.883 5.323 19.757 4.73 19.455C3.79 18.976 3.024 18.21 2.545 17.27C2.243 16.677 2.117 16.037 2.058 15.309C1.999 14.591 2 13.703 2 12.6V12.203C2 11.966 1.998 11.759 2.025 11.551C2.048 11.379 2.085 11.21 2.137 11.045C2.199 10.845 2.287 10.658 2.387 10.442L4.02 6.904C4.376 6.131 4.646 5.515 5.097 5.054C5.47 4.672 5.925 4.381 6.428 4.202C7.035 3.986 7.708 4 8.56 4H15.44ZM4.002 13C4.003 13.927 4.007 14.604 4.051 15.145C4.1 15.751 4.193 16.099 4.327 16.362C4.615 16.926 5.074 17.385 5.638 17.673C5.901 17.807 6.249 17.9 6.854 17.949C7.471 18 8.264 18 9.4 18H14.6C15.736 18 16.529 18 17.145 17.949C17.751 17.9 18.099 17.807 18.362 17.673C18.927 17.385 19.385 16.926 19.673 16.362C19.807 16.099 19.9 15.751 19.949 15.145C19.993 14.604 19.997 13.927 19.998 13H17.414L15.414 15H8.586L6.586 13H4.002ZM8.56 6C7.558 6 7.302 6.014 7.098 6.087C6.882 6.163 6.686 6.288 6.526 6.451C6.374 6.607 6.256 6.833 5.836 7.743L4.332 11H7.414L9.414 13H14.586L16.586 11H19.668L18.164 7.743C17.744 6.833 17.625 6.607 17.474 6.451C17.314 6.288 17.118 6.163 16.902 6.087C16.698 6.014 16.442 6 15.44 6H8.56Z" clip-rule="evenodd" /></svg></span>
+                    <span data-hf-id="hf-z2qj" class="icbtn"><svg data-hf-id="hf-qykt" class="ic" viewBox="0 0 24 24"><path data-hf-id="hf-i3jh" d="M19 17H22V19H19V22H17V19H14V17H17V14H19V17Z" /><path data-hf-id="hf-4cwm" d="M12.001 1.5C17.616 1.5 22.294 5.651 22.673 11H20.667C20.291 6.839 16.6 3.5 12.001 3.5C7.147 3.5 3.303 7.221 3.303 11.7V11.715L3.302 11.729C3.282 12.396 3.393 12.954 3.553 13.496C3.635 13.775 3.728 14.041 3.828 14.335C3.925 14.62 4.03 14.93 4.116 15.253C4.293 15.916 4.4 16.654 4.271 17.524C4.186 18.106 3.997 18.715 3.689 19.379C4.954 19.754 6.239 19.432 7.703 18.78L8.158 18.577L8.595 18.819C9.399 19.266 10.079 19.652 11 19.815V21.836C9.754 21.677 8.843 21.237 8.052 20.805C6.175 21.573 4.031 22.005 1.806 20.73L0.921 20.225L1.444 19.35C1.984 18.446 2.214 17.769 2.293 17.232C2.37 16.706 2.313 16.252 2.184 15.769C2.117 15.519 2.033 15.267 1.936 14.981C1.841 14.704 1.732 14.391 1.635 14.062C1.436 13.387 1.275 12.612 1.303 11.671C1.319 6.002 6.153 1.5 12.001 1.5Z" /></svg></span>
+                  </div>
+                </div>
+                <div data-hf-id="hf-m77s" class="searchwrap">
+                  <div data-hf-id="hf-ux6g" class="search"><svg data-hf-id="hf-tqq0" class="ic" viewBox="0 0 24 24"><path data-hf-id="hf-qnyz" d="M10.25 3.75c-3.59 0-6.5 2.91-6.5 6.5s2.91 6.5 6.5 6.5c1.795 0 3.419-.726 4.596-1.904 1.178-1.177 1.904-2.801 1.904-4.596 0-3.59-2.91-6.5-6.5-6.5zm-8.5 6.5c0-4.694 3.806-8.5 8.5-8.5s8.5 3.806 8.5 8.5c0 1.986-.682 3.815-1.824 5.262l4.781 4.781-1.414 1.414-4.781-4.781c-1.447 1.142-3.276 1.824-5.262 1.824-4.694 0-8.5-3.806-8.5-8.5z" /></svg>Search</div>
+                </div>
+                <div data-hf-id="hf-hnc7" class="rows">
+                  <div data-hf-id="hf-kd0y" class="conv"><div data-hf-id="hf-u6b5" class="conv__av" style="background-image:url(assets/x/shaivi.jpg)"></div><div data-hf-id="hf-rtyo" class="conv__body"><div data-hf-id="hf-6ko5" class="conv__top"><div data-hf-id="hf-ea8r" class="conv__nm"><b data-hf-id="hf-ta1x">Shaivi</b><svg data-hf-id="hf-79s8" class="ic" viewBox="0 0 22 22"><path data-hf-id="hf-ici4" d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z" /></svg></div><div data-hf-id="hf-9awm" class="conv__time">8w</div></div><div data-hf-id="hf-ox7w" class="conv__pv">You: You are a 10....</div></div></div>
+                  <div data-hf-id="hf-g0c6" class="conv"><div data-hf-id="hf-9gb9" class="conv__av" style="background-image:url(assets/x/jonny.jpg)"></div><div data-hf-id="hf-zih4" class="conv__body"><div data-hf-id="hf-v8mx" class="conv__top"><div data-hf-id="hf-spln" class="conv__nm"><b data-hf-id="hf-try3">Jonny Gravity</b><svg data-hf-id="hf-9sjk" class="ic" viewBox="0 0 22 22"><path data-hf-id="hf-91wk" d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z" /></svg></div><div data-hf-id="hf-ko2x" class="conv__time">2d</div></div><div data-hf-id="hf-d9hx" class="conv__pv">there's your dm, lol. wasn't showing on my phone.</div></div></div>
+                  <div data-hf-id="hf-gen7" class="conv"><div data-hf-id="hf-9ahb" class="conv__av" style="background-image:url(assets/x/aayushiii.jpg)"></div><div data-hf-id="hf-ybk1" class="conv__body"><div data-hf-id="hf-wfk0" class="conv__top"><div data-hf-id="hf-sbam" class="conv__nm"><b data-hf-id="hf-bjzz">Aayushiii</b><svg data-hf-id="hf-8lmh" class="ic" viewBox="0 0 22 22"><path data-hf-id="hf-7uzh" d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z" /></svg></div><div data-hf-id="hf-kxoa" class="conv__time">18h</div></div><div data-hf-id="hf-t2o3" class="conv__pv">No man , im kinda introvert when it comes to talks!!</div></div></div>
+                  <div data-hf-id="hf-gsy8" class="conv"><div data-hf-id="hf-dc7b" class="conv__av" style="background-image:url(assets/x/yutish.jpg)"></div><div data-hf-id="hf-ypv2" class="conv__body"><div data-hf-id="hf-w18z" class="conv__top"><div data-hf-id="hf-rwzl" class="conv__nm"><b data-hf-id="hf-23ev">yutish</b><svg data-hf-id="hf-8zxi" class="ic" viewBox="0 0 22 22"><path data-hf-id="hf-89ai" d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z" /></svg></div><div data-hf-id="hf-t51u" class="conv__time">10h</div></div><div data-hf-id="hf-zr9u" class="conv__pv">let me in</div></div></div>
+                  <div data-hf-id="hf-e0t1" class="conv"><div data-hf-id="hf-cm04" class="conv__av" style="background-image:url(assets/x/adhyaay.jpg)"></div><div data-hf-id="hf-xixz" class="conv__body"><div data-hf-id="hf-u1pu" class="conv__top"><div data-hf-id="hf-riok" class="conv__nm"><b data-hf-id="hf-nq2k">Adhyaay Karnwal</b></div><div data-hf-id="hf-r83r" class="conv__time">1w</div></div><div data-hf-id="hf-remk" class="conv__pv">You: Alright mine is yyovil. Sending you a friend request now</div></div></div>
+                  <div data-hf-id="hf-ef42" class="conv"><div data-hf-id="hf-54jc" class="conv__av" style="background-image:url(assets/x/cracked.jpg)"></div><div data-hf-id="hf-xx90" class="conv__body"><div data-hf-id="hf-tnet" class="conv__top"><div data-hf-id="hf-r4dj" class="conv__nm"><b data-hf-id="hf-hk3y">Cracked hacker house</b><svg data-hf-id="hf-7t0f" class="ic" viewBox="0 0 22 22"><path data-hf-id="hf-a8tn" d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z" /></svg></div><div data-hf-id="hf-2aql" class="conv__time">2d</div></div><div data-hf-id="hf-iigy" class="conv__pv">You sent a photo</div></div></div>
+                  <div data-hf-id="hf-etf3" class="conv"><div data-hf-id="hf-yeqx" class="conv__av" style="background-image:url(assets/x/markup.jpg)"></div><div data-hf-id="hf-wqbx" class="conv__body"><div data-hf-id="hf-uubw" class="conv__top"><div data-hf-id="hf-qq2i" class="conv__nm"><b data-hf-id="hf-h365">markup</b><svg data-hf-id="hf-87bg" class="ic" viewBox="0 0 22 22"><path data-hf-id="hf-an4o" d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z" /></svg></div><div data-hf-id="hf-3hno" class="conv__time">2d</div></div><div data-hf-id="hf-pauj" class="conv__pv">Abe chd krne de abhi inko</div></div></div>
+                  <div data-hf-id="hf-f7q4" class="conv"><div data-hf-id="hf-ej76" class="conv__av" style="background-image:url(assets/x/connor.jpg)"></div><div data-hf-id="hf-x4my" class="conv__body"><div data-hf-id="hf-ug0v" class="conv__top"><div data-hf-id="hf-qbrh" class="conv__nm"><b data-hf-id="hf-3jc4">Connor Hyatt</b><svg data-hf-id="hf-70ed" class="ic" viewBox="0 0 22 22"><path data-hf-id="hf-9g7l" d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z" /></svg></div><div data-hf-id="hf-33cn" class="conv__time">2d</div></div><div data-hf-id="hf-zbp9" class="conv__pv">You: Didn't heard from you dawg</div></div></div>
+                </div>
+              </div>
+
+              <!-- conversation pane -->
+              <div data-hf-id="hf-yhbu" class="pane">
+                <div data-hf-id="hf-0s9e" class="pane__head">
+                  <div data-hf-id="hf-88w7" class="pane__av" style="background-image:url(assets/x/aayushiii.jpg)"></div>
+                  <div data-hf-id="hf-uv5h" class="pane__nm">Aayushiii <svg data-hf-id="hf-7epe" class="ic" viewBox="0 0 22 22"><path data-hf-id="hf-9uim" d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z" /></svg></div>
+                  <div data-hf-id="hf-igkr" class="pane__acts">
+                    <span data-hf-id="hf-nul1" class="headbtn"><svg data-hf-id="hf-tcez" class="ic" viewBox="0 0 24 24"><path data-hf-id="hf-fp90" d="M3 6.424C3 4.533 4.533 3 6.424 3H9.618L12.217 8.197L10.688 9.725C11.485 11.418 12.581 12.514 14.274 13.31L15.803 11.783L21 14.382V17.576C21 19.467 19.467 21 17.576 21C9.526 21 3 14.474 3 6.424ZM5 6.424C5 13.369 10.631 19 17.576 19C18.362 19 19 18.362 19 17.576V15.618L16.197 14.217L15.207 15.207L14.741 15.674L14.129 15.429C11.375 14.327 9.673 12.625 8.571 9.871L8.326 9.259L8.793 8.793L9.783 7.803L8.382 5H6.424C5.638 5 5 5.638 5 6.424Z" /></svg></span>
+                    <span data-hf-id="hf-gdzd" class="headbtn"><svg data-hf-id="hf-sy3y" class="ic" viewBox="0 0 24 24"><path data-hf-id="hf-zumj" fill-rule="evenodd" d="M13.731 4.006C15.773 4.109 17.454 5.574 17.889 7.51L22.5 5.461V18.539L17.889 16.489C17.438 18.498 15.645 20 13.5 20H6C3.515 20 1.5 17.985 1.5 15.5V8.5C1.5 6.015 3.515 4 6 4H13.5L13.731 4.006ZM6 6C4.619 6 3.5 7.119 3.5 8.5V15.5C3.5 16.881 4.619 18 6 18H13.5C14.881 18 16 16.881 16 15.5V8.5C16 7.206 15.016 6.141 13.756 6.013L13.5 6H6ZM18 9.649V14.35L20.5 15.461V8.539L18 9.649Z" clip-rule="evenodd" /></svg></span>
+                    <span data-hf-id="hf-hkwg" class="headbtn"><svg data-hf-id="hf-sjsx" class="ic" viewBox="0 0 24 24"><path data-hf-id="hf-0lu6" d="M3 12c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2zm9 2c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm7 0c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z" /></svg></span>
+                  </div>
+                </div>
+
+                <div data-hf-id="hf-jyqg" class="thread">
+                  <div data-hf-id="hf-jvb3" class="profile">
+                    <div data-hf-id="hf-5s0m" class="profile__av" style="background-image:url(assets/x/aayushiii_profile.jpg)"></div>
+                    <div data-hf-id="hf-1cna" class="profile__nm">Aayushiii <svg data-hf-id="hf-67sb" class="ic" viewBox="0 0 22 22"><path data-hf-id="hf-bu1r" d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z" /></svg></div>
+                    <div data-hf-id="hf-jlyq" class="profile__handle">@CareerWithHer</div>
+                    <div data-hf-id="hf-5jbi" class="profile__meta">1.4K Followers · Joined November 2025</div>
+                    <div data-hf-id="hf-p4hr" class="profile__btn">View Profile</div>
+                  </div>
+
+                  <div data-hf-id="hf-j7k2" class="daysep">Yesterday</div>
+                  <div data-hf-id="hf-kwiu" class="row row--out"><div data-hf-id="hf-f7sy" id="m1" class="bubble bubble--out">Yo do you wanna talk about founders and startup thingy?</div></div>
+                  <div data-hf-id="hf-bmei" class="row row--out"><div data-hf-id="hf-gci6" id="m2" class="bubble bubble--out">I've a decision to mk within a day</div></div>
+                  <div data-hf-id="hf-twsx" class="row row--in gap-top">
+                    <div data-hf-id="hf-tytp" class="incol">
+                      <div data-hf-id="hf-t1u8" id="m3" class="bubble bubble--in">No man , im kinda introvert when it comes to talks!!</div>
+                      <div data-hf-id="hf-os1e" class="edited">Edited</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div data-hf-id="hf-gix0" class="compose">
+                  <div data-hf-id="hf-beym" class="compose__inner">
+                    <span data-hf-id="hf-qe0h" class="composebtn"><svg data-hf-id="hf-vby4" class="ic" viewBox="0 0 24 24"><path data-hf-id="hf-6luf" d="M11 11V4h2v7h7v2h-7v7h-2v-7H4v-2h7z" /></svg></span>
+                    <span data-hf-id="hf-lm5h" class="composebtn"><svg data-hf-id="hf-uxn3" class="ic" viewBox="0 0 24 24"><path data-hf-id="hf-yhdo" d="M3 5.5C3 4.119 4.12 3 5.5 3h13C19.88 3 21 4.119 21 5.5v13c0 1.381-1.12 2.5-2.5 2.5h-13C4.12 21 3 19.881 3 18.5v-13zM5.5 5c-.28 0-.5.224-.5.5v13c0 .276.22.5.5.5h13c.28 0 .5-.224.5-.5v-13c0-.276-.22-.5-.5-.5h-13zM18 10.711V9.25h-3.74v5.5h1.44v-1.719h1.7V11.57h-1.7v-.859H18zM11.79 9.25h1.44v5.5h-1.44v-5.5zm-3.07 1.375c.34 0 .77.172 1.02.43l1.03-.86c-.51-.601-1.28-.945-2.05-.945C7.19 9.25 6 10.453 6 12s1.19 2.75 2.72 2.75c.85 0 1.54-.344 2.05-.945v-2.149H8.38v1.032H9.4v.515c-.17.086-.42.172-.68.172-.76 0-1.36-.602-1.36-1.375 0-.688.6-1.375 1.36-1.375z" /></svg></span>
+                    <span data-hf-id="hf-mt2k" class="composebtn"><svg data-hf-id="hf-y4uu" class="ic" viewBox="0 0 18 18"><path data-hf-id="hf-ccsa" d="M8.374 7.124C8.374 8.275 7.814 9.208 7.124 9.208C6.434 9.208 5.874 8.274 5.874 7.124C5.874 5.974 6.434 5.041 7.124 5.041C7.814 5.041 8.374 5.973 8.374 7.124ZM12.541 7.124C12.541 8.275 11.981 9.208 11.291 9.208C10.601 9.208 10.041 8.274 10.041 7.124C10.041 5.974 10.601 5.041 11.291 5.041C11.981 5.041 12.541 5.973 12.541 7.124ZM17.685 7.428C17.728 7.741 17.749 8.058 17.749 8.374C17.749 12.733 12.533 17.703 7.958 17.703H7.505C3.541 17.529 0.666 13.958 0.666 9.208C0.668 6.943 1.569 4.772 3.17 3.17C4.772 1.569 6.943 0.668 9.208 0.666C13.507 0.666 17.151 3.573 17.684 7.427M9.208 2.333C7.385 2.335 5.637 3.06 4.349 4.349C3.06 5.637 2.335 7.385 2.333 9.208C2.333 12.474 4.119 15.859 7.534 16.036C8.081 15.997 8.593 15.755 8.971 15.358C9.212 15.008 9.383 14.614 9.475 14.199C9.387 14.208 9.298 14.208 9.208 14.208C6.142 14.208 5.124 11.264 5.084 11.138L6.668 10.61L5.874 10.874L6.664 10.606C6.847 11.145 7.188 11.617 7.641 11.961C8.094 12.306 8.639 12.508 9.208 12.541C9.474 12.543 9.74 12.502 9.994 12.42C10.221 11.81 10.584 11.258 11.053 10.807C11.832 10.134 12.786 9.698 13.803 9.55C14.357 9.474 14.887 9.274 15.354 8.967C15.743 8.6 15.981 8.1 16.021 7.567C15.559 4.578 12.646 2.331 9.208 2.331V2.333Z" /></svg></span>
+                    <div data-hf-id="hf-z49w" class="compose__field">Unencrypted message</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = { pause() {}, seek() {}, totalTime() {}, getChildren() { return []; } };
+      window.__hfAnime = window.__hfAnime || [];
+    </script>
+  </body>
+</html>
