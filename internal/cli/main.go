@@ -19,7 +19,7 @@ import (
 // Version is overridden by release builds with:
 //
 //	-X github.com/yyopc/yyork/internal/cli.Version=<version>
-var Version = "0.1.0-alpha.10"
+var Version = "0.1.0-alpha.11"
 
 // Main starts yyork and exits the process with the command result.
 func Main(webFS fs.FS) {
